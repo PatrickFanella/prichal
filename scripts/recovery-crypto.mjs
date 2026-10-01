@@ -16,7 +16,7 @@ function source(path) {
 }
 function metadataValid(value) {
   return value?.version === 1 && /^[a-f0-9-]{36}$/.test(value.id) &&
-    ['pds-local', 'management-local'].includes(value.scope) &&
+    ['pds-local', 'management-local', 'export-local'].includes(value.scope) &&
     typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) &&
     Object.keys(value).sort().join(',') === 'createdAt,id,scope,version';
 }
