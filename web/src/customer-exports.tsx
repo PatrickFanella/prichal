@@ -24,7 +24,7 @@ export function CustomerExports({deploymentId,csrfToken}:{deploymentId:string;cs
  }
  return <section aria-labelledby={`exports-${deploymentId}`}>
   <h5 id={`exports-${deploymentId}`}>Download your data</h5>
-  <p>Create a portable snapshot of your signed records and referenced media. Downloads are available for 24 hours. Local qualification supports three retained requests per server. Account holds preserve export access; a stopped service must resume before capture.</p>
+  <p>Create a portable snapshot of your signed records, referenced media and private Bluesky settings. Protect the downloaded archive as private account data. Downloads are available for 24 hours. Local qualification supports three retained requests per server. Account holds preserve export access; a stopped service must resume before capture.</p>
   {error&&<p role="alert">{error}</p>}
   {!loaded&&<p role="status">Loading exports...</p>}
   <button type="button" disabled={busy||!loaded||(!key&&items.length>=3)} onClick={()=>{void submit();}}>{busy?'Requesting...':key?'Retry export request':'Create export'}</button>

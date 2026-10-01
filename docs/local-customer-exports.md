@@ -1,6 +1,6 @@
 # Local customer exports
 
-The owner workspace can request a portable snapshot of a ready local native PDS. Each tar archive contains `manifest.json`, a signed `repo.car` and referenced media under `blobs/{CID}`. The manifest includes public signing identity and content hashes. Native SQLite databases, account passwords, email, JWT secrets, TLS keys, PLC rotation keys and admission state are excluded.
+The owner workspace can request a portable snapshot of a ready local native PDS. Each tar archive contains `manifest.json`, a signed `repo.car` and referenced media under `blobs/{CID}`. Version 2 adds `preferences.json` for bounded private Bluesky settings. The manifest includes public signing identity and content hashes. See [export and exit](export-and-exit.md) for supported state and migration preparation. Native SQLite databases, account passwords, email, JWT secrets, TLS keys, PLC rotation keys and admission state are excluded.
 
 The API checks current organization ownership and CSRF protection before retaining a stable UUID request and River job in one transaction. Export progress, lists and downloads also require the owner session. Foreign owners receive 404. CLI credentials have no export scope. The worker selects the registered node and verified native DID; the restricted mTLS agent runs an embedded helper against the sole expected actor. The helper verifies CAR signatures and media CIDs before returning content. The API never receives Docker access or native credentials.
 
@@ -8,7 +8,7 @@ Capture serializes with managed lifecycle actions. An account hold allows export
 
 ## Local limits and custody
 
-CAR and aggregate media are each bounded to 8 MiB. A blob is at most 5 MiB; there are at most 1,000 referenced blobs and 10,000 signed records. The complete archive is at most 20 MiB. Each deployment permits three retained requests, including failed or expired requests. Stable retries retrieve the original operation before the allowance check.
+CAR and aggregate media are each bounded to 8 MiB. A blob is at most 5 MiB; there are at most 1,000 referenced blobs and 10,000 signed records. The complete archive is at most 20 MiB. Private preference content is bounded to 1 MiB and 1,000 values. Each deployment permits three retained requests, including failed or expired requests. Stable retries retrieve the original operation before the allowance check.
 
 `./scripts/dev.sh` initializes a private `.local/exports/` directory and separate 32-byte `.local/export.key`. Stored archives use AES-256-GCM bound to export, deployment and native DID. Atomic publication preserves an existing authenticated artifact; replay after a lost management checkpoint reuses its original content and capture time. A corrupt existing artifact is retained and fails verification rather than being replaced.
 

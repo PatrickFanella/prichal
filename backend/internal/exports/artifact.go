@@ -109,6 +109,11 @@ func archive(id, deployment, did string, data nodeagent.PortableExport) ([]byte,
 	}
 	manifest := Manifest{Version: 1, ExportID: id, DeploymentID: deployment, DID: did, SigningKey: data.SigningKey, SignedRecords: data.SignedRecords, CapturedAt: data.CapturedAt, Files: []File{{Name: "repo.car", Bytes: int64(len(data.CAR)), SHA256: digest(data.CAR)}}}
 	content := [][]byte{data.CAR}
+	if len(data.Preferences) > 0 {
+		manifest.Version = 2
+		manifest.Files = append(manifest.Files, File{Name: "preferences.json", Bytes: int64(len(data.Preferences)), SHA256: digest(data.Preferences), MimeType: "application/json"})
+		content = append(content, data.Preferences)
+	}
 	for _, blob := range data.Blobs {
 		manifest.Files = append(manifest.Files, File{Name: "blobs/" + blob.CID, Bytes: int64(len(blob.Data)), SHA256: digest(blob.Data), MimeType: blob.MimeType})
 		content = append(content, blob.Data)
@@ -180,13 +185,16 @@ func (a *Artifacts) Read(id, deployment, did string) ([]byte, Manifest, error) {
 	var manifest Manifest
 	decoder := json.NewDecoder(reader)
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&manifest) != nil || decoder.Decode(new(any)) != io.EOF || manifest.Version != 1 || manifest.ExportID != id || manifest.DeploymentID != deployment || manifest.DID != did || len(manifest.Files) < 1 || len(manifest.Files) > 1001 || manifest.Files[0].Name != "repo.car" || manifest.CapturedAt.IsZero() {
+	if decoder.Decode(&manifest) != nil || decoder.Decode(new(any)) != io.EOF || (manifest.Version != 1 && manifest.Version != 2) || manifest.ExportID != id || manifest.DeploymentID != deployment || manifest.DID != did || len(manifest.Files) < 1 || len(manifest.Files) > 1002 || manifest.Files[0].Name != "repo.car" || manifest.CapturedAt.IsZero() {
 		return nil, Manifest{}, errors.New("invalid export manifest scope")
 	}
 	seen := map[string]bool{}
 	for _, file := range manifest.Files {
-		if seen[file.Name] || file.Bytes < 0 || file.Bytes > 8<<20 || file.Name != "repo.car" && !regexp.MustCompile(`^blobs/b[a-z2-7]{20,120}$`).MatchString(file.Name) {
+		if seen[file.Name] || file.Bytes < 0 || file.Bytes > 8<<20 || file.Name != "repo.car" && file.Name != "preferences.json" && !regexp.MustCompile(`^blobs/b[a-z2-7]{20,120}$`).MatchString(file.Name) {
 			return nil, Manifest{}, errors.New("invalid export member")
+		}
+		if file.Name == "preferences.json" && (manifest.Version != 2 || file.Bytes == 0 || file.Bytes > 1<<20 || file.MimeType != "application/json") {
+			return nil, Manifest{}, errors.New("invalid private preference member")
 		}
 		seen[file.Name] = true
 		header, err = reader.Next()
@@ -194,9 +202,12 @@ func (a *Artifacts) Read(id, deployment, did string) ([]byte, Manifest, error) {
 			return nil, Manifest{}, errors.New("invalid export member")
 		}
 		data, err := io.ReadAll(io.LimitReader(reader, (8<<20)+1))
-		if err != nil || int64(len(data)) != file.Bytes || digest(data) != file.SHA256 {
+		if err != nil || int64(len(data)) != file.Bytes || digest(data) != file.SHA256 || file.Name == "preferences.json" && !nodeagent.ValidPreferences(data) {
 			return nil, Manifest{}, errors.New("export member integrity failed")
 		}
+	}
+	if manifest.Version == 2 && !seen["preferences.json"] {
+		return nil, Manifest{}, errors.New("missing private preferences")
 	}
 	if _, err = reader.Next(); err != io.EOF {
 		return nil, Manifest{}, errors.New("unexpected export members")

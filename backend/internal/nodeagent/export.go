@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/base32"
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -28,6 +30,7 @@ type PortableBlob struct {
 type PortableExport struct {
 	DID           string         `json:"did"`
 	SigningKey    string         `json:"signingKey"`
+	Preferences   []byte         `json:"preferences,omitempty"`
 	CAR           []byte         `json:"car"`
 	Blobs         []PortableBlob `json:"blobs"`
 	SignedRecords int            `json:"signedRecords"`
@@ -37,6 +40,9 @@ type PortableExport struct {
 // ValidFor checks fixed portable identifiers and strict local payload limits.
 func (e PortableExport) ValidFor(did string) bool {
 	if !accountDID.MatchString(did) || e.DID != did || !publicSigningKey.MatchString(e.SigningKey) || len(e.CAR) == 0 || len(e.CAR) > 8<<20 || len(e.Blobs) > 1000 || e.SignedRecords < 0 || e.SignedRecords > 10000 || e.CapturedAt.IsZero() || e.CapturedAt.After(time.Now().Add(5*time.Minute)) {
+		return false
+	}
+	if !ValidPreferences(e.Preferences) {
 		return false
 	}
 	total := 0
@@ -77,4 +83,34 @@ func (d *Docker) Export(ctx context.Context, id, did string) (PortableExport, er
 		return PortableExport{}, errors.New("portable native data could not be verified")
 	}
 	return result, nil
+}
+
+// ValidPreferences permits bounded app-specific customer settings only. Empty data supports v1 artifacts.
+func ValidPreferences(encoded []byte) bool {
+	if len(encoded) == 0 {
+		return true
+	}
+	if len(encoded) > 1<<20 {
+		return false
+	}
+	var value struct {
+		Namespace   string            `json:"namespace"`
+		Preferences []json.RawMessage `json:"preferences"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&value) != nil || decoder.Decode(new(any)) != io.EOF || value.Namespace != "app.bsky" || value.Preferences == nil || len(value.Preferences) > 1000 {
+		return false
+	}
+	for _, preference := range value.Preferences {
+		var item map[string]json.RawMessage
+		if json.Unmarshal(preference, &item) != nil || item == nil {
+			return false
+		}
+		var name string
+		if json.Unmarshal(item["$type"], &name) != nil || !strings.HasPrefix(name, "app.bsky.") || len(name) > 256 {
+			return false
+		}
+	}
+	return true
 }
