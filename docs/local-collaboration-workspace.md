@@ -8,7 +8,7 @@ The interface cancels stale reads, aborts work on unmount and remounts separatel
 
 ## Actual local browser evidence
 
-The T3 collaborative preview can execute DOM inspection and focused interaction even though snapshot capture fails. Qualification used those native tools, not an alternate browser. Metadata evidence remains in `.local/collaboration-browser-functional.json` and `.local/collaboration-browser-widths.json`.
+The 16:05 qualification used T3 DOM inspection and focused interaction while snapshot capture failed. Later history checks obtained native text and image snapshots. Qualification used those native tools, not an alternate browser. Metadata evidence remains in `.local/collaboration-browser-functional.json` and `.local/collaboration-browser-widths.json`.
 
 The browser rehearsal completed at 2026-10-01T16:05:05Z. Alice created empty organization `a982ab3f-19d0-4bc6-a6b1-7fc7a16c193c`, staged a viewer invitation, reloaded and confirmed no automatic submission. The access audit count stayed at eight until explicit confirmation. Tab, Space and Enter navigated review, acknowledgement and submission; successful receipt cleared the retained request and focused its status. Visible controls had associated labels.
 
@@ -23,3 +23,5 @@ Both native tenants' signed repositories/media, container identities and protect
 Delegated administrator hosting/domain actions, full list pagination, populated handover, outbound mail, broad browser failure/accessibility coverage and live qualification remain open. This rehearsal does not close a milestone.
 
 Fresh recovery `b3a05f17-fa9f-4599-85af-4b5d39dab6de` matched all 43 schema-23 tables and sequence positions after the browser work, including three invitations, three retained membership rows, two transfers and 16 access audits. Restored authentication was revoked and held worker startup refused. Host reconciliation and dedicated-queue replay preserved copied default work, source rows/sequences, native signed data/media and lifecycle/admission custody. All recovery copies remain retained.
+
+The owner audit view now uses [paged access history](local-collaboration-history.md), with focused success/error announcements and a reviewed phone screenshot. Earlier snapshot failures describe the earlier drill; current native T3 text and image snapshots work. Assistive screen-reader checks and the other list limits remain open.

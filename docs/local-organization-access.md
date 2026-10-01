@@ -12,7 +12,7 @@ Ownership handover is a separate offer with a 24-hour expiry and explicit recipi
 
 All `/api/team/` routes require browser sessions; mutations require origin and CSRF. Routes list permitted organizations and incoming offers, return safe shared status and expose owner-only member/audit history. Owner invitation submission uses a stable UUID request. Acceptance addresses the existing invitation/offer ID. Membership and rename mutations record only effective changes. The public API has no deletion or native account delegation route.
 
-Shared instances and membership/audit history are bounded to 100 records; current active members are included before retained revoked history. Organization listing is bounded to 100 and each incoming-offer list to 30. Exact organization references remain usable for other organizations. `hasMore` marks truncated server lists and `membersTruncated` marks membership truncation. Full listing pagination is later work. The [local browser workspace](local-collaboration-workspace.md) adds reviewed, retained actions on top of this API.
+Shared instances and the management membership/audit summaries are bounded to 100 records; current active members are included before retained revoked history. Organization listing is bounded to 100 and each incoming-offer list to 30. Exact organization references remain usable for other organizations. `hasMore` marks truncated server lists and `membersTruncated` marks membership truncation. Full listing pagination is later work. The [local browser workspace](local-collaboration-workspace.md) adds reviewed, retained actions on top of this API.
 
 ## Qualification
 
@@ -25,3 +25,5 @@ A new empty organization exercised administrator rename and owner-only invitatio
 Management recovery `cbc79c44-2096-4503-b138-90e2aa1af9ca` matched all 43 schema-23 tables and sequence positions, including two invitations, two retained membership rows, one accepted transfer and eight access audits. Copied authentication was revoked and held worker startup refused. Exact host reconciliation and dedicated-queue replay preserved copied default jobs, source rows/sequences and native lifecycle/admission custody. Source writers were paused for capture/replay and then resumed with collaboration, exit scheduling, fixture billing and operator authority disabled.
 
 Broader browser qualification, complete listing pagination, delegated administrator hosting/domain actions, populated ownership handover, outbound mail and live identity/provider qualification remain open for #30. No milestone is closed by this local rehearsal.
+
+Owner access audits are also available through [paged organization history](local-collaboration-history.md). Each page rechecks current ownership. The existing management summary remains bounded; other collaboration lists still need pagination.

@@ -444,3 +444,15 @@ Full smoke passed. Actual drill `883cacc8-ba47-4123-b8fe-5566a631a34b` completed
 Fresh recovery `3af12916-6b10-46c8-8beb-819e7df533db` matched all 45 schema-24 tables and sequences, including one admission policy, two admission audits, 79 River jobs and 36 lifecycle operations. Copied authentication was revoked and held worker startup refused. Reconciliation/dedicated-queue replay preserved copied default work, source rows/sequences and native custody. The source writers were paused across capture/replay; all copies remain retained.
 
 Source API, worker and monitor resumed on schema 24 with admission open and collaboration, exit scheduling, fixture billing and operator authority disabled. Production signup/enrollment controls, independent infrastructure and signed-off release qualification remain open. PR #69 commit `cae90c8` passed remote CI run 11504.
+
+## Paged organization access history
+
+Owners can read every retained access audit through 50-event pages. Cursor scope and exact bigint IDs are preserved; each read-only page rechecks current ownership. Viewers, rename-only administrators and CLI credentials cannot read owner history. The browser cancels stale reads and focuses successful counts or failed-load errors. Access denial clears cached events. See [collaboration history](../local-collaboration-history.md).
+
+Full smoke passed. Tests traverse 157 events beyond JavaScript integer precision over four pages and 117 events across digit boundaries. The actual read-only drill `3c20cfa0-58c0-475d-b6b8-f55d832366d5` completed at 16:59:52Z: Bob read eight retained events, read replay matched, former owner Alice and malformed/cross-organization cursors were denied, and audit/job/native custody remained unchanged.
+
+Actual keyboard loading focused the page count, and five representative widths had no document/history overflow. Native T3 text and image snapshots now work; a 375×812 history screenshot was reviewed. At 17:04:12Z, disabling collaboration cleared cached events, focused the error and cleared busy state. Refresh then hid collaboration while ordinary owner controls stayed available. Private browser evidence remains under `.local/`. Larger-page browser navigation and assistive screen-reader checks remain unqualified.
+
+The browser exposed lexicographic sorting of the displayed ID alias. The query now orders the qualified numeric column; a digit-boundary regression test covers it. A ready-API repeat recovered from an initial startup race without source mutation. Source API has resumed with collaboration and other fixture permissions disabled. The schema remains 24, so the prior 45-table checkpoint remains the current schema recovery evidence. No native container, volume or recovery copy was removed.
+
+PR #70 commit `58f3295` passed remote CI run 11505. PR #71 commit `535f1e5` passed remote CI run 11510. Other collaboration list pagination and live milestone gates remain open.
