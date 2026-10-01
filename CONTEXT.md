@@ -43,3 +43,7 @@ _Avoid_: Email identity, enrollment invitation
 **Ownership handover**:
 An explicit transfer of organization management responsibility that preserves a single owner and requires separate native custody decisions for populated hosting.
 _Avoid_: Account migration, signing delegation
+
+**Deployment admission**:
+The operator policy that accepts or pauses new deployment intent while preserving committed work, existing service and supported recovery.
+_Avoid_: Service suspension, account registration, public launch approval
