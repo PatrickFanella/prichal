@@ -34,3 +34,7 @@ This issue does not grant an SLA, unlimited signup, arbitrary public-key/identit
 
 Phase: M4 - Public launch. Priority: P0.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+## Local control evidence
+
+[Management-owner admission](../local-owner-admission.md) adds audited pause/reopen of new verified management subjects while preserving existing-owner sign-in. It is separate from deployment/enrollment admission and issued native invitations. Local close/reopen and a fresh schema-27 recovery checkpoint passed. Production operator administration, designated live infrastructure, public launch evidence and sign-off remain open; this does not open public signup.

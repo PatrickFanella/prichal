@@ -83,9 +83,11 @@ This snapshot includes schema-26 deployment/enrollment admission and bounded col
 
 Implementation and test entrypoints include `backend/internal/auth`, `deployment`, `fleet`, `nodeagent`, `recovery`, `observability`, `lifecycle`, `billing`, `exports`, `support` and `orgaccess`. Each feature package has focused tests. `web/src` contains the corresponding browser controls; `scripts/qualify-*.mjs` exercise bounded disposable local workflows. [Progress](progress/local-m1-alpha.md) records exact drills, retained state, failures and gate results. Source files and passing builds alone do not prove the phase exit gates.
 
+Management-owner creation can now be paused independently of deployment/enrollment. Existing owner sign-in and scoped access remain available; local close/reopen and schema-27 recovery passed. See [owner admission](local-owner-admission.md). Public launch and production operator controls remain open.
+
 ## Next local work
 
-Continue browser onboarding/failure and assistive screen-reader checks, remaining public signup and issued-invitation controls, verified exclusive domain claims, routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
+Continue browser onboarding/failure and assistive screen-reader checks, production signup/operator and issued-invitation controls, verified exclusive domain claims, routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
 
 Live provider/region, management/PDS domains, spend ceiling, production issuer, mail sender, backup custody and commercial billing remain deferred. Do not invent defaults or close issues on the strength of local rehearsal. The 15-minute target needs fresh measured pilot attempts; retries and management simulations do not establish it.
 

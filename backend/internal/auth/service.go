@@ -210,7 +210,11 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 	var ownerID string
-	err = tx.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES($1,$2,$3) ON CONFLICT(issuer,subject) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id`, s.settings.Issuer, identity.Subject, name).Scan(&ownerID)
+	ownerID, err = ownerForSession(ctx, tx, s.settings.Issuer, identity.Subject, name)
+	if errors.Is(err, ErrOwnerAdmissionClosed) {
+		callbackProblem(w, 503, "New workspaces are paused. Existing owners can sign in.")
+		return
+	}
 	if err == nil {
 		_, err = tx.Exec(ctx, `DELETE FROM management_sessions WHERE expires_at <= now()`)
 	}
