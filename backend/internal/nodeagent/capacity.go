@@ -25,10 +25,16 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		return Capacity{}, err
 	}
 	maximum := 2
-	if memorySlots := int((info.MemTotal - (2 << 30)) / (896 << 20)); memorySlots < maximum {
+	memoryPerSlot := int64(896 << 20)
+	cpuUnits, cpuCost := 4, 5
+	if d.localIdentity {
+		memoryPerSlot = 960 << 20
+		cpuUnits, cpuCost = 8, 11
+	}
+	if memorySlots := int((info.MemTotal - (2 << 30)) / memoryPerSlot); memorySlots < maximum {
 		maximum = memorySlots
 	}
-	if cpuSlots := (info.NCPU - 1) * 4 / 5; cpuSlots < maximum {
+	if cpuSlots := (info.NCPU - 1) * cpuUnits / cpuCost; cpuSlots < maximum {
 		maximum = cpuSlots
 	}
 	if maximum < 0 {
@@ -42,7 +48,7 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 	ids := []string{}
 	seen := map[string]bool{}
 	for _, container := range containers {
-		if container.Labels[roleLabel] == "ingress" {
+		if container.Labels[roleLabel] == "ingress" || container.Labels[roleLabel] == "enrollment-guard" {
 			continue
 		}
 		if id := container.Labels[label]; instanceID.MatchString(id) {

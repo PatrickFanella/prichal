@@ -58,7 +58,8 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 		if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
 			return errors.New("unsafe ingress configuration directory")
 		}
-		configuration := fmt.Sprintf("{\n auto_https off\n admin off\n}\n:443 {\n tls /etc/pds-tls.pem /etc/pds-tls.pem\n @allowed host %s.localhost\n handle @allowed {\n  reverse_proxy %s:2583\n }\n handle {\n  respond \"Unknown PDS host\" 421\n }\n}\n", id, pdsName)
+		configuration := d.ingressConfiguration(id)
+
 		if existing, err := os.ReadFile(configPath); err == nil {
 			info, err := os.Lstat(configPath)
 			if err != nil || !info.Mode().IsRegular() || string(existing) != configuration {
@@ -182,4 +183,30 @@ func (d *Docker) validateIngress(id string, current inspected) error {
 		return errors.New("ingress runtime differs from policy")
 	}
 	return nil
+}
+
+func (d *Docker) ingressConfiguration(id string) string {
+	guard := ""
+	if d.localIdentity {
+		guard = fmt.Sprintf(`  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+  forward_auth @registration pds-ass-enrollment-%s:2727 {
+   uri /registration
+  }
+`, id)
+	}
+	return fmt.Sprintf(`{
+ auto_https off
+ admin off
+}
+:443 {
+ tls /etc/pds-tls.pem /etc/pds-tls.pem
+ @allowed host %s.localhost
+ handle @allowed {
+%s  reverse_proxy pds-ass-tenant-%s:2583
+ }
+ handle {
+  respond "Unknown PDS host" 421
+ }
+}
+`, id, guard, id)
 }

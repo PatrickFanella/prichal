@@ -86,7 +86,7 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 					return config["EndpointsConfig"].(map[string]any)
 				}
 				return map[string]any{host["NetworkMode"].(string): map[string]any{}}
-			}(), "Ports": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "12345"}}}}})
+			}(), "Ports": map[string]any{}}})
 		case r.Method == "GET":
 			w.WriteHeader(404)
 		case path == "/containers/create":

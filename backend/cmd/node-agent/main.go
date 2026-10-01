@@ -53,6 +53,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") == "true" {
+		runtime.EnableLocalIdentityFixtures()
+	}
 	server := &http.Server{Addr: address, Handler: nodeagent.Authenticate(nodeagent.Handler(runtime)), TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{certificate}}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, ErrorLog: log.New(os.Stderr, "agent TLS: ", 0)}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

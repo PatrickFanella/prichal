@@ -25,6 +25,18 @@ func (d *Docker) Status(ctx context.Context, id string) (Instance, error) {
 	if err := d.validateIngress(id, edge); err != nil {
 		return Instance{}, err
 	}
+	if d.localIdentity {
+		var guard inspected
+		if _, err := d.call(ctx, "GET", "/containers/pds-ass-enrollment-"+id+"/json", nil, &guard); err != nil {
+			return Instance{}, err
+		}
+		if err := d.validateEnrollmentGuard(id, guard); err != nil {
+			return Instance{}, err
+		}
+		if !guard.State.Running {
+			return Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}, nil
+		}
+	}
 	result := Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}
 	if current.State.Running && edge.State.Running {
 		result.State = "running"
