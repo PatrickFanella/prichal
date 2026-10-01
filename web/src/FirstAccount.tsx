@@ -1,3 +1,4 @@
+import { HandleSetup } from './HandleSetup';
 import { useEffect, useState } from 'react';
 
 type Enrollment = {
@@ -86,6 +87,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
     {(!operation || state === 'expired' || state === 'failed' || state === 'superseded' || request) && <button type="button" disabled={busy} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
     {operation && <button type="button" disabled={busy || state === 'pending' || state === 'superseded' || state === 'failed'} onClick={() => { void refresh(); }}>Check account status</button>}
+    {state === 'verified' && <HandleSetup deploymentId={deploymentId} csrfToken={csrfToken} />}
     {notice && <p role="status">{notice}</p>}{(error || loadError) && <p role="alert">{error || loadError}</p>}
   </section>;
 }

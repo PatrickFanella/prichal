@@ -11,3 +11,8 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .deployments select { display: block; max-width: 100%; padding: .6rem; margin: .4rem 0 .8rem; border: 1px solid #b9b9aa; border-radius: .35rem; background: #faf9f3; font: inherit; }
 
 .first-account{margin:20px 0;padding:18px;border:1px solid #d7d9ce;border-radius:8px}.first-account h4{margin:0 0 12px}.first-account code{overflow-wrap:anywhere}.first-account button{margin:4px 8px 4px 0}
+
+.handle-setup { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.handle-setup form { display: grid; gap: .5rem; }
+.handle-setup code, .handle-setup dd { overflow-wrap: anywhere; }
+.handle-setup dd { margin-left: 0; }

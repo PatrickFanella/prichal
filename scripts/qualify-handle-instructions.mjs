@@ -1,0 +1,22 @@
+// Local management instructions qualification; it does not claim a live domain attachment.
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {localOwnerClient} from './local-owner-client.mjs';
+const deployment=process.argv[2];assert.match(deployment??'',/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+const alice=await localOwnerClient('alice'),bob=await localOwnerClient('bob');
+const base='/api/deployments/'+deployment;
+const before=await alice.api(base);assert.equal(before.status,200);
+const enrollment=await alice.api(base+'/enrollment');assert.equal(enrollment.value.state,'verified');
+const requested=await alice.api(base+'/handle',{handle:'Creator.Handle.Test'});assert.equal(requested.status,200);
+assert.equal(requested.value.handle,'creator.handle.test');assert.equal(requested.value.txtName,'_atproto.creator.handle.test');assert.equal(requested.value.txtValue,'did='+enrollment.value.did);
+const repeated=await alice.api(base+'/handle',{handle:'creator.handle.test'});assert.equal(repeated.status,200);assert.equal(repeated.value.revision,requested.value.revision);
+assert.equal((await bob.api(base+'/handle')).status,404);
+assert.equal((await bob.api(base+'/handle',{handle:'foreign.handle.test'})).status,404);
+assert.equal((await alice.api(base+'/handle',{handle:'creator.handle.test',password:'REJECTED FIXTURE FIELD'})).status,400);
+const checked=await alice.api(base+'/handle/check',{});assert.equal(checked.status,200);
+assert.ok(['pending_dns','unavailable'].includes(checked.value.state),'Unconfigured test DNS must not qualify a domain');
+assert.equal((await alice.api(base+'/handle/check',{})).status,409);
+const after=await alice.api(base);assert.equal(after.status,200);assert.equal(after.value.endpointUrl,before.value.endpointUrl);assert.equal(after.value.state,before.value.state);
+const report={completedAt:new Date().toISOString(),deployment,exactTXTInstructions:true,ownerScoped:true,idempotentDomainIntent:true,nativeCredentialsRejected:true,boundedRecheck:true,pendingState:checked.value.state,stableDeployment:true,controlledDomainAttached:false};
+const root='.local/handle-proof/'+randomUUID();mkdirSync(root,{recursive:true,mode:0o700});writeFileSync(root+'/report.json',JSON.stringify(report,null,2),{flag:'wx',mode:0o600});console.log(JSON.stringify({...report,report:root+'/report.json'}));
