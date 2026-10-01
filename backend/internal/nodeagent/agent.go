@@ -13,10 +13,11 @@ import (
 
 // Instance contains no runtime credentials or host administration details.
 type Instance struct {
-	ID      string `json:"id"`
-	State   string `json:"state"`
-	Port    string `json:"port"`
-	Healthy bool   `json:"healthy"`
+	ID       string `json:"id"`
+	State    string `json:"state"`
+	Port     string `json:"port"`
+	Endpoint string `json:"endpoint"`
+	Healthy  bool   `json:"healthy"`
 }
 
 // Runtime reconciles a stable, service-owned instance ID.

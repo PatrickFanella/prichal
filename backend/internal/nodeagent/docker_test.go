@@ -42,9 +42,9 @@ func TestCredentialsSurviveReconstruction(t *testing.T) {
 }
 func TestFixedRuntimeAndRetry(t *testing.T) {
 	id := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	created := false
-	running := false
-	creates := 0
+	configurations := map[string]map[string]any{}
+	running := map[string]bool{}
+	creates := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
@@ -53,11 +53,32 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 		case path == "/containers/json":
 			_ = json.NewEncoder(w).Encode([]any{})
 		case r.Method == "GET" && strings.HasPrefix(path, "/containers/"):
-			if !created {
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/json")
+			payload, exists := configurations[name]
+			if !exists {
 				w.WriteHeader(404)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"HostConfig": map[string]any{"Memory": 768 << 20, "NanoCpus": 1e9, "PidsLimit": 128, "NetworkMode": "pds-ass-tenant-" + id + "-network", "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}}, "Mounts": []map[string]any{{"Type": "volume", "Name": "pds-ass-tenant-" + id + "-data", "Destination": "/pds", "RW": true}, {"Type": "volume", "Name": "pds-ass-tenant-" + id + "-blobs", "Destination": "/blobs", "RW": true}}, "Id": "container-id", "Config": map[string]any{"Image": PDSImage, "Labels": map[string]string{label: id}}, "State": map[string]bool{"Running": running}, "NetworkSettings": map[string]any{"Ports": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "12345"}}}}})
+			host := payload["HostConfig"].(map[string]any)
+			mounts := []map[string]any{}
+			if values, ok := host["Mounts"].([]any); ok {
+				for _, value := range values {
+					mount := value.(map[string]any)
+					mounts = append(mounts, map[string]any{"Type": mount["Type"], "Name": mount["Source"], "Destination": mount["Target"], "RW": true})
+				}
+			}
+			if values, ok := host["Binds"].([]any); ok {
+				for _, value := range values {
+					parts := strings.Split(value.(string), ":")
+					mounts = append(mounts, map[string]any{"Type": "bind", "Source": parts[0], "Destination": parts[1], "RW": false})
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
+				if config, ok := payload["NetworkingConfig"].(map[string]any); ok {
+					return config["EndpointsConfig"].(map[string]any)
+				}
+				return map[string]any{host["NetworkMode"].(string): map[string]any{}}
+			}(), "Ports": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "12345"}}}}})
 		case r.Method == "GET":
 			w.WriteHeader(404)
 		case path == "/containers/create":
@@ -65,24 +86,24 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Error(err)
 			}
-			if payload["Image"] != PDSImage {
-				t.Error("unpinned image")
+			name := r.URL.Query().Get("name")
+			host := payload["HostConfig"].(map[string]any)
+			if strings.HasPrefix(name, "pds-ass-tenant-") {
+				if payload["Image"] != PDSImage || host["Memory"] != float64(768<<20) || host["NanoCpus"] != float64(1e9) || host["PidsLimit"] != float64(128) {
+					t.Error("PDS policy missing")
+				}
+				if _, ok := host["Binds"]; ok {
+					t.Error("PDS host bind mount allowed")
+				}
+			} else if payload["Image"] != CaddyImage {
+				t.Error("unpinned ingress image")
 			}
-			host, ok := payload["HostConfig"].(map[string]any)
-			if !ok {
-				t.Fatal("host configuration missing")
-			}
-			if host["Memory"] != float64(768<<20) || host["NanoCpus"] != float64(1e9) || host["PidsLimit"] != float64(128) {
-				t.Error("resource limits missing")
-			}
-			if _, ok = host["Binds"]; ok {
-				t.Error("host bind mount allowed")
-			}
-			created = true
-			creates++
+			configurations[name] = payload
+			creates[name]++
 			w.WriteHeader(201)
 		case strings.HasSuffix(path, "/start"):
-			running = true
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/start")
+			running[name] = true
 			w.WriteHeader(204)
 		default:
 			w.WriteHeader(201)
@@ -93,16 +114,15 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	if err := os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	docker := &Docker{client: server.Client(), directory: directory}
-	docker.client.Transport = &rewriteTransport{base: server.URL, transport: http.DefaultTransport}
+	docker := &Docker{client: &http.Client{Transport: &rewriteTransport{base: server.URL, transport: http.DefaultTransport}}, directory: directory}
 	for i := 0; i < 2; i++ {
 		result, err := docker.Ensure(context.Background(), id)
-		if err != nil || result.State != "running" || result.Port != "12345" {
+		if err != nil || result.State != "running" || result.Endpoint != LocalEndpoint(id) {
 			t.Fatalf("reconciliation: %+v %v", result, err)
 		}
 	}
-	if creates != 1 {
-		t.Fatalf("duplicate containers: %d", creates)
+	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
+		t.Fatalf("duplicate resources: %+v", creates)
 	}
 }
 
@@ -124,7 +144,7 @@ func TestMeasuredCapacityBounds(t *testing.T) {
 		cpus     int
 		memory   int64
 		expected int
-	}{{"host overhead", 1, 8 << 30, 0}, {"memory exhaustion", 8, 2 << 30, 0}, {"one instance", 8, (2 << 30) + (768 << 20), 1}, {"qualification ceiling", 16, 32 << 30, 2}} {
+	}{{"host overhead", 1, 8 << 30, 0}, {"memory exhaustion", 8, 2 << 30, 0}, {"one instance", 8, (2 << 30) + (896 << 20), 1}, {"qualification ceiling", 16, 32 << 30, 2}} {
 		t.Run(entry.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasSuffix(r.URL.Path, "/info") {

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,14 +35,16 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
-	Kind           string  `json:"kind"`
-	ID             string  `json:"id"`
-	OrganizationID string  `json:"organizationId"`
-	Name           string  `json:"name"`
-	Region         string  `json:"region"`
-	State          string  `json:"state"`
-	Message        string  `json:"message"`
-	Events         []Event `json:"events"`
+	ManagedHostname string  `json:"managedHostname"`
+	Endpoint        string  `json:"endpoint"`
+	Kind            string  `json:"kind"`
+	ID              string  `json:"id"`
+	OrganizationID  string  `json:"organizationId"`
+	Name            string  `json:"name"`
+	Region          string  `json:"region"`
+	State           string  `json:"state"`
+	Message         string  `json:"message"`
+	Events          []Event `json:"events"`
 }
 type Args struct {
 	DeploymentID string `json:"deploymentId"`
@@ -118,13 +121,18 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,kind) VALUES($1,$2,$3,$4,$5) RETURNING id`, org, r.Name, r.Region, r.Key, r.Kind).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,managed_hostname) SELECT id,$1,$2,$3,$4,$5,id::text||'.localhost' FROM (SELECT gen_random_uuid() AS id) identity RETURNING id`, org, r.Name, r.Region, r.Key, r.Kind).Scan(&id)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return Operation{}, ErrConflict
 	}
 	if err != nil {
 		return Operation{}, err
+	}
+	if r.Kind == "agent" {
+		if _, err = tx.Exec(ctx, `UPDATE deployments SET endpoint_url=$2 WHERE id=$1`, id, nodeagent.LocalEndpoint(id)); err != nil {
+			return Operation{}, err
+		}
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'queued','Waiting for a worker.')`, id); err != nil {
 		return Operation{}, err
@@ -139,7 +147,7 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 }
 func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 	var op Operation
-	err := s.Pool.QueryRow(ctx, `SELECT d.id,d.organization_id,d.name,d.region,d.state,d.message,d.kind FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.OrganizationID, &op.Name, &op.Region, &op.State, &op.Message, &op.Kind)
+	err := s.Pool.QueryRow(ctx, `SELECT d.id,d.organization_id,d.name,d.region,d.state,d.message,d.kind,d.managed_hostname,coalesce(d.endpoint_url,'') FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.OrganizationID, &op.Name, &op.Region, &op.State, &op.Message, &op.Kind, &op.ManagedHostname, &op.Endpoint)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}

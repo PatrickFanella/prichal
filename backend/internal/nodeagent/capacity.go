@@ -25,10 +25,10 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		return Capacity{}, err
 	}
 	maximum := 2
-	if memorySlots := int((info.MemTotal - (2 << 30)) / (768 << 20)); memorySlots < maximum {
+	if memorySlots := int((info.MemTotal - (2 << 30)) / (896 << 20)); memorySlots < maximum {
 		maximum = memorySlots
 	}
-	if cpuSlots := info.NCPU - 1; cpuSlots < maximum {
+	if cpuSlots := (info.NCPU - 1) * 4 / 5; cpuSlots < maximum {
 		maximum = cpuSlots
 	}
 	if maximum < 0 {
@@ -40,9 +40,16 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		return Capacity{}, err
 	}
 	ids := []string{}
+	seen := map[string]bool{}
 	for _, container := range containers {
+		if container.Labels[roleLabel] == "ingress" {
+			continue
+		}
 		if id := container.Labels[label]; instanceID.MatchString(id) {
-			ids = append(ids, id)
+			if !seen[id] {
+				ids = append(ids, id)
+				seen[id] = true
+			}
 		} else {
 			return Capacity{}, errors.New("invalid managed namespace on host")
 		}

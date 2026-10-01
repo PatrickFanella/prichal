@@ -25,9 +25,10 @@ const label = "tv.subcult.pds-ass.instance"
 
 // Docker reconciles isolated local qualification runtimes through a Unix socket.
 type Docker struct {
-	client    *http.Client
-	directory string
-	mutex     sync.Mutex
+	client      *http.Client
+	directory   string
+	mutex       sync.Mutex
+	healthProbe func(context.Context, string) bool
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -45,7 +46,7 @@ func NewDocker(socket, directory string) (*Docker, error) {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}
-	return &Docker{client: &http.Client{Transport: transport, Timeout: 20 * time.Second}, directory: directory}, nil
+	return &Docker{client: &http.Client{Transport: transport, Timeout: 20 * time.Second}, directory: directory, healthProbe: localIngressHealthy}, nil
 }
 func (d *Docker) call(ctx context.Context, method, path string, body, result any) (int, error) {
 	var data bytes.Buffer
@@ -171,11 +172,13 @@ type inspected struct {
 		NetworkMode string
 		Privileged  bool
 		CapDrop     []string
+		CapAdd      []string
 		SecurityOpt []string
 		Binds       []string
 	}
 	Mounts []struct {
 		Type        string
+		Source      string
 		Name        string
 		Destination string
 		RW          bool
@@ -190,7 +193,8 @@ type inspected struct {
 		Health  struct{ Status string }
 	}
 	NetworkSettings struct {
-		Ports map[string][]struct{ HostIP, HostPort string }
+		Ports    map[string][]struct{ HostIP, HostPort string }
+		Networks map[string]json.RawMessage
 	}
 }
 
@@ -267,6 +271,9 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	if current.HostConfig.Privileged || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != name+"-network" || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
 		return Instance{}, errors.New("runtime security configuration differs from policy")
 	}
+	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[name+"-network"] == nil {
+		return Instance{}, errors.New("runtime network configuration differs from policy")
+	}
 	if len(current.Mounts) != 2 {
 		return Instance{}, errors.New("runtime storage configuration differs from policy")
 	}
@@ -292,10 +299,13 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	if _, err = d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current); err != nil {
 		return Instance{}, err
 	}
-	result := Instance{ID: id, State: "starting"}
+	if err = d.ingress(ctx, id); err != nil {
+		return Instance{}, err
+	}
+	result := Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}
 	if current.State.Running {
 		result.State = "running"
-		result.Healthy = current.State.Health.Status == "healthy"
+		result.Healthy = current.State.Health.Status == "healthy" && d.healthProbe != nil && d.healthProbe(ctx, id)
 	}
 	ports := current.NetworkSettings.Ports["2583/tcp"]
 	if len(ports) == 1 && ports[0].HostIP == "127.0.0.1" {

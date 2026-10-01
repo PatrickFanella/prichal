@@ -26,7 +26,7 @@ func (p *remoteAgent) Ensure(_ context.Context, _ nodeagent.Peer, id string) (no
 		p.failAfterCreate = false
 		return nodeagent.Instance{}, errors.New("connection lost after host success")
 	}
-	return nodeagent.Instance{ID: id, State: "running", Healthy: p.healthy}, nil
+	return nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "running", Healthy: p.healthy}, nil
 }
 func TestAgentSuccessAfterUncertainCompletion(t *testing.T) {
 	pool := testdb.New(t)

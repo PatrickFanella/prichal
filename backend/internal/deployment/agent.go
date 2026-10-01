@@ -67,6 +67,16 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if instance.Endpoint != nodeagent.LocalEndpoint(id) {
+		return errors.New("managed endpoint identity differs from policy")
+	}
+	result, err := p.Pool.Exec(ctx, `UPDATE deployments SET endpoint_url=$2 WHERE id=$1 AND managed_hostname=$3 AND (endpoint_url IS NULL OR endpoint_url=$2)`, id, instance.Endpoint, id+".localhost")
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return errors.New("managed endpoint conflict")
+	}
 	if state == "configuring" {
 		return p.transition(ctx, id, "configuring", "checking", "Local PDS resources exist. Checking internal health.")
 	}
@@ -77,7 +87,7 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 			}
 			return ErrHealthPending
 		}
-		return p.transition(ctx, id, "checking", "ready", "Local PDS is healthy. Public DNS, identity and federation are unverified.")
+		return p.transition(ctx, id, "checking", "ready", "Local PDS and ingress are healthy. Public TLS, identity and federation are unverified.")
 	}
 	return errors.New("unsupported deployment checkpoint")
 }

@@ -81,3 +81,11 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - Browser created `local-pds-one` as operation `bca4cb84-cfb2-4e58-afc6-26c5edad9ade`, resulting in one healthy container `7951dcce0fee`. A second request, `local-pds-two`, failed on capacity without another runtime. The older qualification fixture remained intact and counted against capacity.
 - `./scripts/dev.sh smoke` passed build, vet and race tests, including real mutual TLS and public-key-pin checks. Responsive overflow remained false at 375×812, 768×1024, 812×375 and 1440×900.
 - Ready means internal local PDS health only. Public ingress, real account fixtures, identity and federation remain unverified. The user reaffirmed local-only build/verification for later milestone preparation.
+
+## Stable local ingress
+
+- Schema version 6 allocates managed hostnames and local endpoint URLs before the job runs. They remain separate from node placement and cannot change silently during reconciliation.
+- A pinned Caddy container serves each PDS through a read-only generated configuration, a loopback port and host allowlist. Admin access is disabled. Resource budgets include ingress overhead.
+- The first local Caddy configuration had same-line block syntax that the actual Caddy parser rejected. The generated template was corrected, its local fixture updated and the pinned image validated the final configuration. Unit tests alone had not caught this parser error.
+- `node scripts/check-ingress.mjs http://bca4cb84-cfb2-4e58-afc6-26c5edad9ade.localhost:44292` passed health/version, unknown host 421 and WebSocket upgrade. The collaborative browser reached the same hostname and displayed version 0.4.5036.
+- Reconciliation retained the same PDS container, volumes and endpoint. New agent readiness combines internal PDS health with ingress health. This is partial #7 local evidence; public domain/DNS/TLS qualification remains deferred by the user's instruction.
