@@ -103,6 +103,19 @@ func (s *Store) Register(sessions Sessions) func(*http.ServeMux) {
 			}
 			reply(w, 200, v)
 		})
+		bind("GET /api/team/organizations/{id}/instances/page", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
+			after, err := listQuery(r.URL.RawQuery, "after", 384)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			v, err := s.InstancesPage(r.Context(), a.OwnerID, r.PathValue("id"), after)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			reply(w, 200, v)
+		})
 		bind("GET /api/team/organizations/{id}/members", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
 			v, err := s.Manage(r.Context(), a.OwnerID, r.PathValue("id"))
 			if err != nil {

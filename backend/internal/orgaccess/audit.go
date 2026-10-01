@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ErrCursor identifies malformed or cross-organization pagination intent.
+// ErrCursor identifies malformed or incorrectly scoped list/history pagination intent.
 var ErrCursor = errors.New("invalid organization audit cursor")
 
 // AuditEvent contains management access metadata only, without native content.
@@ -56,21 +55,7 @@ func auditBefore(org, cursor string) (int64, error) {
 	}
 	return id, nil
 }
-func auditQuery(raw string) (string, error) {
-	if len(raw) > 256 {
-		return "", ErrCursor
-	}
-	values, err := url.ParseQuery(raw)
-	if err != nil || len(values) > 1 {
-		return "", ErrCursor
-	}
-	for key, value := range values {
-		if key != "before" || len(value) != 1 || value[0] == "" || len(value[0]) > 128 {
-			return "", ErrCursor
-		}
-	}
-	return values.Get("before"), nil
-}
+func auditQuery(raw string) (string, error) { return listQuery(raw, "before", 128) }
 
 // Audit reads one page after rechecking current ownership. Cursors confer no access.
 func (s *Store) Audit(ctx context.Context, actor, org, cursor string) (AuditPage, error) {
