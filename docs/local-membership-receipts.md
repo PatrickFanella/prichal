@@ -1,0 +1,19 @@
+# Paging membership and invitation receipts
+
+Current organization owners can read all retained membership and invitation receipts through two compatible routes: `GET /api/team/organizations/{id}/members/page` and `/invitations/page`. Each returns up to 50 records and rechecks ownership in a read-only transaction. Viewers, rename-only administrators, former owners and CLI credentials cannot read either owner-only list. Existing bounded summary routes remain compatible.
+
+Membership pages order by immutable identity reference and show current role/state, including retained revocations. Role changes and updated timestamps cannot move a row across the continuation. Invitation pages preserve exact creation timestamps and UUID ties; pending expiry is calculated at read time without changing stored state or creating an audit. Receipts contain no issuer/subject, email, idempotency keys, acceptance credentials, native account authority or host configuration.
+
+Continuations bind the actor, organization and list kind. Bounded strict queries reject invalid, repeated, unknown or cross-scope cursors. Pages are not a frozen snapshot. New lower-sorting rows require a first-page refresh. Each action still rechecks its current permission/eligibility independently.
+
+The browser replaces one bounded page, cancels stale reads, focuses results/errors and clears failed reads. Revoked members have no mutation controls. Role changes, revocations and empty-organization offers still stage the existing retained request for fresh review; paging does not confirm it. A retained request allows membership reads, while another mutation remains blocked. Empty-organization offer eligibility uses the existing organization summary, never an empty membership/status page. Populated hosting/billing handover remains unsupported.
+
+## Local qualification
+
+Full smoke passed Node checks, frontend build and Go vet/race/PostgreSQL tests. Tests traverse 117 membership rows and 117 tied invitation receipts over three pages each, check current role/state, expiry without mutation, former-owner denial, active viewer/administrator denial, cursor scope/bounds and CLI exclusion. Optional golangci-lint remains unavailable.
+
+Actual read-only drill `4532585a-71ce-4bbf-aa4a-4c70c9a511cf` completed at 2026-10-01T17:52:58Z. Alice's hosting organization returned one member and one invitation; Bob's returned none. Repeats and compatible projections matched, former-owner/foreign/malformed/cross-identity/CLI access was denied, and audit/job counts plus both native repositories/media, containers and custody remained unchanged. An initial comparison used timestamp text in different time zones; comparing expiry instants corrected the qualification script. No source mutation was needed.
+
+The actual browser read the empty collaboration organization's retained revoked member without action buttons and its accepted invitation. Keyboard reload focused the invitation count with a visible outline. Temporary read-only browser fixtures exercised 50 synthetic records then one final record for each pager; count focus remained after pager removal. Original fetch was restored and actual data reloaded, with no source records created. Five viewport sizes had no document/receipt overflow: 320×568, 375×812, 812×375, 768×1024 and 1440×900.
+
+At 17:55:53–54Z, feature disablement cleared both lists, focused their errors with visible outlines and cleared busy state. Refresh hid collaboration while ordinary owner controls stayed available. Private metadata remains in `.local/membership-receipts-browser.json`. T3 text snapshot succeeded; assistive screen-reader, incoming-offer pagination and live qualification remain open. Source API runs with collaboration and other fixture permissions disabled, schema 24 and admission open. No host operation, container/volume deletion or recovery-copy removal occurred.

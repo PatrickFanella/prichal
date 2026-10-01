@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { CollaborationHistory } from './collaboration-history';
 import { SharedInstanceStatus } from './shared-instance-status';
+import { CollaborationMembers, CollaborationInvitationReceipts } from './collaboration-receipts';
 
 type Role = 'administrator' | 'viewer';
 type Organization = { organizationId: string; name: string; role: Role | 'owner' };
 type OrganizationPage = { items: Organization[]; hasMore: boolean; nextAfter: string | null };
 type Incoming = { invitations: { id: string; organizationId: string; role: Role; expiresAt: string }[]; transfers: { id: string; organizationId: string; expiresAt: string }[] };
 type Shared = Organization & { instances: { id: string; name: string; state: string; kind: string }[]; hasMore: boolean };
-type Members = { members: { identityId: string; role: Role; state: 'active' | 'revoked' }[]; membersTruncated: boolean; invitations: { id: string; targetId: string; role: Role; state: string; expiresAt: string }[]; audit: { id: string; actorId: string; targetId: string | null; role: Role | null; action: string; createdAt: string }[] };
 type Intent =
   | { kind: 'invite'; organizationId: string; identityId: string; role: Role; key: string }
   | { kind: 'offer'; organizationId: string; identityId: string; key: string }
@@ -28,9 +28,6 @@ function incoming(value: unknown): value is Incoming {
   return object(value) && Array.isArray(value.invitations) && value.invitations.length <= 30 && value.invitations.every(item => object(item) && identity(item.id) && identity(item.organizationId) && role(item.role) && date(item.expiresAt)) && Array.isArray(value.transfers) && value.transfers.length <= 30 && value.transfers.every(item => object(item) && identity(item.id) && identity(item.organizationId) && date(item.expiresAt));
 }
 function shared(value: unknown): value is Shared { return object(value) && Array.isArray(value.instances) && value.instances.length <= 100 && value.instances.every(item => object(item) && identity(item.id) && typeof item.name === 'string' && typeof item.state === 'string' && typeof item.kind === 'string') && typeof value.hasMore === 'boolean' && organization(value); }
-function members(value: unknown): value is Members {
-  return object(value) && Array.isArray(value.members) && value.members.length <= 100 && value.members.every(item => object(item) && identity(item.identityId) && role(item.role) && (item.state === 'active' || item.state === 'revoked')) && typeof value.membersTruncated === 'boolean' && Array.isArray(value.invitations) && value.invitations.length <= 100 && value.invitations.every(item => object(item) && identity(item.id) && identity(item.targetId) && role(item.role) && ['pending', 'accepted', 'expired', 'revoked'].includes(String(item.state)) && date(item.expiresAt)) && Array.isArray(value.audit) && value.audit.length <= 100 && value.audit.every(item => object(item) && typeof item.id === 'string' && /^[1-9][0-9]*$/.test(item.id) && identity(item.actorId) && (item.targetId === null || identity(item.targetId)) && (item.role === null || role(item.role)) && typeof item.action === 'string' && date(item.createdAt));
-}
 function intent(value: unknown): Intent | null {
   if (!object(value)) return null;
   if (value.kind === 'accept-invite' && identity(value.id) && identity(value.organizationId) && role(value.role)) return { kind: value.kind, id: value.id, organizationId: value.organizationId, role: value.role };
@@ -69,7 +66,7 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
   const storageKey = `pds-collaboration-intent:${ownerId}`;
   const [pending, setPending] = useState<Intent | null>(null), [reviewed, setReviewed] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [blocked, setBlocked] = useState(false);
   const [available, setAvailable] = useState(false), [organizations, setOrganizations] = useState<OrganizationPage>({ items: [], hasMore: false, nextAfter: null }), [offers, setOffers] = useState<Incoming>({ invitations: [], transfers: [] });
-  const [view, setView] = useState<Shared | null>(null), [management, setManagement] = useState<Members | null>(null), [target, setTarget] = useState(''), [inviteRole, setInviteRole] = useState<Role>('viewer'), [newName, setNewName] = useState('');
+  const [view, setView] = useState<Shared | null>(null), [target, setTarget] = useState(''), [inviteRole, setInviteRole] = useState<Role>('viewer'), [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false), [listBusy, setListBusy] = useState(false), [listError, setListError] = useState('');
   const listRead = useRef<AbortController | null>(null), listStatus = useRef<HTMLParagraphElement | null>(null), listFailure = useRef<HTMLParagraphElement | null>(null), focusList = useRef(false);
   useEffect(() => { if (focusList.current) { listStatus.current?.focus(); focusList.current = false; } }, [organizations]);
@@ -84,11 +81,11 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
       const get = (path: string) => fetch(path, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
       const responses = await Promise.all([get('/api/team/organizations/page'), get('/api/team/incoming')]);
       if (controller.signal.aborted) return;
-      if (responses.some(response => response.status === 404)) { setAvailable(false); setView(null); setManagement(null); return; }
+      if (responses.some(response => response.status === 404)) { setAvailable(false); setView(null); return; }
       const [list, incomingOffers]: unknown[] = await Promise.all(responses.map(response => response.json()));
       if (controller.signal.aborted) return;
       if (!responses.every(response => response.ok) || !organizationPage(list) || !incoming(incomingOffers)) throw new Error('Invalid collaboration response');
-      setAvailable(true); setOrganizations(list); setOffers(incomingOffers); setView(null); setManagement(null);
+      setAvailable(true); setOrganizations(list); setOffers(incomingOffers); setView(null);
     } catch { if (!controller.signal.aborted) setError('Organization collaboration is temporarily unavailable.'); }
   }
   useEffect(() => {
@@ -100,7 +97,7 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
   async function loadOrganizations(after?: string) {
     read.current?.abort(); listRead.current?.abort();
     const controller = new AbortController(); listRead.current = controller;
-    setListBusy(true); setListError(''); setView(null); setManagement(null); setReviewed(false);
+    setListBusy(true); setListError(''); setView(null); setReviewed(false);
     try {
       const response = await fetch(`/api/team/organizations/page${after ? `?after=${encodeURIComponent(after)}` : ''}`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
       const value: unknown = await response.json();
@@ -111,14 +108,13 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     finally { if (listRead.current === controller && !controller.signal.aborted) setListBusy(false); }
   }
   async function inspect(item: Organization) {
-    read.current?.abort(); listRead.current?.abort(); setListBusy(false); const controller = new AbortController(); read.current = controller; setView(null); setManagement(null); setError(''); setReviewed(false);
+    read.current?.abort(); listRead.current?.abort(); setListBusy(false); const controller = new AbortController(); read.current = controller; setView(null); setError(''); setReviewed(false);
     try {
-      const paths = [`/api/team/organizations/${item.organizationId}`, ...(item.role === 'owner' ? [`/api/team/organizations/${item.organizationId}/members`] : [])];
-      const responses = await Promise.all(paths.map(path => fetch(path, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) })));
-      const values: unknown[] = await Promise.all(responses.map(response => response.json()));
+      const response = await fetch(`/api/team/organizations/${item.organizationId}`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+      const value: unknown = await response.json();
       if (controller.signal.aborted) return;
-      if (!responses.every(response => response.ok) || !shared(values[0]) || (item.role === 'owner' && !members(values[1]))) throw new Error('Invalid collaboration response');
-      setView(values[0]); setManagement(item.role === 'owner' ? values[1] as Members : null); setNewName(values[0].name); setTarget('');
+      if (!response.ok || !shared(value)) throw new Error('Invalid collaboration response');
+      setView(value); setNewName(value.name); setTarget('');
     } catch { if (!controller.signal.aborted) setError('This organization view could not be confirmed. Refresh current access.'); }
   }
   function stage(value: Intent) {
@@ -166,8 +162,8 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     {organizations.hasMore && organizations.nextAfter && <button type="button" disabled={busy || listBusy} onClick={() => { void loadOrganizations(organizations.nextAfter!); }}>Load more organizations</button>}
     {view && <section aria-labelledby="collaboration-organization-title"><h4 id="collaboration-organization-title">{view.name}</h4><p>Current role: {view.role}.</p><SharedInstanceStatus key={view.organizationId} organizationId={view.organizationId}/>
       {view.role !== 'viewer' && <div><label htmlFor="collaboration-name">New organization name</label><input id="collaboration-name" value={newName} maxLength={100} disabled={busy || (pending !== null || blocked)} onChange={event => setNewName(event.target.value)}/><button type="button" disabled={busy || (pending !== null || blocked) || !newName.trim()} onClick={() => stage({ kind: 'rename', organizationId: view.organizationId, name: newName })}>Review rename</button></div>}
-      {view.role === 'owner' && management && <><h5>Invite a colleague</h5><label htmlFor="collaboration-identity">Their management identity reference</label><input id="collaboration-identity" value={target} maxLength={36} disabled={busy || (pending !== null || blocked)} onChange={event => setTarget(event.target.value.trim().toLowerCase())}/><label htmlFor="collaboration-role">Hosting role</label><select id="collaboration-role" value={inviteRole} disabled={busy || (pending !== null || blocked)} onChange={event => setInviteRole(event.target.value as Role)}><option value="viewer">Viewer: shared status</option><option value="administrator">Administrator: shared status and organization rename</option></select><p>They must have signed in to this management service. Invitations expire after 24 hours.</p><button type="button" disabled={busy || (pending !== null || blocked) || !identity(target) || target === ownerId} onClick={() => stage({ kind: 'invite', organizationId: view.organizationId, identityId: target, role: inviteRole, key: crypto.randomUUID() })}>Review invitation</button>
-        <h5>Members and access history</h5><ul>{management.members.map(member => <li key={member.identityId}><p><code>{member.identityId}</code>: {member.role}, {member.state}.</p>{member.state === 'active' && <><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'member', organizationId: view.organizationId, identityId: member.identityId, role: member.role === 'viewer' ? 'administrator' : 'viewer' })}>Review role change</button><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'member', organizationId: view.organizationId, identityId: member.identityId, role: 'revoked' })}>Review revocation</button>{member.role === 'administrator' && view.instances.length === 0 && !view.hasMore && <button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'offer', organizationId: view.organizationId, identityId: member.identityId, key: crypto.randomUUID() })}>Review empty-organization ownership offer</button>}</>}</li>)}</ul>{management.membersTruncated && <p>Retained membership history is truncated; current active members are included.</p>}<details><summary>Latest 100 invitation receipts</summary><p>Receipts are recorded history. Current membership determines access.</p><ul>{management.invitations.map(item => <li key={item.id}><code>{item.targetId}</code>: {item.role}, {item.state}. Expires <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time>.</li>)}</ul></details><CollaborationHistory key={view.organizationId} organizationId={view.organizationId}/><p>Ownership offers require a separate recipient acceptance. Populated hosting and billing handover need support review.</p></>}
+      {view.role === 'owner' && <><h5>Invite a colleague</h5><label htmlFor="collaboration-identity">Their management identity reference</label><input id="collaboration-identity" value={target} maxLength={36} disabled={busy || (pending !== null || blocked)} onChange={event => setTarget(event.target.value.trim().toLowerCase())}/><label htmlFor="collaboration-role">Hosting role</label><select id="collaboration-role" value={inviteRole} disabled={busy || (pending !== null || blocked)} onChange={event => setInviteRole(event.target.value as Role)}><option value="viewer">Viewer: shared status</option><option value="administrator">Administrator: shared status and organization rename</option></select><p>They must have signed in to this management service. Invitations expire after 24 hours.</p><button type="button" disabled={busy || (pending !== null || blocked) || !identity(target) || target === ownerId} onClick={() => stage({ kind: 'invite', organizationId: view.organizationId, identityId: target, role: inviteRole, key: crypto.randomUUID() })}>Review invitation</button>
+        <CollaborationMembers key={'members:' + view.organizationId} organizationId={view.organizationId} disabled={busy || pending !== null || blocked} working={busy} emptyOrganization={view.instances.length === 0 && !view.hasMore} beforeRead={() => setReviewed(false)} onChange={(member, role) => stage({ kind: 'member', organizationId: view.organizationId, identityId: member.identityId, role })} onOffer={member => stage({ kind: 'offer', organizationId: view.organizationId, identityId: member.identityId, key: crypto.randomUUID() })}/><CollaborationInvitationReceipts key={'invitations:' + view.organizationId} organizationId={view.organizationId} disabled={busy} beforeRead={() => setReviewed(false)}/><CollaborationHistory key={view.organizationId} organizationId={view.organizationId}/><p>Ownership offers require a separate recipient acceptance. Populated hosting and billing handover need support review.</p></>}
     </section>}
   </section>;
 }
