@@ -37,3 +37,32 @@ func TestRecoveryFailsClosedAndHoldCannotTargetSource(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRestoredHoldRevokesCopiedAuthenticationAtomically(t *testing.T) {
+	pool := testdb.NewRecovery(t)
+	ctx := context.Background()
+	if err := migrate.Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var owner string
+	if err := pool.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES('local','held-auth','Held auth') RETURNING id::text`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO management_sessions(token_hash,owner_id,csrf_token,expires_at) VALUES($1,$2,'disposable-csrf',now()+interval '1 hour')`, make([]byte, 32), owner); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO login_attempts(state_hash,binding_hash,nonce,pkce_verifier,expires_at) VALUES($1,$1,'disposable-nonce','disposable-pkce',now()+interval '10 minutes')`, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Hold(ctx, pool, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	var sessions, attempts, owners int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM management_sessions),(SELECT count(*) FROM login_attempts),(SELECT count(*) FROM owners)`).Scan(&sessions, &attempts, &owners); err != nil || sessions != 0 || attempts != 0 || owners != 1 {
+		t.Fatal("hold did not revoke transient authentication while preserving ownership")
+	}
+	if err := Check(ctx, pool); !errors.Is(err, ErrHeld) {
+		t.Fatal("authentication revocation released recovery hold")
+	}
+}

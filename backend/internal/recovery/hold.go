@@ -48,5 +48,10 @@ func Hold(ctx context.Context, pool *pgxpool.Pool, snapshot []byte) error {
 	if _, err = tx.Exec(ctx, `DELETE FROM recovery_retained_namespaces`); err != nil {
 		return err
 	}
+	// Restoring management state must not resurrect copied browser sessions or
+	// unfinished authorization callbacks. New authentication follows reconciliation.
+	if _, err = tx.Exec(ctx, `DELETE FROM management_sessions; DELETE FROM login_attempts`); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
