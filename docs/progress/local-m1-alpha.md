@@ -586,3 +586,15 @@ Full smoke passed. Tests reject ownership/expiry/checkpoint/hold changes during 
 Actual read-only drill `48734021-122b-4944-9b22-f4247020b9e0` completed at 20:02:34Z against all four retained archives. Both versions, exact repeats and scope denials passed. Independent offline verification confirmed captured signatures/media and inventory totals. Source management work, sealed artifacts and both native inventories/custody matched the baseline. Local sign-ins intentionally changed authentication activity. No new export, expiry reset, allowance reset, target allocation, import or identity switch occurred.
 
 Schema remains 26, fixture permissions disabled and admissions open. Existing native containers, volumes and recovery copies remain retained. Current source authority/recovery, designated targets, resumable imports, post-switch checks and external application state remain open under issue #29.
+
+## Owner migration inventory controls
+
+Available exports now offer a separate bounded read-only inventory control. Exact checkpoint/scope, fixed non-execution flags, totals, archive version and remaining gates must match. Errors discard results and focus messages; scope/list denial removes cached inventory and download links. Reload retains no result and starts no inventory read. Capture-request errors remain separate from background list errors. See [migration workspace](../local-migration-workspace.md).
+
+Actual version 2 keyboard inspection focused its result at 20:06:40Z; version 1 missing-preference guidance passed at 20:10:17Z. The first 320-pixel check exposed inherited flex layout in export rows. Scoped stacked rows/details and shrinkable deployment content fixed it. All five representative widths passed at 20:08:01Z–20:08:13Z, without overflow or out-of-panel controls. T3 snapshots repeatedly failed, so visual/screen-reader checks remain open.
+
+Unavailable/invalid-authority fixtures cleared stale results and focused errors. Consistent scope/list denial removed inventory/download links and focused the parent error at 20:09:37Z. Three fixture reads and zero mutations occurred. Original fetch was restored at 20:09:49Z before actual reload; reload had no fixture or automatically loaded results. Source management/native work and custody matched the baseline. No source export, identity, hosting resource or recovery copy changed.
+
+PR #82 and #83 remote CI runs 11580/11583 remain queued as of 20:09Z. Local API/inventory gates passed; this does not imply remote CI completion, visual qualification or migration completion.
+
+The final full smoke gate passed after list and capture error states were separated. No actionable findings remain in the local inventory-control review. Remote CI, snapshot/visual qualification and live migration gates remain open.

@@ -1,0 +1,17 @@
+# Local migration inventory in the owner workspace
+
+Each available portable export offers `Inspect migration inventory`. The button reads that existing archive's local owner-only preflight. It creates no export and starts no transfer. The result identifies historical capture time, captured manifest record count, repository size, referenced media and preference coverage. Archive authentication/member hashes are distinct from repository signature verification and current identity control.
+
+The browser checks the exact export, deployment, checkpoint hash/size and capture time. It requires the fixed inventory-only state, both execution flags false, bounded totals, version-specific preference coverage and the complete remaining-gate list. Invalid or unavailable responses discard the previous result and focus an error. Current-scope denial clears the export list. Failed list refreshes remove cached inventory and download links; a later successful authorized read can restore the list. List errors and unconfirmed capture-request errors are separate, so background polling cannot erase an unconfirmed mutation message.
+
+Inventory reads have an eight-second timeout. Changed checkpoint/export/deployment or unmount aborts reads and removes results. Reload does not retain or automatically fetch an inventory. No migration target field, transfer action or identity-switch action is available.
+
+## Local browser qualification
+
+T3 was preferred. Snapshot capture repeatedly failed, but DOM evaluation, resize and keyboard tools remained available. Actual version 2 inspection at 2026-10-01T20:06:40Z focused the result and displayed six records/one blob, captured Bluesky settings and remaining gates. Actual version 1 inspection at 20:10:17Z focused the result and showed missing preference coverage.
+
+The first 320-pixel check exposed global organization-list flex styles in nested export rows. Export rows now stack, inventory definition lists stack, and the native deployment content can shrink. Repeated checks at 20:08:01Z through 20:08:13Z passed 320×568, 375×812, 812×375, 768×1024 and 1440×900 without document/panel overflow or controls outside the panel. Phone inventory widths were 230/285 pixels. Snapshot/visual inspection and assistive screen-reader behavior remain unqualified.
+
+Read-only unavailable and invalid execution-authority response fixtures cleared results, reset busy state and focused errors at 20:08:59Z/20:09:12Z. A denied preflight removed the result; real authorized polling subsequently restored the list. A consistent denied-list fixture then removed all inventory/download controls and focused the parent error at 20:09:37Z. Three inventory reads and zero mutations ran through those fixtures. Original fetch was restored at 20:09:49Z before actual-state reload. Reload at 20:10:06Z had three inspect controls, no automatically loaded results and no remaining fixture. Private metadata is `.local/migration-workspace-browser.json`.
+
+Source management/native work and custody checks matched the previous baseline. No new capture, expiry/allowance reset, target allocation, import, identity mutation, resource deletion or recovery-copy deletion occurred. Schema remains 26; source fixture permissions remain disabled and admissions open. See [API inventory qualification](local-migration-preflight.md) for independent offline artifact verification and remaining migration gates.
