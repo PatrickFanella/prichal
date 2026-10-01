@@ -1,6 +1,6 @@
 # Restricted first-account invitation withdrawal
 
-The local node agent accepts `POST /v1/instances/{id}/enrollment/withdraw` with only a retained enrollment `ticket`. The registered worker's mTLS identity is required. The API has no host credential or Docker access. This step supplies the restricted command and typed worker client; owner intent, management audit/queue and browser controls remain to be implemented.
+The local node agent accepts `POST /v1/instances/{id}/enrollment/withdraw` with only a retained enrollment `ticket`. The registered worker's mTLS identity is required. The API has no host credential or Docker access. This document records the restricted command and typed worker client. [Owner intent and worker processing](local-enrollment-withdrawal-intent.md) follow this agent step; browser controls remain open.
 
 An exact retained ticket and guarded local instance are required. A mismatched ticket cannot close a newer invitation. The command checks the sole-account inventory first. An existing account returns `account_created` or `verified` without changing its lease or restarting containers. The command never deletes an account, changes its identity, suspends service or issues a replacement invitation.
 
@@ -28,6 +28,6 @@ It accepts only the two retained disposable local account instances and requires
 
 ## Remaining work
 
-Persist owner-scoped withdrawal intent, audit and an atomic worker job before exposing a customer control. Recheck original/current owner scope, serialize against issuance/refresh/recovery and refuse held management recovery. Preserve ambiguity until the worker confirms the native outcome. Add browser review, retry and account-completed guidance.
+The management workflow now persists owner intent, audit and an atomic worker job with original/current scope, recovery checks and issuance/refresh serialization. Add browser review, retry and account-completed guidance. Preparing-request cancellation remains separate because this command requires an exact retained ticket.
 
 A fresh empty native PDS must qualify real ingress drain, unused-code rejection, restart failure and signup/withdrawal races. These remain runtime gates, alongside production agent policy and live deployment qualification. Existing-account preservation and fixture tests do not complete issue #26 or open public signup. Older agents reject the new RPC; do not enable customer withdrawal until the designated agent version is installed. Older enrollment code cannot reopen the newly closed lease states.

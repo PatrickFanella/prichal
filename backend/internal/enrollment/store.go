@@ -35,17 +35,19 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
-	ID             string     `json:"id"`
-	DeploymentID   string     `json:"deploymentId"`
-	State          string     `json:"state"`
-	Message        string     `json:"message"`
-	Code           string     `json:"code,omitempty"`
-	ExpiresAt      *time.Time `json:"expiresAt"`
-	AccountURL     string     `json:"accountUrl"`
-	DID            string     `json:"did,omitempty"`
-	Handle         string     `json:"handle,omitempty"`
-	EmailConfirmed bool       `json:"emailConfirmed"`
-	Events         []Event    `json:"events"`
+	ID                  string     `json:"id"`
+	DeploymentID        string     `json:"deploymentId"`
+	State               string     `json:"state"`
+	Message             string     `json:"message"`
+	Code                string     `json:"code,omitempty"`
+	ExpiresAt           *time.Time `json:"expiresAt"`
+	AccountURL          string     `json:"accountUrl"`
+	DID                 string     `json:"did,omitempty"`
+	Handle              string     `json:"handle,omitempty"`
+	EmailConfirmed      bool       `json:"emailConfirmed"`
+	WithdrawalRequested bool       `json:"withdrawalRequested"`
+	WithdrawalAttempts  int        `json:"withdrawalAttempts"`
+	Events              []Event    `json:"events"`
 }
 type Store struct {
 	Pool   *pgxpool.Pool
@@ -98,11 +100,12 @@ func (s *Store) Submit(ctx context.Context, owner, deployment string, request Re
 		return Operation{}, err
 	}
 	var latest string
-	err = tx.QueryRow(ctx, `SELECT state FROM enrollment_operations WHERE deployment_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`, deployment).Scan(&latest)
+	var withdrawal *time.Time
+	err = tx.QueryRow(ctx, `SELECT state,withdrawal_requested_at FROM enrollment_operations WHERE deployment_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`, deployment).Scan(&latest, &withdrawal)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
-	if latest == "account_created" || latest == "verified" || latest == "pending" {
+	if latest == "account_created" || latest == "verified" || latest == "pending" || latest == "withdrawing" || (withdrawal != nil && latest != "withdrawn") {
 		return Operation{}, ErrConflict
 	}
 	if latest != "" && !request.Recover {
@@ -115,10 +118,10 @@ func (s *Store) Submit(ctx context.Context, owner, deployment string, request Re
 	if count >= 3 {
 		return Operation{}, ErrConflict
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO enrollment_events(enrollment_id,state,message) SELECT id,'superseded','Replaced by an owner-authorized recovery request.' FROM enrollment_operations WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed')`, deployment); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO enrollment_events(enrollment_id,state,message) SELECT id,'superseded','Replaced by an owner-authorized recovery request.' FROM enrollment_operations WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn')`, deployment); err != nil {
 		return Operation{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE enrollment_operations SET state='superseded',code_ciphertext=NULL,message='Replaced by an owner-authorized recovery request.',updated_at=now() WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed')`, deployment); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE enrollment_operations SET state='superseded',code_ciphertext=NULL,message='Replaced by an owner-authorized recovery request.',updated_at=now() WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn')`, deployment); err != nil {
 		return Operation{}, err
 	}
 	if err = tx.QueryRow(ctx, `INSERT INTO enrollment_operations(deployment_id,owner_id,idempotency_key,recovery_requested) VALUES($1,$2,$3,$4) RETURNING id::text`, deployment, owner, request.Key, request.Recover).Scan(&id); err != nil {
@@ -136,10 +139,37 @@ func (s *Store) Submit(ctx context.Context, owner, deployment string, request Re
 	return s.Get(ctx, owner, id)
 }
 func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
+	if !uuid.MatchString(owner) || !uuid.MatchString(id) {
+		return Operation{}, ErrNotFound
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return Operation{}, err
+	}
+	defer tx.Rollback(ctx)
+	var deployment string
+	err = tx.QueryRow(ctx, `SELECT deployment_id::text FROM enrollment_operations WHERE id=$1 AND owner_id=$2`, id, owner).Scan(&deployment)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Operation{}, ErrNotFound
+	}
+	if err != nil {
+		return Operation{}, err
+	}
+	var scoped string
+	err = tx.QueryRow(ctx, `SELECT d.id::text FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2 FOR SHARE OF d,o`, deployment, owner).Scan(&scoped)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Operation{}, ErrNotFound
+	}
+	if err != nil {
+		return Operation{}, err
+	}
+	if err = checkEnrollmentRecovery(ctx, tx); err != nil {
+		return Operation{}, err
+	}
 	var op Operation
 	var encoded []byte
 	var organization, endpoint string
-	err := s.Pool.QueryRow(ctx, `SELECT e.id::text,e.deployment_id::text,e.state,e.message,e.code_ciphertext,e.expires_at,coalesce(e.account_did,''),coalesce(e.account_handle,''),e.email_confirmed,d.organization_id::text,d.endpoint_url FROM enrollment_operations e JOIN deployments d ON d.id=e.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE e.id=$1 AND e.owner_id=$2 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.DeploymentID, &op.State, &op.Message, &encoded, &op.ExpiresAt, &op.DID, &op.Handle, &op.EmailConfirmed, &organization, &endpoint)
+	err = tx.QueryRow(ctx, `SELECT e.id::text,e.deployment_id::text,e.state,e.message,e.code_ciphertext,e.expires_at,coalesce(e.account_did,''),coalesce(e.account_handle,''),e.email_confirmed,d.organization_id::text,d.endpoint_url,e.withdrawal_requested_at IS NOT NULL,e.withdrawal_attempts FROM enrollment_operations e JOIN deployments d ON d.id=e.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE e.id=$1 AND e.owner_id=$2 AND o.owner_id=$2 FOR SHARE OF e`, id, owner).Scan(&op.ID, &op.DeploymentID, &op.State, &op.Message, &encoded, &op.ExpiresAt, &op.DID, &op.Handle, &op.EmailConfirmed, &organization, &endpoint, &op.WithdrawalRequested, &op.WithdrawalAttempts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}
@@ -162,7 +192,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 		}
 	}
 	op.Events = []Event{}
-	rows, err := s.Pool.Query(ctx, `SELECT state,message,created_at FROM enrollment_events WHERE enrollment_id=$1 ORDER BY id LIMIT 100`, id)
+	rows, err := tx.Query(ctx, `SELECT state,message,created_at FROM enrollment_events WHERE enrollment_id=$1 ORDER BY id LIMIT 100`, id)
 	if err != nil {
 		return op, err
 	}
@@ -174,7 +204,14 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 		}
 		op.Events = append(op.Events, event)
 	}
-	return op, rows.Err()
+	if err = rows.Err(); err != nil {
+		return Operation{}, err
+	}
+	rows.Close()
+	if err = tx.Commit(ctx); err != nil {
+		return Operation{}, err
+	}
+	return op, nil
 }
 func (s *Store) Latest(ctx context.Context, owner, deployment string) (Operation, error) {
 	var id string
@@ -193,6 +230,12 @@ func (s *Store) Refresh(ctx context.Context, owner, id string) (Operation, error
 		return Operation{}, err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = lockOwnedEnrollment(ctx, tx, owner, id); err != nil {
+		return Operation{}, err
+	}
+	if err = checkEnrollmentRecovery(ctx, tx); err != nil {
+		return Operation{}, err
+	}
 	var state string
 	var refreshed *time.Time
 	err = tx.QueryRow(ctx, `SELECT e.state,e.last_refresh_at FROM enrollment_operations e JOIN deployments d ON d.id=e.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE e.id=$1 AND e.owner_id=$2 AND o.owner_id=$2 FOR UPDATE OF e`, id, owner).Scan(&state, &refreshed)
@@ -208,7 +251,7 @@ func (s *Store) Refresh(ctx context.Context, owner, id string) (Operation, error
 		}
 		return s.Get(ctx, owner, id)
 	}
-	if state == "superseded" || state == "failed" {
+	if state == "superseded" || state == "failed" || state == "withdrawing" || state == "withdrawn" {
 		return Operation{}, ErrConflict
 	}
 	if refreshed != nil && time.Since(*refreshed) < 5*time.Second {

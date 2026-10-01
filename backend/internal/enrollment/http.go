@@ -75,6 +75,18 @@ func (s *Store) Register(owners *auth.Service, local bool) func(*http.ServeMux) 
 			operation, err := s.Refresh(r.Context(), session.OwnerID, r.PathValue("id"))
 			operationReply(w, operation, err)
 		})
+		bind("POST /api/enrollments/{id}/withdraw", true, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
+			var request struct{}
+			r.Body = http.MaxBytesReader(w, r.Body, 128)
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF {
+				operationReply(w, Operation{}, ErrInvalid)
+				return
+			}
+			operation, err := s.Withdraw(r.Context(), session.OwnerID, r.PathValue("id"))
+			operationReply(w, operation, err)
+		})
 	}
 }
 func respond(w http.ResponseWriter, status int, value any) {
