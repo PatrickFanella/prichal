@@ -15,7 +15,7 @@ type Observer interface {
 }
 
 // Reconcile releases the hold only when every registered host inventory matches
-// retained placements, and every placed instance has a verified healthy runtime.
+// retained placements, and every placed instance matches its confirmed service intent.
 // Unknown namespaces or missing hosts require operator investigation. Nothing is deleted.
 func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error {
 	if observer == nil {
@@ -87,9 +87,27 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 			if !inventory[id] {
 				return errors.New("placed namespace missing from host inventory")
 			}
+			var generation int64
+			var phase, desired, ticket string
+			if err = tx.QueryRow(ctx, `SELECT coalesce(c.generation,0),coalesce(c.state,'applied'),coalesce(c.desired_state,'running'),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,generation,state,desired_state FROM service_operations WHERE deployment_id=d.id ORDER BY generation DESC LIMIT 1) c ON true WHERE d.id=$1`, id).Scan(&generation, &phase, &desired, &ticket); err != nil {
+				return err
+			}
+			if phase != "applied" {
+				return errors.New("uncertain service lifecycle prevents recovery release")
+			}
 			result, err := observer.Status(ctx, peer, id)
-			if err != nil || result.ID != id || result.Endpoint != nodeagent.LocalEndpoint(id) || result.State != "running" || !result.Healthy {
-				return errors.New("placed runtime could not be verified healthy")
+			expected := result.State == "running" && result.Healthy
+			if desired == "suspended" {
+				expected = result.State == "suspended" && !result.Healthy
+			}
+			metadata := result.ServiceGeneration == generation && result.ServiceTicket == ticket
+			if generation > 0 {
+				metadata = metadata && result.ServicePhase == "applied"
+			} else {
+				metadata = metadata && result.ServicePhase == ""
+			}
+			if err != nil || result.ID != id || result.Endpoint != nodeagent.LocalEndpoint(id) || !expected || !metadata {
+				return errors.New("placed runtime does not match confirmed service intent")
 			}
 			delete(inventory, id)
 			verified++

@@ -14,6 +14,7 @@ type observerFixture struct {
 	ids         []string
 	healthy     bool
 	unavailable bool
+	service     *nodeagent.Instance
 }
 
 func (o observerFixture) Capacity(context.Context, nodeagent.Peer) (nodeagent.Capacity, error) {
@@ -23,6 +24,9 @@ func (o observerFixture) Capacity(context.Context, nodeagent.Peer) (nodeagent.Ca
 	return nodeagent.Capacity{InstanceIDs: o.ids}, nil
 }
 func (o observerFixture) Status(_ context.Context, _ nodeagent.Peer, id string) (nodeagent.Instance, error) {
+	if o.service != nil {
+		return *o.service, nil
+	}
 	return nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "running", Healthy: o.healthy}, nil
 }
 func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
@@ -99,5 +103,34 @@ func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
 	}
 	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, healthy: true}); err == nil {
 		t.Fatal("reconciliation ran without hold")
+	}
+	// A recovery copy must retain an intentional hold and match its exact host generation.
+	if err := Hold(ctx, pool, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	var operation string
+	if err := pool.QueryRow(ctx, `INSERT INTO service_operations(deployment_id,idempotency_key,generation,desired_state,prior_state,reason,actor,state) VALUES($1,gen_random_uuid(),1,'suspended','running','maintenance','local-test','applied') RETURNING id::text`, id).Scan(&operation); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, healthy: true}); err == nil {
+		t.Fatal("recovery ignored confirmed suspension")
+	}
+	held := nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "suspended", ServiceGeneration: 1, ServiceTicket: operation, ServicePhase: "applied"}
+	wrong := held
+	wrong.ServiceGeneration = 2
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &wrong}); err == nil {
+		t.Fatal("recovery ignored generation mismatch")
+	}
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &held}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Hold(ctx, pool, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE service_operations SET state='pending' WHERE id=$1`, operation); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &held}); err == nil {
+		t.Fatal("uncertain lifecycle released recovery hold")
 	}
 }

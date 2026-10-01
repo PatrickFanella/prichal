@@ -12,12 +12,25 @@ import (
 // Status is safe to expose only after authorizing the deployment's owner.
 type Status struct {
 	State     string     `json:"state"`
+	Lifecycle string     `json:"lifecycle"`
+	Reason    string     `json:"reason"`
 	CheckedAt *time.Time `json:"checkedAt"`
 	Backup    string     `json:"backup"`
 }
 
 func DeploymentStatus(ctx context.Context, pool *pgxpool.Pool, id string) (Status, error) {
-	result := Status{State: "unknown", Backup: "unconfigured"}
+	result := Status{State: "unknown", Backup: "unconfigured", Lifecycle: "running"}
+	var desired, state string
+	err := pool.QueryRow(ctx, `SELECT desired_state,state,reason FROM service_operations WHERE deployment_id=$1 ORDER BY generation DESC LIMIT 1`, id).Scan(&desired, &state, &result.Reason)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return result, err
+	}
+	if err == nil {
+		result.Lifecycle = state
+		if state == "applied" {
+			result.Lifecycle = desired
+		}
+	}
 	var bad *bool
 	if err := pool.QueryRow(ctx, `SELECT max(last_observed_at),bool_or(active) FROM service_observations WHERE deployment_id=$1 AND kind='runtime_unhealthy'`, id).Scan(&result.CheckedAt, &bad); err != nil {
 		return result, err
@@ -26,6 +39,12 @@ func DeploymentStatus(ctx context.Context, pool *pgxpool.Pool, id string) (Statu
 		return result, nil
 	}
 	result.State = "healthy"
+	if result.Lifecycle == "suspended" {
+		result.State = "suspended"
+	}
+	if result.Lifecycle == "pending" || result.Lifecycle == "failed" {
+		result.State = "degraded"
+	}
 	if *bad {
 		result.State = "degraded"
 	}

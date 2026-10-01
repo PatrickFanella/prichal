@@ -13,11 +13,14 @@ import (
 
 // Instance contains no runtime credentials or host administration details.
 type Instance struct {
-	ID       string `json:"id"`
-	State    string `json:"state"`
-	Port     string `json:"port"`
-	Endpoint string `json:"endpoint"`
-	Healthy  bool   `json:"healthy"`
+	ID                string `json:"id"`
+	State             string `json:"state"`
+	Port              string `json:"port"`
+	Endpoint          string `json:"endpoint"`
+	Healthy           bool   `json:"healthy"`
+	ServiceGeneration int64  `json:"serviceGeneration,omitempty"`
+	ServiceTicket     string `json:"serviceTicket,omitempty"`
+	ServicePhase      string `json:"servicePhase,omitempty"`
 }
 
 // Runtime reconciles a stable, service-owned instance ID.
@@ -30,6 +33,33 @@ var instanceID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 // Handler accepts only an empty configuration object and a stable instance UUID.
 func Handler(runtime Runtime) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/instances/{id}/service", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			Service(context.Context, string, ServiceRequest) (ServiceResult, error)
+		})
+		if !ok {
+			http.Error(w, "service lifecycle unavailable", 503)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 256)
+		var body ServiceRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !body.Valid() {
+			http.Error(w, "invalid service request", 400)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		result, err := provider.Service(ctx, r.PathValue("id"), body)
+		if err != nil {
+			http.Error(w, "service transition could not be confirmed", 503)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("GET /v1/capacity", func(w http.ResponseWriter, r *http.Request) {
 		provider, ok := runtime.(interface {
 			Capacity(context.Context) (Capacity, error)
@@ -141,6 +171,10 @@ func Handler(runtime Runtime) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/service") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/service")) {
+			mux.ServeHTTP(w, r)
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/v1/capacity" {
 			mux.ServeHTTP(w, r)
 			return

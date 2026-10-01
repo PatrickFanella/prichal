@@ -1,7 +1,7 @@
 // Cold recovery of a retained managed local tenant. Includes the shared development identity fixture.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdirSync,readFileSync,writeFileSync,copyFileSync,lstatSync,openSync,closeSync,unlinkSync,rmdirSync} from 'node:fs';
+import {mkdirSync,readFileSync,writeFileSync,copyFileSync,existsSync,lstatSync,openSync,closeSync,unlinkSync,rmdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {performance} from 'node:perf_hooks';
@@ -37,7 +37,7 @@ const login=await native('com.atproto.server.createSession',{identifier:account.
 const marker=await native('com.atproto.repo.createRecord',{repo:account.did,collection:'app.bsky.feed.post',record:{$type:'app.bsky.feed.post',text:'Managed recovery source '+id,createdAt:new Date().toISOString()}},'Bearer '+login.accessJwt);
 const finalInventory=JSON.parse(docker('exec',names.pds,'node','-e',readFileSync('deploy/local/fixtures/blob-inventory.cjs','utf8').replace("'http://protocol-fixtures:2582'","'http://pds-ass-protocol-fixtures:2582'")));
 const sourceIdentity=await (await fetch('http://localhost:2582/'+account.did+'/data')).json();
-const files=[[join(state,tenant+'.json'),'credentials.json'],[join(state,tenant+'-tls.pem'),'tls.pem'],[join(state,tenant+'-edge','Caddyfile'),'Caddyfile'],[join(state,tenant+'-enrollment','lease.json'),'lease.json'],[resolve('deploy/local/fixtures/protocol-services.mjs'),'protocol-services.mjs']];for(const [from,to]of files){assert.ok(lstatSync(from).isFile(),'Regular recovery input required');copyFileSync(from,join(host,to))}
+const files=[[join(state,tenant+'.json'),'credentials.json'],[join(state,tenant+'-tls.pem'),'tls.pem'],[join(state,tenant+'-edge','Caddyfile'),'Caddyfile'],[join(state,tenant+'-enrollment','lease.json'),'lease.json'],[resolve('deploy/local/fixtures/protocol-services.mjs'),'protocol-services.mjs']];const serviceLeasePath=join(state,tenant+'-service.json');if(existsSync(serviceLeasePath)){const lease=privateJSON(serviceLeasePath);assert.ok(lease.instanceId===tenant&&lease.state==='running'&&lease.phase==='applied','Confirmed running service lease required for this live restoration drill');files.push([serviceLeasePath,'service.json'])}for(const [from,to]of files){assert.ok(lstatSync(from).isFile(),'Regular recovery input required');copyFileSync(from,join(host,to))}
 writeFileSync(join(host,'runtime.json'),JSON.stringify({environment,pdsImage:image,edgeImage:edge.Config.Image,guardCommand:guard.Config.Cmd,guardEnvironment:guard.Config.Env}),{flag:'wx',mode:0o600});
 for(const [from,to]of files.slice(0,4))assert.ok(!(lstatSync(join(host,to)).mode&0o077),'Protected recovery metadata must remain private');
 const keyPath=join(keys,id+'.key');writeFileSync(keyPath,randomBytes(32),{flag:'wx',mode:0o600});const bundle=join(bundles,id+'.pdsbackup'),project='pds-ass-managed-recovery-'+id;

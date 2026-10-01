@@ -11,6 +11,7 @@ import (
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/lifecycle"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
@@ -51,6 +52,7 @@ func run() error {
 		return err
 	}
 	var enrollmentAgent enrollment.Agent
+	var serviceAgent lifecycle.Agent
 	var agent deployment.AgentClient
 	if os.Getenv("PDS_WORKER_AGENT_CA_FILE") != "" {
 		client, err := nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
@@ -59,6 +61,7 @@ func run() error {
 		}
 		agent = client
 		enrollmentAgent = client
+		serviceAgent = client
 	}
 	var enrollmentCipher *enrollment.Cipher
 	if path := os.Getenv("PDS_ENROLLMENT_KEY_FILE"); path != "" {
@@ -68,6 +71,7 @@ func run() error {
 		}
 	}
 	workers := river.NewWorkers()
+	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 2}}})

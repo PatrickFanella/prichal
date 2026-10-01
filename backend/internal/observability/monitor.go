@@ -56,18 +56,19 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 		if err == nil {
 			findings = append(findings, Finding{Subject: subject, Kind: "capacity_exhausted", Active: len(capacity.InstanceIDs) >= capacity.MaximumSlots})
 		}
-		rows, err := pool.Query(ctx, `SELECT d.id::text,d.state,d.updated_at FROM deployments d JOIN instance_placements p ON p.deployment_id=d.id WHERE p.node_id=$1 ORDER BY d.id LIMIT 1001`, peer.NodeID)
+		rows, err := pool.Query(ctx, `SELECT d.id::text,d.state,d.updated_at,coalesce(c.desired_state,'running'),coalesce(c.state,'applied'),coalesce(c.generation,0),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,desired_state,state,generation FROM service_operations WHERE deployment_id=d.id ORDER BY generation DESC LIMIT 1) c ON true JOIN instance_placements p ON p.deployment_id=d.id WHERE p.node_id=$1 ORDER BY d.id LIMIT 1001`, peer.NodeID)
 		if err != nil {
 			return nil, err
 		}
 		type placed struct {
-			id, state string
-			updated   time.Time
+			id, state, desired, phase, ticket string
+			generation                        int64
+			updated                           time.Time
 		}
 		var instances []placed
 		for rows.Next() {
 			var value placed
-			if err = rows.Scan(&value.id, &value.state, &value.updated); err != nil {
+			if err = rows.Scan(&value.id, &value.state, &value.updated, &value.desired, &value.phase, &value.generation, &value.ticket); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -86,8 +87,17 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 			}
 			status, err := observer.Status(ctx, peer, instance.id)
 			bad := err != nil || status.ID != instance.id || status.Endpoint != nodeagent.LocalEndpoint(instance.id) || status.State != "running" || !status.Healthy
+			if instance.phase != "applied" {
+				bad = true
+			}
+			if status.ServiceGeneration != instance.generation || status.ServiceTicket != instance.ticket || (instance.generation > 0 && status.ServicePhase != "applied") || (instance.generation == 0 && status.ServicePhase != "") {
+				bad = true
+			}
+			if instance.desired == "suspended" && instance.phase == "applied" {
+				bad = err != nil || status.ID != instance.id || status.Endpoint != nodeagent.LocalEndpoint(instance.id) || status.State != "suspended" || status.Healthy || status.ServiceGeneration != instance.generation || status.ServiceTicket != instance.ticket || status.ServicePhase != "applied"
+			}
 			findings = append(findings, Finding{Subject: "deployment/" + instance.id, DeploymentID: instance.id, Kind: "runtime_unhealthy", Active: bad})
-			if bad {
+			if bad || instance.desired == "suspended" {
 				findings = append(findings, Finding{Subject: "deployment/" + instance.id, DeploymentID: instance.id, Kind: "usage_unavailable", Active: true})
 				continue
 			}
