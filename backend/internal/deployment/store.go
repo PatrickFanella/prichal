@@ -18,6 +18,9 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
+// ErrEndpointPending prevents silent fallback from an unverified custom choice.
+var ErrEndpointPending = errors.New("custom endpoint choice requires qualification or cancellation")
+
 var ErrConflict = errors.New("request conflicts with an existing deployment")
 var ErrNotFound = errors.New("deployment or organization not found")
 var ErrInvalid = errors.New("invalid deployment request")
@@ -129,6 +132,13 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 		return Operation{}, err
 	}
 	if r.Kind == "agent" {
+		var pending bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM endpoint_choices WHERE organization_id=$1 AND state='awaiting_ownership')`, org).Scan(&pending); err != nil {
+			return Operation{}, err
+		}
+		if pending {
+			return Operation{}, ErrEndpointPending
+		}
 		if err = entitlement.CheckAllocation(ctx, tx, org); err != nil {
 			return Operation{}, err
 		}

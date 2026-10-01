@@ -109,6 +109,8 @@ func operationReply(w http.ResponseWriter, op Operation, err error) {
 	}
 	status, message := 503, "Deployment status is temporarily unavailable. Retry with the same request key."
 	switch {
+	case errors.Is(err, ErrEndpointPending):
+		status, message = 409, "A custom PDS address is pending qualification. Review or cancel that choice before requesting default native hosting."
 	case errors.Is(err, ErrAdmissionClosed):
 		status, message = 503, "New deployments are paused. Retained requests and existing servers remain available; retry with the same request key."
 	case errors.Is(err, entitlement.ErrDenied):
