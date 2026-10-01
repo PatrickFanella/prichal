@@ -12,6 +12,37 @@ func (d *Docker) Status(ctx context.Context, id string) (Instance, error) {
 	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	return d.status(ctx, id)
+}
+
+func (d *Docker) status(ctx context.Context, id string) (Instance, error) {
+	held, err := d.serviceHeld(id)
+	if err != nil {
+		return Instance{}, err
+	}
+	result, err := d.runtimeStatus(ctx, id)
+	if err != nil {
+		return result, err
+	}
+	if held {
+		result.State = "suspended"
+		result.Healthy = false
+	}
+	lease, leaseErr := d.readServiceLease(id)
+	if leaseErr == nil {
+		result.ServiceGeneration = lease.Generation
+		result.ServiceTicket = lease.Ticket
+		result.ServicePhase = lease.Phase
+		if lease.State == "suspended" && lease.Phase == "applied" {
+			if err := d.serviceStopped(ctx, id); err != nil {
+				return Instance{}, err
+			}
+		}
+	}
+	return result, nil
+}
+
+func (d *Docker) runtimeStatus(ctx context.Context, id string) (Instance, error) {
 	var current, edge inspected
 	if _, err := d.call(ctx, "GET", "/containers/pds-ass-tenant-"+id+"/json", nil, &current); err != nil {
 		return Instance{}, err
@@ -24,6 +55,18 @@ func (d *Docker) Status(ctx context.Context, id string) (Instance, error) {
 	}
 	if err := d.validateIngress(id, edge); err != nil {
 		return Instance{}, err
+	}
+	if d.localIdentity {
+		var guard inspected
+		if _, err := d.call(ctx, "GET", "/containers/pds-ass-enrollment-"+id+"/json", nil, &guard); err != nil {
+			return Instance{}, err
+		}
+		if err := d.validateEnrollmentGuard(id, guard); err != nil {
+			return Instance{}, err
+		}
+		if !guard.State.Running {
+			return Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}, nil
+		}
 	}
 	result := Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}
 	if current.State.Running && edge.State.Running {

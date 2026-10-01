@@ -21,7 +21,7 @@ func (d *Docker) fenceRetainedNamespace(ctx context.Context, id string) error {
 		if container.Labels[label] != id {
 			return errors.New("namespace inventory differs from policy")
 		}
-		if container.Labels[roleLabel] == "ingress" {
+		if container.Labels[roleLabel] == "ingress" || container.Labels[roleLabel] == "enrollment-guard" {
 			continue
 		}
 		if container.State != "exited" && container.State != "created" && container.State != "dead" {
