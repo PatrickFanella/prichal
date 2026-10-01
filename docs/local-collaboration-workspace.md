@@ -25,3 +25,5 @@ Delegated administrator hosting/domain actions, full list pagination, populated 
 Fresh recovery `b3a05f17-fa9f-4599-85af-4b5d39dab6de` matched all 43 schema-23 tables and sequence positions after the browser work, including three invitations, three retained membership rows, two transfers and 16 access audits. Restored authentication was revoked and held worker startup refused. Host reconciliation and dedicated-queue replay preserved copied default work, source rows/sequences, native signed data/media and lifecycle/admission custody. All recovery copies remain retained.
 
 The owner audit view now uses [paged access history](local-collaboration-history.md), with focused success/error announcements and a reviewed phone screenshot. Earlier snapshot failures describe the earlier drill; current native T3 text and image snapshots work. Assistive screen-reader checks and the other list limits remain open.
+
+The permitted-organization selector now uses [bounded organization pages](local-organization-pages.md), with exact timestamp/UUID continuations and current-access checks. Incoming offer, instance, membership and receipt lists retain their existing limits.

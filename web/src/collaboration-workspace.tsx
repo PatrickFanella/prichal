@@ -3,6 +3,7 @@ import { CollaborationHistory } from './collaboration-history';
 
 type Role = 'administrator' | 'viewer';
 type Organization = { organizationId: string; name: string; role: Role | 'owner' };
+type OrganizationPage = { items: Organization[]; hasMore: boolean; nextAfter: string | null };
 type Incoming = { invitations: { id: string; organizationId: string; role: Role; expiresAt: string }[]; transfers: { id: string; organizationId: string; expiresAt: string }[] };
 type Shared = Organization & { instances: { id: string; name: string; state: string; kind: string }[]; hasMore: boolean };
 type Members = { members: { identityId: string; role: Role; state: 'active' | 'revoked' }[]; membersTruncated: boolean; invitations: { id: string; targetId: string; role: Role; state: string; expiresAt: string }[]; audit: { id: string; actorId: string; targetId: string | null; role: Role | null; action: string; createdAt: string }[] };
@@ -19,6 +20,9 @@ function identity(value: unknown): value is string { return typeof value === 'st
 function role(value: unknown): value is Role { return value === 'administrator' || value === 'viewer'; }
 function date(value: unknown): value is string { return typeof value === 'string' && Number.isFinite(Date.parse(value)); }
 function organization(value: unknown): value is Organization { return object(value) && identity(value.organizationId) && typeof value.name === 'string' && (value.role === 'owner' || role(value.role)); }
+function organizationPage(value: unknown): value is OrganizationPage {
+  return object(value) && Array.isArray(value.items) && value.items.length <= 50 && value.items.every(organization) && typeof value.hasMore === 'boolean' && (value.hasMore ? typeof value.nextAfter === 'string' && value.nextAfter.length > 0 && value.nextAfter.length <= 256 : value.nextAfter === null);
+}
 function incoming(value: unknown): value is Incoming {
   return object(value) && Array.isArray(value.invitations) && value.invitations.length <= 30 && value.invitations.every(item => object(item) && identity(item.id) && identity(item.organizationId) && role(item.role) && date(item.expiresAt)) && Array.isArray(value.transfers) && value.transfers.length <= 30 && value.transfers.every(item => object(item) && identity(item.id) && identity(item.organizationId) && date(item.expiresAt));
 }
@@ -63,23 +67,26 @@ function request(value: Intent): { path: string; method: 'POST' | 'PATCH'; body:
 export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { ownerId: string; csrfToken: string; onChanged: () => void }) {
   const storageKey = `pds-collaboration-intent:${ownerId}`;
   const [pending, setPending] = useState<Intent | null>(null), [reviewed, setReviewed] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [blocked, setBlocked] = useState(false);
-  const [available, setAvailable] = useState(false), [organizations, setOrganizations] = useState<Organization[]>([]), [offers, setOffers] = useState<Incoming>({ invitations: [], transfers: [] });
+  const [available, setAvailable] = useState(false), [organizations, setOrganizations] = useState<OrganizationPage>({ items: [], hasMore: false, nextAfter: null }), [offers, setOffers] = useState<Incoming>({ invitations: [], transfers: [] });
   const [view, setView] = useState<Shared | null>(null), [management, setManagement] = useState<Members | null>(null), [target, setTarget] = useState(''), [inviteRole, setInviteRole] = useState<Role>('viewer'), [newName, setNewName] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false), [listBusy, setListBusy] = useState(false), [listError, setListError] = useState('');
+  const listRead = useRef<AbortController | null>(null), listStatus = useRef<HTMLParagraphElement | null>(null), listFailure = useRef<HTMLParagraphElement | null>(null), focusList = useRef(false);
+  useEffect(() => { if (focusList.current) { listStatus.current?.focus(); focusList.current = false; } }, [organizations]);
+  useEffect(() => { if (listError) listFailure.current?.focus(); }, [listError]);
   const read = useRef<AbortController | null>(null), mutation = useRef<AbortController | null>(null);
   const reviewHeading = useRef<HTMLHeadingElement | null>(null), receiptNotice = useRef<HTMLParagraphElement | null>(null);
   useEffect(() => { if (available && (pending || blocked)) reviewHeading.current?.focus(); }, [available, pending, blocked]);
   useEffect(() => { if (available && notice && !pending && !blocked) receiptNotice.current?.focus(); }, [available, notice, pending, blocked]);
   async function refresh() {
-    read.current?.abort(); const controller = new AbortController(); read.current = controller;
+    read.current?.abort(); listRead.current?.abort(); setListBusy(false); setListError(''); const controller = new AbortController(); read.current = controller;
     try {
       const get = (path: string) => fetch(path, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
-      const responses = await Promise.all([get('/api/team/organizations'), get('/api/team/incoming')]);
+      const responses = await Promise.all([get('/api/team/organizations/page'), get('/api/team/incoming')]);
       if (controller.signal.aborted) return;
       if (responses.some(response => response.status === 404)) { setAvailable(false); setView(null); setManagement(null); return; }
       const [list, incomingOffers]: unknown[] = await Promise.all(responses.map(response => response.json()));
       if (controller.signal.aborted) return;
-      if (!responses.every(response => response.ok) || !Array.isArray(list) || list.length > 100 || !list.every(organization) || !incoming(incomingOffers)) throw new Error('Invalid collaboration response');
+      if (!responses.every(response => response.ok) || !organizationPage(list) || !incoming(incomingOffers)) throw new Error('Invalid collaboration response');
       setAvailable(true); setOrganizations(list); setOffers(incomingOffers); setView(null); setManagement(null);
     } catch { if (!controller.signal.aborted) setError('Organization collaboration is temporarily unavailable.'); }
   }
@@ -87,10 +94,23 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     try { const raw = sessionStorage.getItem(storageKey); if (raw) { const restored = intent(JSON.parse(raw)); if (!restored) throw new Error('Invalid retained action'); setPending(restored); } }
     catch { setBlocked(true); setNotice('A retained action could not be verified. Check current access before starting another action.'); }
     void refresh();
-    return () => { read.current?.abort(); mutation.current?.abort(); };
+    return () => { read.current?.abort(); listRead.current?.abort(); mutation.current?.abort(); };
   }, [storageKey]);
+  async function loadOrganizations(after?: string) {
+    read.current?.abort(); listRead.current?.abort();
+    const controller = new AbortController(); listRead.current = controller;
+    setListBusy(true); setListError(''); setView(null); setManagement(null); setReviewed(false);
+    try {
+      const response = await fetch(`/api/team/organizations/page${after ? `?after=${encodeURIComponent(after)}` : ''}`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+      const value: unknown = await response.json();
+      if (listRead.current !== controller || controller.signal.aborted) return;
+      if (!response.ok || !organizationPage(value)) { setOrganizations({ items: [], hasMore: false, nextAfter: null }); throw new Error('Invalid organization page'); }
+      focusList.current = true; setOrganizations(value);
+    } catch { if (listRead.current === controller && !controller.signal.aborted) setListError('The organization list could not be confirmed. Refresh current access and load the first page again.'); }
+    finally { if (listRead.current === controller && !controller.signal.aborted) setListBusy(false); }
+  }
   async function inspect(item: Organization) {
-    read.current?.abort(); const controller = new AbortController(); read.current = controller; setView(null); setManagement(null); setError(''); setReviewed(false);
+    read.current?.abort(); listRead.current?.abort(); setListBusy(false); const controller = new AbortController(); read.current = controller; setView(null); setManagement(null); setError(''); setReviewed(false);
     try {
       const paths = [`/api/team/organizations/${item.organizationId}`, ...(item.role === 'owner' ? [`/api/team/organizations/${item.organizationId}/members`] : [])];
       const responses = await Promise.all(paths.map(path => fetch(path, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) })));
@@ -137,8 +157,12 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     <ul>{offers.invitations.map(item => <li key={item.id}><p>Organization {item.organizationId}: {item.role}. Expires <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time>.</p><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'accept-invite', id: item.id, organizationId: item.organizationId, role: item.role })}>Review invitation acceptance</button></li>)}</ul>
     {offers.invitations.length === 0 && <p>No pending invitations.</p>}
     <ul>{offers.transfers.map(item => <li key={item.id}><p>Ownership offer for empty organization {item.organizationId}. Expires <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time>.</p><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'accept-offer', id: item.id, organizationId: item.organizationId })}>Review ownership acceptance</button></li>)}</ul>
-    <h4>Permitted organizations</h4><p>Up to 100 organizations and 30 incoming offers of each type are shown. Contact support if the records you need are outside these limits.</p>
-    <ul>{organizations.map(item => <li key={item.organizationId}>{item.name}: {item.role}. <button type="button" disabled={busy} onClick={() => { void inspect(item); }}>Inspect shared status</button></li>)}</ul>
+    <h4>Permitted organizations</h4><p>Each page checks your current access. Incoming offers remain limited to 30 of each type; contact support if an offer is outside that list.</p>
+    <p role="status" ref={listStatus} tabIndex={-1}>{organizations.items.length} permitted organizations shown.</p>
+    {listError && <p role="alert" ref={listFailure} tabIndex={-1}>{listError}</p>}
+    <button type="button" disabled={busy || listBusy} onClick={() => { void loadOrganizations(); }}>Load first organization page</button>
+    <ul>{organizations.items.map(item => <li key={item.organizationId}>{item.name}: {item.role}. <button type="button" disabled={busy} onClick={() => { void inspect(item); }}>Inspect shared status</button></li>)}</ul>
+    {organizations.hasMore && organizations.nextAfter && <button type="button" disabled={busy || listBusy} onClick={() => { void loadOrganizations(organizations.nextAfter!); }}>Load more organizations</button>}
     {view && <section aria-labelledby="collaboration-organization-title"><h4 id="collaboration-organization-title">{view.name}</h4><p>Current role: {view.role}.</p><ul>{view.instances.map(item => <li key={item.id}>{item.name}: {item.state} ({item.kind === 'agent' ? 'Managed local PDS' : 'Deployment simulation'}).</li>)}</ul>{view.hasMore && <p>Only the first 100 server statuses are shown.</p>}
       {view.role !== 'viewer' && <div><label htmlFor="collaboration-name">New organization name</label><input id="collaboration-name" value={newName} maxLength={100} disabled={busy || (pending !== null || blocked)} onChange={event => setNewName(event.target.value)}/><button type="button" disabled={busy || (pending !== null || blocked) || !newName.trim()} onClick={() => stage({ kind: 'rename', organizationId: view.organizationId, name: newName })}>Review rename</button></div>}
       {view.role === 'owner' && management && <><h5>Invite a colleague</h5><label htmlFor="collaboration-identity">Their management identity reference</label><input id="collaboration-identity" value={target} maxLength={36} disabled={busy || (pending !== null || blocked)} onChange={event => setTarget(event.target.value.trim().toLowerCase())}/><label htmlFor="collaboration-role">Hosting role</label><select id="collaboration-role" value={inviteRole} disabled={busy || (pending !== null || blocked)} onChange={event => setInviteRole(event.target.value as Role)}><option value="viewer">Viewer: shared status</option><option value="administrator">Administrator: shared status and organization rename</option></select><p>They must have signed in to this management service. Invitations expire after 24 hours.</p><button type="button" disabled={busy || (pending !== null || blocked) || !identity(target) || target === ownerId} onClick={() => stage({ kind: 'invite', organizationId: view.organizationId, identityId: target, role: inviteRole, key: crypto.randomUUID() })}>Review invitation</button>

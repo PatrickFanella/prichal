@@ -12,7 +12,7 @@ Ownership handover is a separate offer with a 24-hour expiry and explicit recipi
 
 All `/api/team/` routes require browser sessions; mutations require origin and CSRF. Routes list permitted organizations and incoming offers, return safe shared status and expose owner-only member/audit history. Owner invitation submission uses a stable UUID request. Acceptance addresses the existing invitation/offer ID. Membership and rename mutations record only effective changes. The public API has no deletion or native account delegation route.
 
-Shared instances and the management membership/audit summaries are bounded to 100 records; current active members are included before retained revoked history. Organization listing is bounded to 100 and each incoming-offer list to 30. Exact organization references remain usable for other organizations. `hasMore` marks truncated server lists and `membersTruncated` marks membership truncation. Full listing pagination is later work. The [local browser workspace](local-collaboration-workspace.md) adds reviewed, retained actions on top of this API.
+Shared instances and the management membership/audit summaries are bounded to 100 records; current active members are included before retained revoked history. The compatible organization array route is bounded to 100; the browser now uses [paged permitted organizations](local-organization-pages.md). Each incoming-offer list is still bounded to 30. Exact organization references remain usable for other organizations. `hasMore` marks truncated server lists and `membersTruncated` marks membership truncation. Full listing pagination is later work. The [local browser workspace](local-collaboration-workspace.md) adds reviewed, retained actions on top of this API.
 
 ## Qualification
 
