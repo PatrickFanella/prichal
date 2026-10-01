@@ -51,7 +51,13 @@ function recover(action) { command('go',['run','./cmd/management-recovery',actio
 recover('acknowledge-local-fixture');
 assert.equal(sql(report.database,'SELECT state FROM management_recovery'),'held');
 recover('reconcile');
+// Keep copied ordinary work available to prove the targeted replay cannot consume it.
+const retainedJob=sql(report.database,"UPDATE river_job SET state='available',scheduled_at=clock_timestamp() WHERE id=(SELECT id FROM river_job WHERE kind='hosting_exit_retention' AND state='scheduled' ORDER BY id LIMIT 1) RETURNING id").split('\n')[0];
+const ordinaryInventorySQL=`SELECT json_build_object('count',count(*),'sha256',coalesce(encode(sha256(convert_to(string_agg(row_to_json(j)::text,E'\\n' ORDER BY id),'UTF8')),'hex'),'empty')) FROM river_job j WHERE queue='default'`;
+const ordinaryBefore=sql(report.database,ordinaryInventorySQL);
 recover('qualify-replay');
+assert.equal(sql(report.database,ordinaryInventorySQL),ordinaryBefore,'Targeted replay consumed copied ordinary work');
+if(/^[0-9]+$/.test(retainedJob))assert.equal(sql(report.database,`SELECT state FROM river_job WHERE id=${retainedJob}`),'available');
 assert.equal(sql(report.database,'SELECT state FROM management_recovery'),'reconciled');
 assert.equal(sql(report.database,`SELECT state FROM deployments WHERE id='${placement.id}'`),'ready');
 const after=JSON.parse(docker('inspect',...names));
@@ -61,6 +67,6 @@ assert.equal(sql('pds_local',`SELECT encode(sha256(convert_to(string_agg(row_to_
 assert.deepEqual(JSON.parse(sql('pds_local',allInventorySQL)),completeSourceBefore,'Replay changed source management tables');
 assert.deepEqual(JSON.parse(sql('pds_local',managementSequenceSQL)),sourceSequences,'Replay changed source sequences');
 assert.deepEqual(nativeInventory(),signedBefore,'Replay changed source native signed data or media');
-assert.equal(sql(report.database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)'),'0');
-writeFileSync(join(resolve(reportPath,'..'),'replay-report.json'),JSON.stringify({database:report.database,instance:placement.id,retainedFixture:retained,stableContainers:true,stableCredentialsAndTLS:true,sourceDeploymentRowsUnchanged:true,sourceAllManagementTablesUnchanged:true,sourceSequencesUnchanged:true,nativeSignedDataAndMediaUnchanged:true,protectedLifecycleAndAdmissionRetained:true,copiedAuthenticationRevoked:true,state:'ready',completedAt:new Date().toISOString()},null,2)+'\n',{mode:0o600,flag:'wx'});
-console.log(JSON.stringify({database:report.database,state:'ready',stableContainers:true,stableCredentialsAndTLS:true,sourceDeploymentRowsUnchanged:true,sourceAllManagementTablesUnchanged:true,sourceSequencesUnchanged:true,nativeSignedDataAndMediaUnchanged:true,protectedLifecycleAndAdmissionRetained:true,copiedAuthenticationRevoked:true}));
+assert.equal(sql(report.database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)+(SELECT count(*) FROM cli_credentials)+(SELECT count(*) FROM cli_device_grants)'),'0');
+writeFileSync(join(resolve(reportPath,'..'),'replay-report.json'),JSON.stringify({database:report.database,instance:placement.id,retainedFixture:retained,stableContainers:true,stableCredentialsAndTLS:true,sourceDeploymentRowsUnchanged:true,sourceAllManagementTablesUnchanged:true,sourceSequencesUnchanged:true,copiedDefaultQueueUnchanged:true,nativeSignedDataAndMediaUnchanged:true,protectedLifecycleAndAdmissionRetained:true,copiedAuthenticationRevoked:true,state:'ready',completedAt:new Date().toISOString()},null,2)+'\n',{mode:0o600,flag:'wx'});
+console.log(JSON.stringify({database:report.database,state:'ready',stableContainers:true,stableCredentialsAndTLS:true,sourceDeploymentRowsUnchanged:true,sourceAllManagementTablesUnchanged:true,sourceSequencesUnchanged:true,copiedDefaultQueueUnchanged:true,nativeSignedDataAndMediaUnchanged:true,protectedLifecycleAndAdmissionRetained:true,copiedAuthenticationRevoked:true}));
