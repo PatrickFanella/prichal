@@ -1,6 +1,6 @@
 # Roadmap for standalone managed PDS hosting
 
-Status: planned; 30 implementation issues published across six Gitea milestones. Updated September 30, 2026.
+Status: local implementation and qualification in progress across six milestones. Updated October 1, 2026. No milestone has a production-qualified exit gate. The user has requested continued local work and deferred live infrastructure selection.
 
 The product is a standalone service with browser onboarding and an optional later CLI. Earlier application-suite research does not define this roadmap. No calendar promises are assigned before the first runnable slice establishes delivery speed.
 
@@ -68,9 +68,30 @@ Optional CLI, custom PDS endpoints, account migration and organization collabora
 - [#29: Migrate an existing AT account with resumable verification](https://git.subcult.tv/PatrickFanella/pds-ass/issues/29)
 - [#30: Invite organization members with scoped management roles](https://git.subcult.tv/PatrickFanella/pds-ass/issues/30)
 
-## First work and dependency order
+## Current local evidence and remaining gates
 
-Start [PDS-01 / Gitea #1](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1). Its completion unblocks local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 then establishes durable deployment intent. PDS-06 connects those pieces into real provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
+This snapshot covers commit `cae90c8` and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
+
+| Phase | Verified locally | Remaining before the phase closes |
+| --- | --- | --- |
+| M0 | Owner-scoped OIDC organizations, durable deployment intent, separate PostgreSQL, official PDS fixture and private node enrollment. See [local development](local-development.md) and [node enrollment](local-node-enrollment.md). | Staging-node bootstrap on the selected live environment, production identity configuration and deployment packaging. |
+| M1 | Restricted provisioning, localhost HTTPS, one-account enrollment, signed records/media and bounded handle proof. See [agent provisioning](local-agent-provisioning.md), [owner enrollment](local-owner-enrollment.md) and [handle proof](local-handle-proof.md). | Public DNS/TLS, email delivery, downstream federation and a controlled customer-owned handle. Local PLC/mail fixtures do not satisfy these gates. |
+| M2 | Encrypted native/management recovery, held-worker refusal and reconciliation, monitoring, isolation/resource boundaries, audited service/account actions and failed-candidate rehearsal. See [managed recovery](local-managed-recovery.md), [tenant isolation](local-tenant-isolation.md), [monitoring](local-monitoring.md) and [release rehearsal](local-release-rehearsal.md). | Independent backup custody and host-loss drills, scheduled backups/off-host alerts, storage pressure controls, distinct-release upgrades and canary promotion. |
+| M3 | Pilot grants, signed fixture billing inbox, observed usage, capacity admission, portable exports, dated reversible local exit and operator workspace. See [billing inbox](local-billing-inbox.md), [usage](local-usage.md), [customer exports](local-customer-exports.md), [hosting exit](local-hosting-exit.md) and [operator workspace](local-operator-workspace.md). | Paid Checkout/Portal and reconciliation policy, enforced plan/storage limits, populated-node drain, commercial cancellation/retention, notifications and a measured invited pilot. Fixture events are not payments; retention review does not delete data. |
+| M4 | Browser collaboration and history have actual DOM/keyboard checks and overflow checks at five representative widths. See [browser collaboration](local-collaboration-workspace.md) and [owner history](local-owner-journey.md). | Remaining onboarding/failure journeys, assistive screen-reader checks, independent production design/recovery, support terms and the signed-off public-release gate. Public signup is not qualified. |
+| M5 | Scoped Go CLI authorization/deployment simulation and five build targets; identity-bound viewer/rename-only administrator invitations and separately accepted empty-organization handover. See [customer CLI](local-customer-cli.md) and [organization access](local-organization-access.md). | Published and platform-qualified CLI, custom endpoint activation, inbound/outbound account migration, full collaboration pagination, delegated hosting/domain permissions and populated handover. |
+
+Implementation and test entrypoints include `backend/internal/auth`, `deployment`, `fleet`, `nodeagent`, `recovery`, `observability`, `lifecycle`, `billing`, `exports`, `support` and `orgaccess`. Each feature package has focused tests. `web/src` contains the corresponding browser controls; `scripts/qualify-*.mjs` exercise bounded disposable local workflows. [Progress](progress/local-m1-alpha.md) records exact drills, retained state, failures and gate results. Source files and passing builds alone do not prove the phase exit gates.
+
+## Next local work
+
+Continue browser onboarding and failure checks, full collaboration list pagination, explicit deployment admission controls, custom-endpoint preflight and migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
+
+Live provider/region, management/PDS domains, spend ceiling, production issuer, mail sender, backup custody and commercial billing remain deferred. Do not invent defaults or close issues on the strength of local rehearsal. The 15-minute target needs fresh measured pilot attempts; retries and management simulations do not establish it.
+
+## Foundation dependency order
+
+The original foundation order started with [PDS-01 / Gitea #1](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1). That runnable foundation supports local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 establishes durable deployment intent. PDS-06 connects those pieces into restricted provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
 
 M0 proves runnable foundations. M1 proves new-account deployment and BYO handles with invited testing. M2 must pass before hosting customer identities commercially. M3 proves paid service operation and a recoverable exit. M4 is the public-signup gate. M5 features are optional extensions, and none gates the first public launch.
 
