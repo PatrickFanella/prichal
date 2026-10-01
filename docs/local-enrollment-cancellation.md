@@ -1,6 +1,6 @@
 # Queued enrollment cancellation
 
-Status: locally implemented and verified on October 1, 2026. Browser cancellation review and production qualification remain open.
+Status: locally implemented and verified on October 1, 2026. Browser review has local keyboard/DOM evidence. Production qualification remains open.
 
 An owner can POST an empty JSON object to `/api/enrollments/{id}/cancel` to cancel a pending first-account request before native dispatch. The original operation UUID identifies the request. Authentication requires the browser owner session, allowed origin and CSRF token; deployment-scoped CLI credentials have no authority. The route stays unavailable outside local mode.
 
@@ -22,4 +22,4 @@ The actual T3 workspace showed verified account status without an enrollment err
 
 ## Remaining work
 
-Add browser review and exact-ticket transport recovery for cancellation, and qualify it with keyboard/error/reload checks. Positive cancellation is currently exercised in disposable database/agent fixtures. An actual designated empty PDS and independent live environment remain necessary for native withdrawal and broader release gates. This feature does not delete an account, close public signup or prove public DNS, TLS, email or federation.
+The [browser review](local-enrollment-cancellation-workspace.md) now has keyboard/error/reload and exact-ticket retry evidence. Visual and assistive checks remain open. Positive cancellation is currently exercised in disposable database/agent fixtures. An actual designated empty PDS and independent live environment remain necessary for native withdrawal and broader release gates. This feature does not delete an account, close public signup or prove public DNS, TLS, email or federation.
