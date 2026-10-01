@@ -1,0 +1,826 @@
+{
+  "repository": "PatrickFanella/pds-ass",
+  "url": "https://git.subcult.tv/PatrickFanella/pds-ass",
+  "updated": "2026-09-30",
+  "phases": [
+    {
+      "id": 0,
+      "title": "M0 - Runnable foundation",
+      "description": "Local browser/API/database and PDS fixtures run reproducibly; staging infrastructure and resumable deployment intent are ready."
+    },
+    {
+      "id": 1,
+      "title": "M1 - Private deployment alpha",
+      "description": "An invited owner deploys a real managed-domain PDS, creates an account, verifies federation and configures a BYO handle."
+    },
+    {
+      "id": 2,
+      "title": "M2 - Recoverable managed service",
+      "description": "Identity custody, full restores, monitoring, safe upgrades, tenant isolation and operator suspension are demonstrated."
+    },
+    {
+      "id": 3,
+      "title": "M3 - Paid pilot",
+      "description": "Subscription entitlements, usage limits, fleet capacity, exports and support workflows operate through a measured invited pilot."
+    },
+    {
+      "id": 4,
+      "title": "M4 - Public launch",
+      "description": "Browser onboarding and independent production infrastructure pass the documented release gate before public signup opens."
+    },
+    {
+      "id": 5,
+      "title": "M5 - Additional access and portability",
+      "description": "Optional CLI, custom PDS endpoints, account migration and organization collaboration extend the qualified API."
+    }
+  ],
+  "labels": [
+    {
+      "name": "ready-for-agent",
+      "color": "2da44e",
+      "description": "Scoped implementation work; start only when native blockers are complete."
+    },
+    {
+      "name": "priority: P0",
+      "color": "b60205",
+      "description": "Required for its phase release gate."
+    },
+    {
+      "name": "priority: P1",
+      "color": "d29922",
+      "description": "Supported product completion work."
+    },
+    {
+      "name": "priority: P2",
+      "color": "8250df",
+      "description": "Later extension; not required for initial public launch."
+    },
+    {
+      "name": "area: billing",
+      "color": "0969da",
+      "description": "Primary delivery area: billing."
+    },
+    {
+      "name": "area: browser",
+      "color": "0969da",
+      "description": "Primary delivery area: browser."
+    },
+    {
+      "name": "area: cli",
+      "color": "0969da",
+      "description": "Primary delivery area: cli."
+    },
+    {
+      "name": "area: control-plane",
+      "color": "0969da",
+      "description": "Primary delivery area: control-plane."
+    },
+    {
+      "name": "area: infrastructure",
+      "color": "0969da",
+      "description": "Primary delivery area: infrastructure."
+    },
+    {
+      "name": "area: operations",
+      "color": "0969da",
+      "description": "Primary delivery area: operations."
+    },
+    {
+      "name": "area: platform",
+      "color": "0969da",
+      "description": "Primary delivery area: platform."
+    }
+  ],
+  "issues": [
+    {
+      "id": 1,
+      "title": "Run the standalone local stack and CI smoke journey",
+      "phase": 0,
+      "area": "platform",
+      "priority": "P0",
+      "blocked_by": [],
+      "build": "A contributor can start a Go management API, React interface and disposable PostgreSQL, then open the interface and see database-backed service readiness.",
+      "criteria": [
+        "Document and pin supported toolchains, dependency locks and local startup commands.",
+        "A versioned migration initializes the management schema; incompatible schema versions fail clearly.",
+        "The browser calls the API and displays readiness without exposing configuration secrets.",
+        "Gitea CI builds both applications and runs a clean-database smoke journey without cloud credentials."
+      ],
+      "verification": "Start from a clean checkout, open the browser, stop PostgreSQL and verify readiness changes; run the same build and smoke gates in CI.",
+      "boundary": "No deployment, billing, existing application imports, production cloud creation or live mail is needed.",
+      "slug": "run-the-standalone-local-stack-and-ci-smoke-journey",
+      "filename": "01-run-the-standalone-local-stack-and-ci-smoke-journey.md",
+      "body_template": "<!-- pds-ass-roadmap:01 -->\n\n## What to build\n\nA contributor can start a Go management API, React interface and disposable PostgreSQL, then open the interface and see database-backed service readiness.\n\n## Acceptance criteria\n\n- [ ] Document and pin supported toolchains, dependency locks and local startup commands.\n- [ ] A versioned migration initializes the management schema; incompatible schema versions fail clearly.\n- [ ] The browser calls the API and displays readiness without exposing configuration secrets.\n- [ ] Gitea CI builds both applications and runs a clean-database smoke journey without cloud credentials.\n\n## Verification\n\nStart from a clean checkout, open the browser, stop PostgreSQL and verify readiness changes; run the same build and smoke gates in CI.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nNo deployment, billing, existing application imports, production cloud creation or live mail is needed.\n\n## Planning reference\n\nPhase: M0 - Runnable foundation. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 2,
+      "title": "Sign in and create an owner-scoped organization",
+      "phase": 0,
+      "area": "control-plane",
+      "priority": "P0",
+      "blocked_by": [
+        1
+      ],
+      "build": "A customer signs in through configured OIDC, creates an organization and sees only that organization in the browser.",
+      "criteria": [
+        "Choose and document the production OIDC provider; local tests use an isolated test issuer.",
+        "Validate state, nonce, issuer, audience and callback destinations; browser sessions use secure cookie settings.",
+        "Identity keys use issuer and subject; matching email or DID never merges users.",
+        "Organization ownership gates API access, and sign-out/revocation invalidates management sessions.",
+        "Two owners cannot enumerate or modify each other's organization."
+      ],
+      "verification": "Exercise successful login, rejected callback replay, wrong issuer/audience, logout and cross-organization access through browser and API tests.",
+      "boundary": "Management identity is independent of PDS login; multi-member organization roles are a later extension.",
+      "slug": "sign-in-and-create-an-owner-scoped-organization",
+      "filename": "02-sign-in-and-create-an-owner-scoped-organization.md",
+      "body_template": "<!-- pds-ass-roadmap:02 -->\n\n## What to build\n\nA customer signs in through configured OIDC, creates an organization and sees only that organization in the browser.\n\n## Acceptance criteria\n\n- [ ] Choose and document the production OIDC provider; local tests use an isolated test issuer.\n- [ ] Validate state, nonce, issuer, audience and callback destinations; browser sessions use secure cookie settings.\n- [ ] Identity keys use issuer and subject; matching email or DID never merges users.\n- [ ] Organization ownership gates API access, and sign-out/revocation invalidates management sessions.\n- [ ] Two owners cannot enumerate or modify each other's organization.\n\n## Verification\n\nExercise successful login, rejected callback replay, wrong issuer/audience, logout and cross-organization access through browser and API tests.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nManagement identity is independent of PDS login; multi-member organization roles are a later extension.\n\n## Planning reference\n\nPhase: M0 - Runnable foundation. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 3,
+      "title": "Bootstrap and register a staging hosting node",
+      "phase": 0,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        1
+      ],
+      "build": "An operator creates a staging node from versioned infrastructure configuration and sees its verified identity and usable capacity in management inventory.",
+      "criteria": [
+        "Record provider, region, spend ceiling, management/PDS domains and backup destination before provisioning.",
+        "OpenTofu creates only declared resources; Ansible configures Ubuntu, Docker, private administration, firewall and a restricted agent.",
+        "Only HTTPS/required certificate validation is public; database and host administration remain private.",
+        "Node enrollment validates a one-time bootstrap credential and authenticates subsequent agent connections.",
+        "Infrastructure state and bootstrap secrets are protected; rerunning configuration does not create duplicate nodes."
+      ],
+      "verification": "Review the infrastructure plan, bootstrap an authorized staging node, register it and rerun convergence; reject an unknown or replayed node enrollment.",
+      "boundary": "This issue establishes one provider and region; executing paid provisioning requires actual account credentials and an approved budget.",
+      "slug": "bootstrap-and-register-a-staging-hosting-node",
+      "filename": "03-bootstrap-and-register-a-staging-hosting-node.md",
+      "body_template": "<!-- pds-ass-roadmap:03 -->\n\n## What to build\n\nAn operator creates a staging node from versioned infrastructure configuration and sees its verified identity and usable capacity in management inventory.\n\n## Acceptance criteria\n\n- [ ] Record provider, region, spend ceiling, management/PDS domains and backup destination before provisioning.\n- [ ] OpenTofu creates only declared resources; Ansible configures Ubuntu, Docker, private administration, firewall and a restricted agent.\n- [ ] Only HTTPS/required certificate validation is public; database and host administration remain private.\n- [ ] Node enrollment validates a one-time bootstrap credential and authenticates subsequent agent connections.\n- [ ] Infrastructure state and bootstrap secrets are protected; rerunning configuration does not create duplicate nodes.\n\n## Verification\n\nReview the infrastructure plan, bootstrap an authorized staging node, register it and rerun convergence; reject an unknown or replayed node enrollment.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThis issue establishes one provider and region; executing paid provisioning requires actual account credentials and an approved budget.\n\n## Planning reference\n\nPhase: M0 - Runnable foundation. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 4,
+      "title": "Qualify a disposable official PDS runtime",
+      "phase": 0,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        1
+      ],
+      "build": "An operator launches a disposable pinned PDS runtime with separate database and blob storage, then verifies its supported protocol and transport behavior.",
+      "criteria": [
+        "Pin the official PDS image by digest and render a reusable runtime manifest.",
+        "Allocate separate PDS SQLite state, blob namespace and credentials; persist them across a restart.",
+        "Retain invite codes and repository rate limits; define CPU, memory, disk and account limits.",
+        "Health and WebSocket checks run through a test ingress; database and storage failures report accurately.",
+        "Document isolated identity fixtures and a separate designated live-account qualification path."
+      ],
+      "verification": "Run a disposable runtime, restart it, test storage and WebSockets, and prove expected data persists; no production identity is created in CI.",
+      "boundary": "Keep the upstream protocol implementation; do not replace SQLite or rewrite PDS functionality.",
+      "slug": "qualify-a-disposable-official-pds-runtime",
+      "filename": "04-qualify-a-disposable-official-pds-runtime.md",
+      "body_template": "<!-- pds-ass-roadmap:04 -->\n\n## What to build\n\nAn operator launches a disposable pinned PDS runtime with separate database and blob storage, then verifies its supported protocol and transport behavior.\n\n## Acceptance criteria\n\n- [ ] Pin the official PDS image by digest and render a reusable runtime manifest.\n- [ ] Allocate separate PDS SQLite state, blob namespace and credentials; persist them across a restart.\n- [ ] Retain invite codes and repository rate limits; define CPU, memory, disk and account limits.\n- [ ] Health and WebSocket checks run through a test ingress; database and storage failures report accurately.\n- [ ] Document isolated identity fixtures and a separate designated live-account qualification path.\n\n## Verification\n\nRun a disposable runtime, restart it, test storage and WebSockets, and prove expected data persists; no production identity is created in CI.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nKeep the upstream protocol implementation; do not replace SQLite or rewrite PDS functionality.\n\n## Planning reference\n\nPhase: M0 - Runnable foundation. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 5,
+      "title": "Submit and resume a durable deployment request",
+      "phase": 0,
+      "area": "control-plane",
+      "priority": "P0",
+      "blocked_by": [
+        2
+      ],
+      "build": "An owner names a server in the browser, submits a deployment request and can return later to the same durable operation and progress history.",
+      "criteria": [
+        "Persist deployment intent and a River job in one PostgreSQL transaction.",
+        "Validate name, supported region and organization-scoped idempotency key.",
+        "A test provisioner exercises queued/configuring/checking/ready/failed states and bounded retries.",
+        "Closing the browser or restarting the worker does not lose progress or create another instance.",
+        "Errors are customer-readable and secret-free; only authorized owners can read operation status."
+      ],
+      "verification": "Replay an identical request, conflict on different parameters, crash the test worker and reopen the browser; verify one intent and one resulting instance.",
+      "boundary": "This slice uses a test provisioner; real host execution follows without changing the customer contract.",
+      "slug": "submit-and-resume-a-durable-deployment-request",
+      "filename": "05-submit-and-resume-a-durable-deployment-request.md",
+      "body_template": "<!-- pds-ass-roadmap:05 -->\n\n## What to build\n\nAn owner names a server in the browser, submits a deployment request and can return later to the same durable operation and progress history.\n\n## Acceptance criteria\n\n- [ ] Persist deployment intent and a River job in one PostgreSQL transaction.\n- [ ] Validate name, supported region and organization-scoped idempotency key.\n- [ ] A test provisioner exercises queued/configuring/checking/ready/failed states and bounded retries.\n- [ ] Closing the browser or restarting the worker does not lose progress or create another instance.\n- [ ] Errors are customer-readable and secret-free; only authorized owners can read operation status.\n\n## Verification\n\nReplay an identical request, conflict on different parameters, crash the test worker and reopen the browser; verify one intent and one resulting instance.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThis slice uses a test provisioner; real host execution follows without changing the customer contract.\n\n## Planning reference\n\nPhase: M0 - Runnable foundation. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 6,
+      "title": "Provision a real PDS through the restricted host agent",
+      "phase": 1,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        3,
+        4,
+        5
+      ],
+      "build": "An invited owner requests a deployment and the worker starts one PDS on a registered staging node, preserving the instance after worker retries.",
+      "criteria": [
+        "Placement reserves measured host capacity and an instance-specific persistent volume/storage namespace.",
+        "Worker and agent use authenticated private communication and an allowlisted lifecycle contract.",
+        "Neither public API nor customer runtime receives host Docker administration, provider credentials or arbitrary execution capability.",
+        "A crash after container creation reconciles by stable instance ID before retrying.",
+        "Exhausted capacity, agent timeout and uncertain completion leave diagnosable state without deleting user data."
+      ],
+      "verification": "Deploy to staging, interrupt the worker after host success, retry and verify exactly one runtime/volume; reject unregistered agents and arbitrary image/path requests.",
+      "boundary": "Deploy only pinned service-managed PDS runtimes; no customer code hosting or per-request VM installation.",
+      "slug": "provision-a-real-pds-through-the-restricted-host-agent",
+      "filename": "06-provision-a-real-pds-through-the-restricted-host-agent.md",
+      "body_template": "<!-- pds-ass-roadmap:06 -->\n\n## What to build\n\nAn invited owner requests a deployment and the worker starts one PDS on a registered staging node, preserving the instance after worker retries.\n\n## Acceptance criteria\n\n- [ ] Placement reserves measured host capacity and an instance-specific persistent volume/storage namespace.\n- [ ] Worker and agent use authenticated private communication and an allowlisted lifecycle contract.\n- [ ] Neither public API nor customer runtime receives host Docker administration, provider credentials or arbitrary execution capability.\n- [ ] A crash after container creation reconciles by stable instance ID before retrying.\n- [ ] Exhausted capacity, agent timeout and uncertain completion leave diagnosable state without deleting user data.\n\n## Verification\n\nDeploy to staging, interrupt the worker after host success, retry and verify exactly one runtime/volume; reject unregistered agents and arbitrary image/path requests.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nDeploy only pinned service-managed PDS runtimes; no customer code hosting or per-request VM installation.\n\n## Planning reference\n\nPhase: M1 - Private deployment alpha. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 7,
+      "title": "Expose stable managed PDS hostnames with HTTPS",
+      "phase": 1,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        6
+      ],
+      "build": "A customer receives a stable provider-managed PDS URL with valid HTTPS and working protocol/WebSocket routing.",
+      "criteria": [
+        "Use a registered PDS domain separate from management/OAuth application domains.",
+        "Automate supported DNS and Caddy configuration for endpoints and required account-handle hostnames.",
+        "Issue certificates only for verified service inventory; reject unknown hosts and conflicting names.",
+        "Handle certificate/DNS failures as explicit progress or failure states rather than marking the server ready.",
+        "Record endpoint identity independently from node placement so recovery can retain the hostname."
+      ],
+      "verification": "Reach a staging PDS through its public URL, validate TLS and WebSockets, reject an unregistered hostname, and retry a failed certificate step.",
+      "boundary": "Managed hostnames are the default; customer-owned PDS endpoints are a later issue.",
+      "slug": "expose-stable-managed-pds-hostnames-with-https",
+      "filename": "07-expose-stable-managed-pds-hostnames-with-https.md",
+      "body_template": "<!-- pds-ass-roadmap:07 -->\n\n## What to build\n\nA customer receives a stable provider-managed PDS URL with valid HTTPS and working protocol/WebSocket routing.\n\n## Acceptance criteria\n\n- [ ] Use a registered PDS domain separate from management/OAuth application domains.\n- [ ] Automate supported DNS and Caddy configuration for endpoints and required account-handle hostnames.\n- [ ] Issue certificates only for verified service inventory; reject unknown hosts and conflicting names.\n- [ ] Handle certificate/DNS failures as explicit progress or failure states rather than marking the server ready.\n- [ ] Record endpoint identity independently from node placement so recovery can retain the hostname.\n\n## Verification\n\nReach a staging PDS through its public URL, validate TLS and WebSockets, reject an unregistered hostname, and retry a failed certificate step.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nManaged hostnames are the default; customer-owned PDS endpoints are a later issue.\n\n## Planning reference\n\nPhase: M1 - Private deployment alpha. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 8,
+      "title": "Guide the owner through first-account enrollment",
+      "phase": 1,
+      "area": "browser",
+      "priority": "P0",
+      "blocked_by": [
+        2,
+        7
+      ],
+      "build": "After deployment, the owner follows a scoped enrollment flow to create and verify the first AT account on their PDS and log in with a compatible client.",
+      "criteria": [
+        "Issue an expiring, tenant-scoped enrollment invitation and prevent reuse.",
+        "Use the supported PDS/client account flow; management pages do not collect PDS passwords or display administrator credentials.",
+        "Verification mail uses an approved sender and monitored delivery in staging; tests use a capture transport.",
+        "Expose clear pending states for verification and failures, and offer bounded owner-authorized invitation recovery.",
+        "Retain invite-only registration and configured account limits."
+      ],
+      "verification": "Complete enrollment and login on a designated staging identity; test wrong tenant, reused invitation, expired invitation and mail failure without creating extra accounts.",
+      "boundary": "Fresh accounts only; existing-account migration and delegated organization publishing are separate work.",
+      "slug": "guide-the-owner-through-first-account-enrollment",
+      "filename": "08-guide-the-owner-through-first-account-enrollment.md",
+      "body_template": "<!-- pds-ass-roadmap:08 -->\n\n## What to build\n\nAfter deployment, the owner follows a scoped enrollment flow to create and verify the first AT account on their PDS and log in with a compatible client.\n\n## Acceptance criteria\n\n- [ ] Issue an expiring, tenant-scoped enrollment invitation and prevent reuse.\n- [ ] Use the supported PDS/client account flow; management pages do not collect PDS passwords or display administrator credentials.\n- [ ] Verification mail uses an approved sender and monitored delivery in staging; tests use a capture transport.\n- [ ] Expose clear pending states for verification and failures, and offer bounded owner-authorized invitation recovery.\n- [ ] Retain invite-only registration and configured account limits.\n\n## Verification\n\nComplete enrollment and login on a designated staging identity; test wrong tenant, reused invitation, expired invitation and mail failure without creating extra accounts.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nFresh accounts only; existing-account migration and delegated organization publishing are separate work.\n\n## Planning reference\n\nPhase: M1 - Private deployment alpha. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 9,
+      "title": "Prove signed records, media and downstream federation",
+      "phase": 1,
+      "area": "platform",
+      "priority": "P0",
+      "blocked_by": [
+        8
+      ],
+      "build": "The customer can authenticate, write and read a signed record and media on the hosted PDS; the service distinguishes local readiness from downstream indexing.",
+      "criteria": [
+        "Verify DID/handle/PDS resolution, repository write/read and referenced blob retrieval on a designated identity.",
+        "Check subscription events through the public WebSocket route.",
+        "Request or verify relay discovery according to supported upstream behavior and record indexing evidence.",
+        "Show pending downstream verification distinctly from failure and server readiness.",
+        "Keep signed write probes bounded and isolated; failed tests do not overwrite customer records."
+      ],
+      "verification": "Run a staged account/read/write/blob/WebSocket journey and verify a downstream consumer sees the test record; simulate relay delay and local transport failure.",
+      "boundary": "Hosting does not promise guaranteed Bluesky visibility, immediate indexing, or exemption from downstream policies.",
+      "slug": "prove-signed-records-media-and-downstream-federation",
+      "filename": "09-prove-signed-records-media-and-downstream-federation.md",
+      "body_template": "<!-- pds-ass-roadmap:09 -->\n\n## What to build\n\nThe customer can authenticate, write and read a signed record and media on the hosted PDS; the service distinguishes local readiness from downstream indexing.\n\n## Acceptance criteria\n\n- [ ] Verify DID/handle/PDS resolution, repository write/read and referenced blob retrieval on a designated identity.\n- [ ] Check subscription events through the public WebSocket route.\n- [ ] Request or verify relay discovery according to supported upstream behavior and record indexing evidence.\n- [ ] Show pending downstream verification distinctly from failure and server readiness.\n- [ ] Keep signed write probes bounded and isolated; failed tests do not overwrite customer records.\n\n## Verification\n\nRun a staged account/read/write/blob/WebSocket journey and verify a downstream consumer sees the test record; simulate relay delay and local transport failure.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nHosting does not promise guaranteed Bluesky visibility, immediate indexing, or exemption from downstream policies.\n\n## Planning reference\n\nPhase: M1 - Private deployment alpha. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 10,
+      "title": "Attach and verify a customer-owned domain handle",
+      "phase": 1,
+      "area": "browser",
+      "priority": "P1",
+      "blocked_by": [
+        8
+      ],
+      "build": "An owner configures their AT account to use a domain they own, while the hosted PDS endpoint stays stable.",
+      "criteria": [
+        "Show exact TXT or supported well-known verification instructions without requiring registrar transfer.",
+        "Authorize the account change against the correct organization and proven account control.",
+        "Validate forward and reverse identity claims and reject ambiguous, conflicting or invalid domain records.",
+        "Show pending DNS verification and bounded rechecks without provisioning a replacement PDS.",
+        "Test removal/change of the handle independently from endpoint and storage lifecycle."
+      ],
+      "verification": "Use a controlled domain to attach a handle; test unverified account control, conflicting DID, DNS delay and unchanged PDS endpoint.",
+      "boundary": "BYO handle is distinct from BYO PDS endpoint, and custom DNS is outside the managed-domain provisioning timing claim.",
+      "slug": "attach-and-verify-a-customer-owned-domain-handle",
+      "filename": "10-attach-and-verify-a-customer-owned-domain-handle.md",
+      "body_template": "<!-- pds-ass-roadmap:10 -->\n\n## What to build\n\nAn owner configures their AT account to use a domain they own, while the hosted PDS endpoint stays stable.\n\n## Acceptance criteria\n\n- [ ] Show exact TXT or supported well-known verification instructions without requiring registrar transfer.\n- [ ] Authorize the account change against the correct organization and proven account control.\n- [ ] Validate forward and reverse identity claims and reject ambiguous, conflicting or invalid domain records.\n- [ ] Show pending DNS verification and bounded rechecks without provisioning a replacement PDS.\n- [ ] Test removal/change of the handle independently from endpoint and storage lifecycle.\n\n## Verification\n\nUse a controlled domain to attach a handle; test unverified account control, conflicting DID, DNS delay and unchanged PDS endpoint.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nBYO handle is distinct from BYO PDS endpoint, and custom DNS is outside the managed-domain provisioning timing claim.\n\n## Planning reference\n\nPhase: M1 - Private deployment alpha. Priority: P1.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 11,
+      "title": "Protect credentials and prove identity-key recovery",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        3,
+        4
+      ],
+      "build": "An operator can securely provision runtime credentials and recover a disposable account's identity from independently protected recovery material.",
+      "criteria": [
+        "Choose the supported runtime encryption/KMS and recovery-custody approach before paid customer use.",
+        "Separate tenant credentials, provider tokens, PLC rotation material and recovery-key access.",
+        "Store references rather than secret values in jobs, logs, browser responses, exports and audit records.",
+        "Rehearse key recovery and credential rotation with protected backups; identify unrecoverable conditions honestly.",
+        "Capture administrative access/rotation evidence without revealing key material."
+      ],
+      "verification": "Scan artifacts and logs for leaked values, rotate designated staging credentials and recover identity with the documented recovery path.",
+      "boundary": "SOPS configuration encryption alone is not a full identity recovery plan; customer-held keys are opt-in and require a supported custody flow.",
+      "slug": "protect-credentials-and-prove-identity-key-recovery",
+      "filename": "11-protect-credentials-and-prove-identity-key-recovery.md",
+      "body_template": "<!-- pds-ass-roadmap:11 -->\n\n## What to build\n\nAn operator can securely provision runtime credentials and recover a disposable account's identity from independently protected recovery material.\n\n## Acceptance criteria\n\n- [ ] Choose the supported runtime encryption/KMS and recovery-custody approach before paid customer use.\n- [ ] Separate tenant credentials, provider tokens, PLC rotation material and recovery-key access.\n- [ ] Store references rather than secret values in jobs, logs, browser responses, exports and audit records.\n- [ ] Rehearse key recovery and credential rotation with protected backups; identify unrecoverable conditions honestly.\n- [ ] Capture administrative access/rotation evidence without revealing key material.\n\n## Verification\n\nScan artifacts and logs for leaked values, rotate designated staging credentials and recover identity with the documented recovery path.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nSOPS configuration encryption alone is not a full identity recovery plan; customer-held keys are opt-in and require a supported custody flow.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 12,
+      "title": "Back up and restore a complete customer PDS",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        6,
+        11
+      ],
+      "build": "An operator restores a populated customer PDS onto a clean node, retaining its identity, hostname, repositories, media and necessary private preferences.",
+      "criteria": [
+        "Back up all PDS-wide and account SQLite databases using a consistent SQLite-aware method, plus protected configuration and referenced blob inventory.",
+        "Use independent recovery storage with separate access credentials and retention metadata.",
+        "Restore to a fresh node with fencing that prevents two active writers under the same endpoint.",
+        "Compare database/repository/blob inventories and authenticate/write again after restoration.",
+        "Measure achieved data-loss and recovery intervals against the proposed 15-minute/60-minute pilot targets; expose gaps rather than promising them."
+      ],
+      "verification": "Populate a disposable PDS, simulate node loss, restore it, compare inventories and prove new writes and downstream events with the original identity.",
+      "boundary": "A volume snapshot or account CAR export alone does not complete disaster recovery; retain the old copy until the restored instance is verified.",
+      "slug": "back-up-and-restore-a-complete-customer-pds",
+      "filename": "12-back-up-and-restore-a-complete-customer-pds.md",
+      "body_template": "<!-- pds-ass-roadmap:12 -->\n\n## What to build\n\nAn operator restores a populated customer PDS onto a clean node, retaining its identity, hostname, repositories, media and necessary private preferences.\n\n## Acceptance criteria\n\n- [ ] Back up all PDS-wide and account SQLite databases using a consistent SQLite-aware method, plus protected configuration and referenced blob inventory.\n- [ ] Use independent recovery storage with separate access credentials and retention metadata.\n- [ ] Restore to a fresh node with fencing that prevents two active writers under the same endpoint.\n- [ ] Compare database/repository/blob inventories and authenticate/write again after restoration.\n- [ ] Measure achieved data-loss and recovery intervals against the proposed 15-minute/60-minute pilot targets; expose gaps rather than promising them.\n\n## Verification\n\nPopulate a disposable PDS, simulate node loss, restore it, compare inventories and prove new writes and downstream events with the original identity.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nA volume snapshot or account CAR export alone does not complete disaster recovery; retain the old copy until the restored instance is verified.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 13,
+      "title": "Restore management state and reconcile recovered jobs",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        5,
+        11
+      ],
+      "build": "After management database loss, an operator restores organizations and operations and reconnects them to live host inventory without duplicating PDS deployments.",
+      "criteria": [
+        "Protect PostgreSQL backups and recovery credentials independently of the active management machine.",
+        "Include deployment intent, billing references, domains, node identities and audit history in recovery inventory.",
+        "Pause recovered jobs until reconciliation matches existing host instances by stable IDs.",
+        "Handle ambiguous/orphaned resources as operator work rather than deleting or duplicating them.",
+        "Document schema compatibility, recovery order and a rollback checkpoint."
+      ],
+      "verification": "Restore a disposable management database while a host runtime exists and a job has an uncertain outcome; verify that resumption allocates no duplicate.",
+      "boundary": "Control-plane recovery does not replace PDS data recovery, and billing processor state requires separate reconciliation.",
+      "slug": "restore-management-state-and-reconcile-recovered-jobs",
+      "filename": "13-restore-management-state-and-reconcile-recovered-jobs.md",
+      "body_template": "<!-- pds-ass-roadmap:13 -->\n\n## What to build\n\nAfter management database loss, an operator restores organizations and operations and reconnects them to live host inventory without duplicating PDS deployments.\n\n## Acceptance criteria\n\n- [ ] Protect PostgreSQL backups and recovery credentials independently of the active management machine.\n- [ ] Include deployment intent, billing references, domains, node identities and audit history in recovery inventory.\n- [ ] Pause recovered jobs until reconciliation matches existing host instances by stable IDs.\n- [ ] Handle ambiguous/orphaned resources as operator work rather than deleting or duplicating them.\n- [ ] Document schema compatibility, recovery order and a rollback checkpoint.\n\n## Verification\n\nRestore a disposable management database while a host runtime exists and a job has an uncertain outcome; verify that resumption allocates no duplicate.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nControl-plane recovery does not replace PDS data recovery, and billing processor state requires separate reconciliation.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 14,
+      "title": "Detect outages, failed backups and exhausted capacity",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        7,
+        12,
+        13
+      ],
+      "build": "An operator receives actionable alerts for PDS availability, certificate/storage problems, job backlog and stale recovery evidence.",
+      "criteria": [
+        "Collect bounded tenant/node metrics and structured logs without account passwords, keys or private records.",
+        "Use an external HTTPS/WebSocket probe that can detect failure of the hosting network itself.",
+        "Alert on disk/storage thresholds, exhausted placement capacity, stale backups, restore failure and queued/failed operations.",
+        "Expose customer-readable service status and last backup/recovery-test information.",
+        "Write incident runbooks with ownership, diagnostic steps and alert deduplication."
+      ],
+      "verification": "Inject endpoint, disk, queue and backup failures and verify the intended alert and operator runbook; verify no sensitive payload enters monitoring.",
+      "boundary": "Monitoring must work when the application is down; no uptime/SLA claim is inferred from installing dashboards.",
+      "slug": "detect-outages-failed-backups-and-exhausted-capacity",
+      "filename": "14-detect-outages-failed-backups-and-exhausted-capacity.md",
+      "body_template": "<!-- pds-ass-roadmap:14 -->\n\n## What to build\n\nAn operator receives actionable alerts for PDS availability, certificate/storage problems, job backlog and stale recovery evidence.\n\n## Acceptance criteria\n\n- [ ] Collect bounded tenant/node metrics and structured logs without account passwords, keys or private records.\n- [ ] Use an external HTTPS/WebSocket probe that can detect failure of the hosting network itself.\n- [ ] Alert on disk/storage thresholds, exhausted placement capacity, stale backups, restore failure and queued/failed operations.\n- [ ] Expose customer-readable service status and last backup/recovery-test information.\n- [ ] Write incident runbooks with ownership, diagnostic steps and alert deduplication.\n\n## Verification\n\nInject endpoint, disk, queue and backup failures and verify the intended alert and operator runbook; verify no sensitive payload enters monitoring.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nMonitoring must work when the application is down; no uptime/SLA claim is inferred from installing dashboards.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 15,
+      "title": "Upgrade a PDS with staged rollout and safe recovery",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        9,
+        12
+      ],
+      "build": "An operator qualifies a new PDS image on a populated staging instance, upgrades one selected tenant and either verifies it or follows a compatible recovery path.",
+      "criteria": [
+        "Pin release images and record before/after runtime and schema versions.",
+        "Create and validate a recovery checkpoint before a potentially incompatible upgrade.",
+        "Exercise account auth, signed writes, blobs and WebSocket/federation transport before fleet expansion.",
+        "Prevent unreviewed automatic fleet-wide updates and overlapping maintenance operations.",
+        "If schemas cannot downgrade safely, restore compatible data rather than run an old image on changed SQLite files."
+      ],
+      "verification": "Rehearse one successful and one failed upgrade using populated disposable data; prove the documented rollback or restore preserves identity and content.",
+      "boundary": "No automatic schema downgrade or blanket reboot/update of every customer PDS.",
+      "slug": "upgrade-a-pds-with-staged-rollout-and-safe-recovery",
+      "filename": "15-upgrade-a-pds-with-staged-rollout-and-safe-recovery.md",
+      "body_template": "<!-- pds-ass-roadmap:15 -->\n\n## What to build\n\nAn operator qualifies a new PDS image on a populated staging instance, upgrades one selected tenant and either verifies it or follows a compatible recovery path.\n\n## Acceptance criteria\n\n- [ ] Pin release images and record before/after runtime and schema versions.\n- [ ] Create and validate a recovery checkpoint before a potentially incompatible upgrade.\n- [ ] Exercise account auth, signed writes, blobs and WebSocket/federation transport before fleet expansion.\n- [ ] Prevent unreviewed automatic fleet-wide updates and overlapping maintenance operations.\n- [ ] If schemas cannot downgrade safely, restore compatible data rather than run an old image on changed SQLite files.\n\n## Verification\n\nRehearse one successful and one failed upgrade using populated disposable data; prove the documented rollback or restore preserves identity and content.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nNo automatic schema downgrade or blanket reboot/update of every customer PDS.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 16,
+      "title": "Enforce tenant isolation and runtime resource boundaries",
+      "phase": 2,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        6,
+        7,
+        11
+      ],
+      "build": "Two independently provisioned organizations can operate their PDSs without reading each other's state or exhausting the entire host through ordinary supported requests.",
+      "criteria": [
+        "Isolate runtime credentials, volumes, networks, blob namespaces and management authorization.",
+        "Apply CPU/memory/storage/account controls with customer-readable limit behavior.",
+        "Keep database and agent interfaces private; block access to cloud metadata, host admin interfaces and other tenants.",
+        "Validate host/instance/path identifiers instead of accepting arbitrary shell commands or images.",
+        "Document shared-host failure boundaries and any limits that still require operator intervention."
+      ],
+      "verification": "Run two populated tenants and attempt cross-tenant API, storage and network access; exercise resource limits and a tenant crash while observing the neighbor.",
+      "boundary": "Container isolation is not dedicated-machine isolation; security review must assess the actual supported runtime and threat model.",
+      "slug": "enforce-tenant-isolation-and-runtime-resource-boundaries",
+      "filename": "16-enforce-tenant-isolation-and-runtime-resource-boundaries.md",
+      "body_template": "<!-- pds-ass-roadmap:16 -->\n\n## What to build\n\nTwo independently provisioned organizations can operate their PDSs without reading each other's state or exhausting the entire host through ordinary supported requests.\n\n## Acceptance criteria\n\n- [ ] Isolate runtime credentials, volumes, networks, blob namespaces and management authorization.\n- [ ] Apply CPU/memory/storage/account controls with customer-readable limit behavior.\n- [ ] Keep database and agent interfaces private; block access to cloud metadata, host admin interfaces and other tenants.\n- [ ] Validate host/instance/path identifiers instead of accepting arbitrary shell commands or images.\n- [ ] Document shared-host failure boundaries and any limits that still require operator intervention.\n\n## Verification\n\nRun two populated tenants and attempt cross-tenant API, storage and network access; exercise resource limits and a tenant crash while observing the neighbor.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nContainer isolation is not dedicated-machine isolation; security review must assess the actual supported runtime and threat model.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 17,
+      "title": "Suspend and resume service through audited operator actions",
+      "phase": 2,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        14,
+        16
+      ],
+      "build": "An authorized operator can suspend a tenant or account for an operational/abuse reason, explain its status and resume it without erasing retained data.",
+      "criteria": [
+        "Define distinct service and account suspension actions using supported PDS lifecycle semantics.",
+        "Record actor, target, reason, prior state and outcome; require operator authorization on every action.",
+        "Stop new enrollment and supported serving/writing as intended, preserving recovery and export eligibility.",
+        "Provide a customer-visible status and a documented report/review workflow.",
+        "Resumption reconciles actual runtime state and rejects conflicting lifecycle operations."
+      ],
+      "verification": "Suspend a disposable tenant/account, prove the intended access restrictions and retained data, then resume it; reject owner-to-operator privilege escalation.",
+      "boundary": "Suspension is reversible and separate from billing cancellation, scheduled deletion and downstream application moderation.",
+      "slug": "suspend-and-resume-service-through-audited-operator-actions",
+      "filename": "17-suspend-and-resume-service-through-audited-operator-actions.md",
+      "body_template": "<!-- pds-ass-roadmap:17 -->\n\n## What to build\n\nAn authorized operator can suspend a tenant or account for an operational/abuse reason, explain its status and resume it without erasing retained data.\n\n## Acceptance criteria\n\n- [ ] Define distinct service and account suspension actions using supported PDS lifecycle semantics.\n- [ ] Record actor, target, reason, prior state and outcome; require operator authorization on every action.\n- [ ] Stop new enrollment and supported serving/writing as intended, preserving recovery and export eligibility.\n- [ ] Provide a customer-visible status and a documented report/review workflow.\n- [ ] Resumption reconciles actual runtime state and rejects conflicting lifecycle operations.\n\n## Verification\n\nSuspend a disposable tenant/account, prove the intended access restrictions and retained data, then resume it; reject owner-to-operator privilege escalation.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nSuspension is reversible and separate from billing cancellation, scheduled deletion and downstream application moderation.\n\n## Planning reference\n\nPhase: M2 - Recoverable managed service. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 18,
+      "title": "Gate paid deployment with subscription entitlements",
+      "phase": 3,
+      "area": "billing",
+      "priority": "P0",
+      "blocked_by": [
+        2,
+        5
+      ],
+      "build": "A customer selects a plan, completes hosted checkout and can deploy only after verified subscription entitlement is recorded.",
+      "criteria": [
+        "Choose bounded pilot plans, prices, allowances and grace rules as explicit product configuration.",
+        "Use Stripe test-mode checkout/portal for qualification; process verified signed webhooks idempotently.",
+        "Reconcile delayed, duplicated and out-of-order billing events before granting or revoking entitlement.",
+        "The deployment transaction checks entitlement and allowance even if a browser request is forged.",
+        "Show trial/pilot exceptions as explicit audited grants; payment failure does not immediately delete PDS data."
+      ],
+      "verification": "Exercise checkout, webhook replay, failed/late payment, plan change and direct API bypass attempts with test billing; verify one correct entitlement result.",
+      "boundary": "No live charges in CI, marketplace payouts or ticketing revenue; subscription billing purchases this hosting service.",
+      "slug": "gate-paid-deployment-with-subscription-entitlements",
+      "filename": "18-gate-paid-deployment-with-subscription-entitlements.md",
+      "body_template": "<!-- pds-ass-roadmap:18 -->\n\n## What to build\n\nA customer selects a plan, completes hosted checkout and can deploy only after verified subscription entitlement is recorded.\n\n## Acceptance criteria\n\n- [ ] Choose bounded pilot plans, prices, allowances and grace rules as explicit product configuration.\n- [ ] Use Stripe test-mode checkout/portal for qualification; process verified signed webhooks idempotently.\n- [ ] Reconcile delayed, duplicated and out-of-order billing events before granting or revoking entitlement.\n- [ ] The deployment transaction checks entitlement and allowance even if a browser request is forged.\n- [ ] Show trial/pilot exceptions as explicit audited grants; payment failure does not immediately delete PDS data.\n\n## Verification\n\nExercise checkout, webhook replay, failed/late payment, plan change and direct API bypass attempts with test billing; verify one correct entitlement result.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nNo live charges in CI, marketplace payouts or ticketing revenue; subscription billing purchases this hosting service.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 19,
+      "title": "Show usage and enforce plan limits without surprise loss",
+      "phase": 3,
+      "area": "billing",
+      "priority": "P0",
+      "blocked_by": [
+        16,
+        18
+      ],
+      "build": "An owner sees current account/storage usage and supported limits, and receives a clear upgrade or limit response before creating unsupported extra usage.",
+      "criteria": [
+        "Define measurement sources and freshness for blob storage, accounts and deployable instances.",
+        "Enforce allowance changes at supported runtime/API boundaries, not only in the dashboard.",
+        "Handle concurrent requests without exceeding instance/account allocation limits.",
+        "Explain full-storage and downgrade behavior while retaining existing data and allowing export.",
+        "Reconcile usage after restore and record which figures are estimates."
+      ],
+      "verification": "Drive concurrent allocations and controlled storage growth across two plans, then downgrade and restore; verify consistent limits and retained data.",
+      "boundary": "Do not advertise unlimited usage or charge unapproved overages; exact quotas remain product configuration.",
+      "slug": "show-usage-and-enforce-plan-limits-without-surprise-loss",
+      "filename": "19-show-usage-and-enforce-plan-limits-without-surprise-loss.md",
+      "body_template": "<!-- pds-ass-roadmap:19 -->\n\n## What to build\n\nAn owner sees current account/storage usage and supported limits, and receives a clear upgrade or limit response before creating unsupported extra usage.\n\n## Acceptance criteria\n\n- [ ] Define measurement sources and freshness for blob storage, accounts and deployable instances.\n- [ ] Enforce allowance changes at supported runtime/API boundaries, not only in the dashboard.\n- [ ] Handle concurrent requests without exceeding instance/account allocation limits.\n- [ ] Explain full-storage and downgrade behavior while retaining existing data and allowing export.\n- [ ] Reconcile usage after restore and record which figures are estimates.\n\n## Verification\n\nDrive concurrent allocations and controlled storage growth across two plans, then downgrade and restore; verify consistent limits and retained data.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nDo not advertise unlimited usage or charge unapproved overages; exact quotas remain product configuration.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 20,
+      "title": "Add capacity and drain a hosting node safely",
+      "phase": 3,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        6,
+        12,
+        19
+      ],
+      "build": "An operator adds a prepared node, assigns new deployments to it and drains an old node without changing tenant PDS identities or creating concurrent writers.",
+      "criteria": [
+        "Track allocatable resources, reservations and placement results transactionally.",
+        "When capacity is unavailable, show queue/failure state instead of oversubscribing the host.",
+        "New node enrollment uses the same verified bootstrap workflow.",
+        "Move a selected PDS using a controlled maintenance/recovery procedure, retain endpoint and fence the original writer.",
+        "Document capacity thresholds and downtime from actual measurements rather than accounts-per-server guesses."
+      ],
+      "verification": "Fill a staging capacity budget, add a node, resume placement and drain one populated tenant to it; verify identity continuity, data inventory and single-writer behavior.",
+      "boundary": "One region and measured manual capacity expansion first; no Kubernetes or automatic multi-region failover requirement.",
+      "slug": "add-capacity-and-drain-a-hosting-node-safely",
+      "filename": "20-add-capacity-and-drain-a-hosting-node-safely.md",
+      "body_template": "<!-- pds-ass-roadmap:20 -->\n\n## What to build\n\nAn operator adds a prepared node, assigns new deployments to it and drains an old node without changing tenant PDS identities or creating concurrent writers.\n\n## Acceptance criteria\n\n- [ ] Track allocatable resources, reservations and placement results transactionally.\n- [ ] When capacity is unavailable, show queue/failure state instead of oversubscribing the host.\n- [ ] New node enrollment uses the same verified bootstrap workflow.\n- [ ] Move a selected PDS using a controlled maintenance/recovery procedure, retain endpoint and fence the original writer.\n- [ ] Document capacity thresholds and downtime from actual measurements rather than accounts-per-server guesses.\n\n## Verification\n\nFill a staging capacity budget, add a node, resume placement and drain one populated tenant to it; verify identity continuity, data inventory and single-writer behavior.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nOne region and measured manual capacity expansion first; no Kubernetes or automatic multi-region failover requirement.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 21,
+      "title": "Export data and cancel hosting with a safe exit window",
+      "phase": 3,
+      "area": "operations",
+      "priority": "P0",
+      "blocked_by": [
+        12,
+        17,
+        18
+      ],
+      "build": "An owner can export the supported account data and cancel hosting while retaining a clear opportunity to migrate or recover before scheduled deletion.",
+      "criteria": [
+        "Provide scoped repository/blob/preference exports and document state that lives outside the PDS.",
+        "Require owner authorization and expire export access; never include provider secrets or other accounts' data.",
+        "Cancellation records an explicit service end and configurable retention/deletion schedule.",
+        "Allow recovery or cancellation reversal within the supported window; irreversible deletion requires the documented owner confirmation path.",
+        "Provide an exit rehearsal with migration instructions and evidence of completed export."
+      ],
+      "verification": "Export populated test data, cancel in test billing, recover during the retention window and rehearse confirmed deletion on disposable data; compare the export inventory.",
+      "boundary": "Do not confuse cancelling payment with deleting identity or all replicated public content; migration automation is a later extension.",
+      "slug": "export-data-and-cancel-hosting-with-a-safe-exit-window",
+      "filename": "21-export-data-and-cancel-hosting-with-a-safe-exit-window.md",
+      "body_template": "<!-- pds-ass-roadmap:21 -->\n\n## What to build\n\nAn owner can export the supported account data and cancel hosting while retaining a clear opportunity to migrate or recover before scheduled deletion.\n\n## Acceptance criteria\n\n- [ ] Provide scoped repository/blob/preference exports and document state that lives outside the PDS.\n- [ ] Require owner authorization and expire export access; never include provider secrets or other accounts' data.\n- [ ] Cancellation records an explicit service end and configurable retention/deletion schedule.\n- [ ] Allow recovery or cancellation reversal within the supported window; irreversible deletion requires the documented owner confirmation path.\n- [ ] Provide an exit rehearsal with migration instructions and evidence of completed export.\n\n## Verification\n\nExport populated test data, cancel in test billing, recover during the retention window and rehearse confirmed deletion on disposable data; compare the export inventory.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nDo not confuse cancelling payment with deleting identity or all replicated public content; migration automation is a later extension.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 22,
+      "title": "Give operators a tenant support and audit workspace",
+      "phase": 3,
+      "area": "operations",
+      "priority": "P1",
+      "blocked_by": [
+        17,
+        18
+      ],
+      "build": "An operator can find an affected organization, inspect safe deployment/billing/recovery evidence and perform only authorized support actions with an audit trail.",
+      "criteria": [
+        "Search by safe organization/instance references and view runtime, billing, domain and incident state.",
+        "Separate operator authority from customer ownership and redact credential/private-record content.",
+        "Link existing retry, suspend/resume and recovery procedures to their operation history.",
+        "Record support actions and reason; support inspection does not silently impersonate the customer.",
+        "Expose customers' own activity history without leaking another organization's events."
+      ],
+      "verification": "Use restricted operator and owner sessions to inspect a failed deployment and audited retry; test forbidden actions and sensitive-field redaction.",
+      "boundary": "This workspace uses already qualified lifecycle actions; it does not expose a raw terminal or Docker administration.",
+      "slug": "give-operators-a-tenant-support-and-audit-workspace",
+      "filename": "22-give-operators-a-tenant-support-and-audit-workspace.md",
+      "body_template": "<!-- pds-ass-roadmap:22 -->\n\n## What to build\n\nAn operator can find an affected organization, inspect safe deployment/billing/recovery evidence and perform only authorized support actions with an audit trail.\n\n## Acceptance criteria\n\n- [ ] Search by safe organization/instance references and view runtime, billing, domain and incident state.\n- [ ] Separate operator authority from customer ownership and redact credential/private-record content.\n- [ ] Link existing retry, suspend/resume and recovery procedures to their operation history.\n- [ ] Record support actions and reason; support inspection does not silently impersonate the customer.\n- [ ] Expose customers' own activity history without leaking another organization's events.\n\n## Verification\n\nUse restricted operator and owner sessions to inspect a failed deployment and audited retry; test forbidden actions and sensitive-field redaction.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThis workspace uses already qualified lifecycle actions; it does not expose a raw terminal or Docker administration.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P1.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 23,
+      "title": "Run an invited pilot and measure the deployment target",
+      "phase": 3,
+      "area": "platform",
+      "priority": "P0",
+      "blocked_by": [
+        9,
+        10,
+        14,
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "build": "Invited customers complete deployment and first-account use while the team records actual completion time, recurring costs, support work and recovery evidence.",
+      "criteria": [
+        "Run at least 20 documented fresh managed-domain deployment attempts in the stated staging/pilot conditions and report all failures/retries.",
+        "Report median, tail timing, success rate and both system provisioning and end-to-end onboarding intervals.",
+        "Define exactly which external DNS/migration steps are outside the default path; do not present benchmark results as a guarantee.",
+        "Invite a small bounded paid cohort only after recovery, isolation, entitlement and exit gates pass.",
+        "Record cloud/storage/mail invoices, operator time, repeat use and customer problems; make a continue/change decision."
+      ],
+      "verification": "Publish a secret-free pilot evidence report with raw attempt identifiers/timestamps, cost/support measurements and at least one verified recovery rehearsal.",
+      "boundary": "Pilot participation and customer payment need actual consent; no claims of demand, production capacity or 15-minute performance before evidence exists.",
+      "slug": "run-an-invited-pilot-and-measure-the-deployment-target",
+      "filename": "23-run-an-invited-pilot-and-measure-the-deployment-target.md",
+      "body_template": "<!-- pds-ass-roadmap:23 -->\n\n## What to build\n\nInvited customers complete deployment and first-account use while the team records actual completion time, recurring costs, support work and recovery evidence.\n\n## Acceptance criteria\n\n- [ ] Run at least 20 documented fresh managed-domain deployment attempts in the stated staging/pilot conditions and report all failures/retries.\n- [ ] Report median, tail timing, success rate and both system provisioning and end-to-end onboarding intervals.\n- [ ] Define exactly which external DNS/migration steps are outside the default path; do not present benchmark results as a guarantee.\n- [ ] Invite a small bounded paid cohort only after recovery, isolation, entitlement and exit gates pass.\n- [ ] Record cloud/storage/mail invoices, operator time, repeat use and customer problems; make a continue/change decision.\n\n## Verification\n\nPublish a secret-free pilot evidence report with raw attempt identifiers/timestamps, cost/support measurements and at least one verified recovery rehearsal.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nPilot participation and customer payment need actual consent; no claims of demand, production capacity or 15-minute performance before evidence exists.\n\n## Planning reference\n\nPhase: M3 - Paid pilot. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 24,
+      "title": "Finish accessible browser onboarding and lifecycle guidance",
+      "phase": 4,
+      "area": "browser",
+      "priority": "P1",
+      "blocked_by": [
+        10,
+        19,
+        21
+      ],
+      "build": "A new customer can understand plans, deploy, return to progress, manage a domain, inspect usage and find export/cancellation actions on a phone or desktop.",
+      "criteria": [
+        "Use plain product language and make pending, retryable and operator-required states distinct.",
+        "Support keyboard navigation, labeled controls, visible focus and screen-reader announcements for progress.",
+        "Validate desktop, tablet, phone and landscape layouts with real overflow checks.",
+        "Show account enrollment, ownership, domain and recovery boundaries at the relevant decision point.",
+        "Exercise failure recovery and refreshed/reopened browser sessions without losing deployment context."
+      ],
+      "verification": "Run the supported end-to-end browser journeys at representative widths and with keyboard/accessibility checks; include DNS, payment and provisioning failures.",
+      "boundary": "No framework rewrite or general website builder; this refines the minimal flows already delivered.",
+      "slug": "finish-accessible-browser-onboarding-and-lifecycle-guidance",
+      "filename": "24-finish-accessible-browser-onboarding-and-lifecycle-guidance.md",
+      "body_template": "<!-- pds-ass-roadmap:24 -->\n\n## What to build\n\nA new customer can understand plans, deploy, return to progress, manage a domain, inspect usage and find export/cancellation actions on a phone or desktop.\n\n## Acceptance criteria\n\n- [ ] Use plain product language and make pending, retryable and operator-required states distinct.\n- [ ] Support keyboard navigation, labeled controls, visible focus and screen-reader announcements for progress.\n- [ ] Validate desktop, tablet, phone and landscape layouts with real overflow checks.\n- [ ] Show account enrollment, ownership, domain and recovery boundaries at the relevant decision point.\n- [ ] Exercise failure recovery and refreshed/reopened browser sessions without losing deployment context.\n\n## Verification\n\nRun the supported end-to-end browser journeys at representative widths and with keyboard/accessibility checks; include DNS, payment and provisioning failures.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nNo framework rewrite or general website builder; this refines the minimal flows already delivered.\n\n## Planning reference\n\nPhase: M4 - Public launch. Priority: P1.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 25,
+      "title": "Qualify independent production deployment and incident recovery",
+      "phase": 4,
+      "area": "infrastructure",
+      "priority": "P0",
+      "blocked_by": [
+        3,
+        11,
+        13,
+        14,
+        15,
+        18
+      ],
+      "build": "An operator can deploy the management service and prepared fleet to the selected production account, recover them and operate while development/homelab systems are offline.",
+      "criteria": [
+        "Choose production provider/region/domains, identity issuer, mail sender and secret/backup custody with explicit budget and access ownership.",
+        "Use separate staging and production credentials, infrastructure state, billing mode and host inventories.",
+        "Release pinned API/web/worker/agent images through CI with migration and health gates.",
+        "Run production-design recovery and incident drills using designated disposable tenants before opening signup.",
+        "Document on-call/support hours, rollback steps and dependency failures; commercial serving/recovery does not depend on the workstation."
+      ],
+      "verification": "Recreate the production-design environment from versioned configuration, verify auth/billing/mail routing, then rehearse management and PDS recovery with development access unavailable.",
+      "boundary": "This issue is a qualification gate; actual paid infrastructure creation or public changes require the selected account and authorized execution window.",
+      "slug": "qualify-independent-production-deployment-and-incident-recovery",
+      "filename": "25-qualify-independent-production-deployment-and-incident-recovery.md",
+      "body_template": "<!-- pds-ass-roadmap:25 -->\n\n## What to build\n\nAn operator can deploy the management service and prepared fleet to the selected production account, recover them and operate while development/homelab systems are offline.\n\n## Acceptance criteria\n\n- [ ] Choose production provider/region/domains, identity issuer, mail sender and secret/backup custody with explicit budget and access ownership.\n- [ ] Use separate staging and production credentials, infrastructure state, billing mode and host inventories.\n- [ ] Release pinned API/web/worker/agent images through CI with migration and health gates.\n- [ ] Run production-design recovery and incident drills using designated disposable tenants before opening signup.\n- [ ] Document on-call/support hours, rollback steps and dependency failures; commercial serving/recovery does not depend on the workstation.\n\n## Verification\n\nRecreate the production-design environment from versioned configuration, verify auth/billing/mail routing, then rehearse management and PDS recovery with development access unavailable.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThis issue is a qualification gate; actual paid infrastructure creation or public changes require the selected account and authorized execution window.\n\n## Planning reference\n\nPhase: M4 - Public launch. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 26,
+      "title": "Pass the public-launch gate and open bounded signup",
+      "phase": 4,
+      "area": "platform",
+      "priority": "P0",
+      "blocked_by": [
+        23,
+        24,
+        25
+      ],
+      "build": "The team reviews a complete evidence packet, opens bounded public signup and can stop new enrollment without interrupting existing customer recovery paths.",
+      "criteria": [
+        "Verify the managed-domain deployment/account/federation journey, security/isolation results and both restore drills on release artifacts.",
+        "Confirm current plans, support terms, retention/exit behavior, abuse contact and advertised timing match measured capabilities.",
+        "Set signup/capacity controls and an immediate operator mechanism to close new deployments.",
+        "List unresolved limitations and accountable owners; any failed critical gate keeps public signup closed.",
+        "Record the release versions and observe the first controlled production deployments."
+      ],
+      "verification": "Rehearse signup opening/closing, a normal new deployment, capacity exhaustion and a support incident; retain a signed-off release checklist with evidence links.",
+      "boundary": "This issue does not grant an SLA, unlimited signup, arbitrary public-key/identity recovery powers or unmeasured region/capacity claims.",
+      "slug": "pass-the-public-launch-gate-and-open-bounded-signup",
+      "filename": "26-pass-the-public-launch-gate-and-open-bounded-signup.md",
+      "body_template": "<!-- pds-ass-roadmap:26 -->\n\n## What to build\n\nThe team reviews a complete evidence packet, opens bounded public signup and can stop new enrollment without interrupting existing customer recovery paths.\n\n## Acceptance criteria\n\n- [ ] Verify the managed-domain deployment/account/federation journey, security/isolation results and both restore drills on release artifacts.\n- [ ] Confirm current plans, support terms, retention/exit behavior, abuse contact and advertised timing match measured capabilities.\n- [ ] Set signup/capacity controls and an immediate operator mechanism to close new deployments.\n- [ ] List unresolved limitations and accountable owners; any failed critical gate keeps public signup closed.\n- [ ] Record the release versions and observe the first controlled production deployments.\n\n## Verification\n\nRehearse signup opening/closing, a normal new deployment, capacity exhaustion and a support incident; retain a signed-off release checklist with evidence links.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThis issue does not grant an SLA, unlimited signup, arbitrary public-key/identity recovery powers or unmeasured region/capacity claims.\n\n## Planning reference\n\nPhase: M4 - Public launch. Priority: P0.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 27,
+      "title": "Deploy through a downloadable Go CLI",
+      "phase": 5,
+      "area": "cli",
+      "priority": "P2",
+      "blocked_by": [
+        2,
+        5,
+        9
+      ],
+      "build": "A customer authenticates in the browser and uses a downloadable CLI to deploy, inspect and resume the same PDS operations supported by the management API.",
+      "criteria": [
+        "Implement safe browser/device authorization with short-lived grants and revocable scoped CLI credentials.",
+        "Provide deploy/list/status commands with flags, interactive prompts and machine-readable output.",
+        "Interrupting the CLI does not cancel server work; retries use the same deployment identity.",
+        "Return clear exit codes for pending/failure states and avoid secret values in output/history.",
+        "Publish tested platform binaries and integrity metadata; select Homebrew/npm wrappers only if useful after the binary flow works."
+      ],
+      "verification": "Install a release binary on supported systems, authorize, deploy and reconnect after interruption; test expired grants, noninteractive flags and JSON output.",
+      "boundary": "The CLI is optional; npm delivery is not required and fleet/provider credentials never ship to customers.",
+      "slug": "deploy-through-a-downloadable-go-cli",
+      "filename": "27-deploy-through-a-downloadable-go-cli.md",
+      "body_template": "<!-- pds-ass-roadmap:27 -->\n\n## What to build\n\nA customer authenticates in the browser and uses a downloadable CLI to deploy, inspect and resume the same PDS operations supported by the management API.\n\n## Acceptance criteria\n\n- [ ] Implement safe browser/device authorization with short-lived grants and revocable scoped CLI credentials.\n- [ ] Provide deploy/list/status commands with flags, interactive prompts and machine-readable output.\n- [ ] Interrupting the CLI does not cancel server work; retries use the same deployment identity.\n- [ ] Return clear exit codes for pending/failure states and avoid secret values in output/history.\n- [ ] Publish tested platform binaries and integrity metadata; select Homebrew/npm wrappers only if useful after the binary flow works.\n\n## Verification\n\nInstall a release binary on supported systems, authorize, deploy and reconnect after interruption; test expired grants, noninteractive flags and JSON output.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nThe CLI is optional; npm delivery is not required and fleet/provider credentials never ship to customers.\n\n## Planning reference\n\nPhase: M5 - Additional access and portability. Priority: P2.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 28,
+      "title": "Deploy on a verified customer-owned PDS endpoint",
+      "phase": 5,
+      "area": "browser",
+      "priority": "P2",
+      "blocked_by": [
+        7,
+        11
+      ],
+      "build": "Before creating accounts, an owner chooses and proves control of a custom PDS hostname and receives a working supported endpoint on that domain.",
+      "criteria": [
+        "Explain handle versus endpoint and check required separation from application/OAuth domains.",
+        "Validate domain ownership, required DNS records and certificate eligibility before activation.",
+        "Reject domain conflicts, unverified hosts and arbitrary DNS proxy/redirect destinations.",
+        "Persist the endpoint choice before account enrollment and preserve it through node recovery.",
+        "Prevent a silent hostname change for populated PDSs; route those requests to an explicit migration plan."
+      ],
+      "verification": "Deploy with a controlled custom domain, test DNS delay/conflict and certificate failure, then restore while retaining its endpoint.",
+      "boundary": "DNS completion is outside the managed-domain timing target; no automatic registrar takeover or endpoint rename on live identities.",
+      "slug": "deploy-on-a-verified-customer-owned-pds-endpoint",
+      "filename": "28-deploy-on-a-verified-customer-owned-pds-endpoint.md",
+      "body_template": "<!-- pds-ass-roadmap:28 -->\n\n## What to build\n\nBefore creating accounts, an owner chooses and proves control of a custom PDS hostname and receives a working supported endpoint on that domain.\n\n## Acceptance criteria\n\n- [ ] Explain handle versus endpoint and check required separation from application/OAuth domains.\n- [ ] Validate domain ownership, required DNS records and certificate eligibility before activation.\n- [ ] Reject domain conflicts, unverified hosts and arbitrary DNS proxy/redirect destinations.\n- [ ] Persist the endpoint choice before account enrollment and preserve it through node recovery.\n- [ ] Prevent a silent hostname change for populated PDSs; route those requests to an explicit migration plan.\n\n## Verification\n\nDeploy with a controlled custom domain, test DNS delay/conflict and certificate failure, then restore while retaining its endpoint.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nDNS completion is outside the managed-domain timing target; no automatic registrar takeover or endpoint rename on live identities.\n\n## Planning reference\n\nPhase: M5 - Additional access and portability. Priority: P2.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 29,
+      "title": "Migrate an existing AT account with resumable verification",
+      "phase": 5,
+      "area": "operations",
+      "priority": "P2",
+      "blocked_by": [
+        9,
+        12,
+        21
+      ],
+      "build": "A customer moves an existing AT account onto or away from the service using explicit account authorization and a resumable inventory-based migration.",
+      "criteria": [
+        "Preflight old-host access, account authority, repository size, blobs, preferences and recovery options.",
+        "Transfer and verify data before an explicitly authorized identity switch.",
+        "Resume partial imports without duplicate/lost records and display unsupported old-host conditions.",
+        "Check post-switch auth, record/blob inventory, signing and downstream identity resolution.",
+        "Document failure/rollback boundaries and confirm state held outside the PDS; never claim a universal automatic rollback after identity mutation."
+      ],
+      "verification": "Rehearse inbound and outbound migration between designated populated test hosts; interrupt transfers and inject missing blobs/stale identity resolution.",
+      "boundary": "Real-account migration requires its owner's authorization; complex/adversarial recovery and guaranteed completion times are separate qualifications.",
+      "slug": "migrate-an-existing-at-account-with-resumable-verification",
+      "filename": "29-migrate-an-existing-at-account-with-resumable-verification.md",
+      "body_template": "<!-- pds-ass-roadmap:29 -->\n\n## What to build\n\nA customer moves an existing AT account onto or away from the service using explicit account authorization and a resumable inventory-based migration.\n\n## Acceptance criteria\n\n- [ ] Preflight old-host access, account authority, repository size, blobs, preferences and recovery options.\n- [ ] Transfer and verify data before an explicitly authorized identity switch.\n- [ ] Resume partial imports without duplicate/lost records and display unsupported old-host conditions.\n- [ ] Check post-switch auth, record/blob inventory, signing and downstream identity resolution.\n- [ ] Document failure/rollback boundaries and confirm state held outside the PDS; never claim a universal automatic rollback after identity mutation.\n\n## Verification\n\nRehearse inbound and outbound migration between designated populated test hosts; interrupt transfers and inject missing blobs/stale identity resolution.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nReal-account migration requires its owner's authorization; complex/adversarial recovery and guaranteed completion times are separate qualifications.\n\n## Planning reference\n\nPhase: M5 - Additional access and portability. Priority: P2.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    },
+    {
+      "id": 30,
+      "title": "Invite organization members with scoped management roles",
+      "phase": 5,
+      "area": "control-plane",
+      "priority": "P2",
+      "blocked_by": [
+        2,
+        22
+      ],
+      "build": "An owner invites colleagues to manage permitted hosting tasks without sharing the owner's management login or PDS account password.",
+      "criteria": [
+        "Define owner, administrator and viewer permissions for deployment, domain, billing, support and export actions.",
+        "Invite acceptance is expiring, single-use and tied to the intended verified management identity.",
+        "Members see only their permitted organizations; revocation takes effect on subsequent requests.",
+        "Prevent loss of the last owner and record ownership-transfer/member-change audit events.",
+        "Keep hosting-management permissions separate from AT account signing and editorial delegation."
+      ],
+      "verification": "Invite and revoke several identities, attempt role escalation and cross-organization reads, and verify a valid ownership handover.",
+      "boundary": "No shared PDS passwords, automatic DID/email-based identity merging or implied organization publishing approvals.",
+      "slug": "invite-organization-members-with-scoped-management-roles",
+      "filename": "30-invite-organization-members-with-scoped-management-roles.md",
+      "body_template": "<!-- pds-ass-roadmap:30 -->\n\n## What to build\n\nAn owner invites colleagues to manage permitted hosting tasks without sharing the owner's management login or PDS account password.\n\n## Acceptance criteria\n\n- [ ] Define owner, administrator and viewer permissions for deployment, domain, billing, support and export actions.\n- [ ] Invite acceptance is expiring, single-use and tied to the intended verified management identity.\n- [ ] Members see only their permitted organizations; revocation takes effect on subsequent requests.\n- [ ] Prevent loss of the last owner and record ownership-transfer/member-change audit events.\n- [ ] Keep hosting-management permissions separate from AT account signing and editorial delegation.\n\n## Verification\n\nInvite and revoke several identities, attempt role escalation and cross-organization reads, and verify a valid ownership handover.\n\n## Blocked by\n\n{{BLOCKERS}}\n\n## Boundaries\n\nNo shared PDS passwords, automatic DID/email-based identity merging or implied organization publishing approvals.\n\n## Planning reference\n\nPhase: M5 - Additional access and portability. Priority: P2.\n[Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).\n"
+    }
+  ]
+}
