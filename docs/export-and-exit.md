@@ -21,7 +21,7 @@ Download the owner-authorized archive before its 24-hour window closes. Keep its
 
 Data transfer does not change the active PDS in the DID document. Identity changes and destination activation require explicit account authority and additional verification. Retain the original hosting and recovery custody until the destination is verified. Public content already replicated elsewhere and external chat state are not erased by stopping a PDS.
 
-Commercial cancellation, service-end dates, retention, reversal and confirmed deletion are not implemented by this export workflow. There is no scheduled source deletion. Live migration and production retention decisions remain separate gates for issues #21 and #29.
+The separate [local hosting exit rehearsal](local-hosting-exit.md) implements dated service end, retention review and supported reversal using a private local policy. It requires a saved, verified portable export. Commercial payment cancellation and confirmed deletion remain open. There is no scheduled source deletion. Live migration and production retention decisions remain separate gates for issues #21 and #29.
 
 ## Local evidence
 

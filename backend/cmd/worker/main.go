@@ -13,6 +13,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/exports"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/hostingexit"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/lifecycle"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
@@ -94,7 +95,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	hostingExits, err := hostingexit.New(pool, nil, portableExports)
+	if err != nil {
+		return err
+	}
 	workers := river.NewWorkers()
+	river.AddWorker(workers, &hostingexit.Worker{Store: hostingExits})
+	river.AddWorker(workers, &hostingexit.RetentionWorker{Store: hostingExits})
 	river.AddWorker(workers, &exports.Worker{Store: portableExports, Agent: exportAgent})
 	river.AddWorker(workers, &billing.Worker{Store: billingEvents, Authority: billingAuthority})
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
