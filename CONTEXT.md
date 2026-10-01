@@ -59,3 +59,5 @@ _Avoid_: Domain reservation, verified endpoint, account handle
 **Endpoint ownership proof**:
 An expiring scoped TXT challenge for later domain-control verification. Preparing its instruction alone proves no control of the domain.
 _Avoid_: Routing record, TLS certificate, activation permission
+
+Management-owner admission controls creation of a new verified OIDC issuer/subject mapping and its management session. Existing owner sign-in remains available during a pause. It is independent of native deployment, first-account request and native-registration/invitation controls. Recovery holds deny session creation regardless of this policy.

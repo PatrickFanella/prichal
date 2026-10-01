@@ -608,3 +608,43 @@ The pre-fix download body, with only an injected artifact-reader seam, disclosed
 Final full smoke passed. Repeat actual read-only drill `f4900482-269c-4f15-b50d-0c17a36fbd5e` completed at 20:18:04Z against all four retained version 1/2 archives. Owned downloads/inventory, scope denials and independent offline signatures/media passed. Source work, sealed artifacts and native custody matched the baseline. No source expiry reset, new capture, target allocation or identity mutation occurred. Schema remains 26; retained native resources and recovery copies remain untouched.
 
 PR #82 commit `b0cb80b` and #83 commit `23097f5` passed remote CI runs 11580/11583. PR #84 run 11584 is in progress. No actionable findings remain in the disclosure-guard review after the corrected expiry regression and final gate.
+
+## Repeated offline CLI platform checks
+
+Fresh five-target binaries and checksum metadata passed the optional local runtime qualifier. Drill `f5740f1d-b4b4-40b7-b6e8-fd48983a66aa` completed at 20:22:34Z on native macOS ARM64, macOS AMD64 through Rosetta and isolated Linux ARM64. Each passed version, root/deploy help, three shell completions and noninteractive unknown-command/missing-sign-in exits with separate output streams. The first script attempt expected `sign in` while the actual diagnostic says `sign-in`; correcting the assertion allowed the unchanged binary to pass.
+
+All five checksums matched before/after, private configurations remained empty, and existing containers/volumes matched the baseline. No account authorization, API request, new image, installation or publication occurred. Translated startup took 1,879 ms before later 14–17 ms cases; cold-start, Intel hardware, Linux AMD64, Windows/ACL, signing and live onboarding gates remain open. See [CLI distribution evidence](../local-customer-cli.md).
+
+PR #84 commit `5217351` passed CI 11584. PR #85 commit `c102822` passed CI 11585. The final CLI runtime full smoke gate passed. Completion checks validate generated text only; shell integration remains unqualified.
+
+## Translated CLI local device authorization
+
+Drill `cba280d7-3676-4139-a61a-2f2037beaf34` completed at 20:27:20Z using the checksummed macOS AMD64 binary through Rosetta. Disposable Alice/Bob sign-in, owner-scoped organization/server reads, foreign server/revocation denial, own revocation enforcement and logout cleanup passed. Tokens remained absent from CLI output, private credential files were removed, and both created credentials were absent from active access afterward.
+
+Only authentication activity changed. Source deployment/job/export/enrollment/access/choice work, both native inventories/custody and the binary hash matched the baseline. No deployment, worker pause, native mutation, image or release publication occurred. Intel hardware, other-platform authorization, installation/signing and live onboarding remain open under issue #27. See [CLI evidence](../local-customer-cli.md).
+
+The translated-authorization full smoke gate passed. PR #86 commit `1911971` passed remote CI run 11586. No actionable findings remain in the local translated-read qualification review. Platform/live release gates remain open.
+
+## Management-owner creation admission
+
+Schema 27 adds audited pause/reopen of new management owners, independently of native deployment, first-account requests and issued invitations. Verified existing issuer/subject sign-in remains available. New creation holds a shared policy lock through owner/session commit; closing waits for admitted work. Same-state retries add no audit, and audit failure rolls back the change. Recovery holds deny both new/existing session creation. Local administration refuses production/remote/customer databases. See [owner admission](../local-owner-admission.md).
+
+Full smoke and focused race gates passed. Tests qualify closed/missing policy, existing sign-in, reopening, audit rollback, admitted-commit closure and held callbacks without session/metadata changes. New policy functions have 81–100% coverage; broader auth/command coverage is 77.5%/29.5%, with actual commands qualified separately. Optional `golangci-lint` remains unavailable.
+
+Actual drill `3b114b18-5b38-4463-a961-51b7cacc254d` completed at 20:45:33Z. Existing Alice/Bob sign-in and server isolation passed during closure. Repeated close/reopen added no duplicates; two effective audits remain and owner admission is open again. Source work and native custody matched the baseline, with intentional authentication activity. New-subject denial remains disposable callback-test evidence; no retained source subject was removed.
+
+Recovery first stopped before backup at PostgreSQL's 100-argument limit in the old inventory builder. Aggregation now handles 51 tables while preserving its private row-hash format. A legacy 50-table digest parity check and 51-table inventory passed. An intermediate held copy remains retained. Final recovery `c7ae795d-df96-425b-b67a-2644024abd6f` copied the 51 current management/River inventory tables, matched sequences, revoked copied authentication and refused held worker startup. Reconciliation/dedicated replay preserved default jobs, source rows/sequences, native data and custody. All management writers remained stopped through capture/replay.
+
+API/worker/monitor resumed on schema 27, readiness is healthy, fixture permissions remain disabled and all three admission policies are open. Six cancelled endpoint choices/twelve audits and zero pending choices remain, with management/native work hashes unchanged. Final post-recovery smoke passed. Native containers, volumes and recovery copies remain retained. Production signup/operator administration, independent storage, live hosting and release evidence remain open. PR #87 commit `9047cbe` passed remote CI 11593.
+
+No actionable findings remain in the owner-admission/local recovery review. The added migration is forward-only and older binaries refuse schema 27. Public opening, production administration and native issued-invitation controls remain unqualified.
+
+## Restricted issued-invitation withdrawal command
+
+The restricted agent now closes an exact retained first-account ticket, confirms closed guard publication, drains ingress/native signup and revokes unused invitations without replacements. Interrupted work retains closed admission and accepts the same-ticket retry. An account completed before/during withdrawal is preserved; a known existing account returns status without restarting containers or changing its lease. See [withdrawal command](../local-enrollment-withdrawal-agent.md).
+
+Full smoke and focused race gates passed. Fixed-helper tests and agent fixtures cover interrupted drain, lost response, ordered drain, idempotent retry, stale-ticket refusal, reopening denial and an in-flight completed account. Actual preservation drill `dd99de2e-2b43-43c5-b88f-ad3b6d459df0` completed at 21:11:22Z against both retained verified accounts. Four repeat reads and scope/configuration denials passed. Source management work, native signed inventory/media, container start times and custody matched the baseline. Schema remains 27. Agent restarted with existing PKI and the same three-slot ceiling; no native container or volume was replaced.
+
+New withdrawal/client functions have 80.4–100% focused coverage; broader node-agent package coverage is 62.0%. Optional `golangci-lint` remains unavailable. The first regression was a compile failure before the command existed, not a behavioral red result. Fresh empty-PDS withdrawal and real drain/race failure qualification remain open. Management intent/audit/queue and browser controls are next; this agent command alone does not complete issued-invitation control or public signup. All retained source accounts, recovery copies and occupied slots remain preserved. PR #88 commit `e525bb4` passed remote CI run 11596.
+
+The local review found no remaining actionable defects in the restricted command, client, fixtures, preservation drill and evidence documents. Customer control and fresh native withdrawal are explicitly deferred qualification steps.
