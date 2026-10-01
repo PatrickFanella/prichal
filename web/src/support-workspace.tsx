@@ -10,6 +10,8 @@ function history(value: unknown): value is History {
 }
 export function LifecycleActivity({ deploymentId, operator = false }: { deploymentId: string; operator?: boolean }) {
   const [page, setPage] = useState<History | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const pageStatus = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => { if (page) pageStatus.current?.focus(); }, [page]);
   async function load(before?: number) {
     setBusy(true); setError('');
     try {
@@ -17,7 +19,7 @@ export function LifecycleActivity({ deploymentId, operator = false }: { deployme
       const value: unknown = await response.json(); if (!response.ok) throw new Error(errorMessage(value)); if (!history(value)) throw new Error('The activity response could not be verified.'); setPage(value);
     } catch (error) { setError(error instanceof Error ? error.message : 'Activity is unavailable.'); } finally { setBusy(false); }
   }
-  return <details><summary>Service and account activity</summary><button type="button" disabled={busy} onClick={() => { void load(); }}>Load latest activity</button>{error && <p role="alert">{error}</p>}{page && <><ol>{page.items.map(item => <li key={item.id}>Generation {item.generation}: {item.kind} {item.desiredState}, {item.state}. Reason: {item.reason.replaceAll('_', ' ')}. {operator && <>Actor: {item.actor}.</>}</li>)}</ol>{page.items.length === 0 && <p>No service or account actions recorded.</p>}{page.hasMore && page.nextBefore !== null && <button type="button" disabled={busy} onClick={() => { void load(page.nextBefore!); }}>Load older activity</button>}</>}</details>;
+  return <details><summary>Service and account activity</summary><button type="button" disabled={busy} onClick={() => { void load(); }}>Load latest activity</button>{error && <p role="alert">{error}</p>}{page && <><p role="status" ref={pageStatus} tabIndex={-1}>{page.items.length} service and account actions shown.</p><ol>{page.items.map(item => <li key={item.id}>Generation {item.generation}: {item.kind} {item.desiredState}, {item.state}. Reason: {item.reason.replaceAll('_', ' ')}. {operator && <>Actor: {item.actor}.</>}</li>)}</ol>{page.items.length === 0 && <p>No service or account actions recorded.</p>}{page.hasMore && page.nextBefore !== null && <button type="button" disabled={busy} onClick={() => { void load(page.nextBefore!); }}>Load older activity</button>}</>}</details>;
 }
 type Tenant = { instanceId: string; organizationId: string; name: string; state: string; kind: string; managedHostname: string; billing: unknown; hostingGrant: unknown; lifecycle: unknown; incidents: unknown; usage: unknown; domainProof: unknown; managementRecovery: unknown };
 function tenant(value: unknown): value is Tenant { return object(value) && typeof value.instanceId === 'string' && uuid.test(value.instanceId) && typeof value.organizationId === 'string' && typeof value.name === 'string' && typeof value.state === 'string' && typeof value.kind === 'string' && typeof value.managedHostname === 'string'; }
