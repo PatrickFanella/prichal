@@ -70,7 +70,7 @@ Optional CLI, custom PDS endpoints, account migration and organization collabora
 
 ## Current local evidence and remaining gates
 
-This snapshot includes schema-29 queued enrollment cancellation and deployment/enrollment admission and bounded collaboration pagers and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
+This snapshot includes schema-30 local exclusive endpoint claims and queued enrollment cancellation and deployment/enrollment admission and bounded collaboration pagers and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
 
 | Phase | Verified locally | Remaining before the phase closes |
 | --- | --- | --- |
@@ -89,7 +89,7 @@ Management-owner creation can now be paused independently of deployment/enrollme
 
 The [issued-invitation withdrawal command](local-enrollment-withdrawal-agent.md), [durable owner intent/worker processing](local-enrollment-withdrawal-intent.md) and [browser review/retry](local-enrollment-withdrawal-workspace.md) have fixture, retained-account preservation, reload and schema-28 recovery evidence. Queued request cancellation and durable dispatch reservation now have disposable integration and retained-account refusal/recovery evidence. See [queued cancellation](local-enrollment-cancellation.md). Its [browser review](local-enrollment-cancellation-workspace.md) now has keyboard/error/reload and exact-ticket retry evidence. Visual and assistive checks remain open. Qualify real empty-PDS/browser withdrawal without deleting retained tenants to free capacity.
 
-Continue browser onboarding/failure and assistive screen-reader checks, production signup/operator and issued-invitation controls, verified exclusive domain claims, routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
+Continue browser onboarding/failure and assistive screen-reader checks, production signup/operator and issued-invitation controls, browser exclusive-claim review, controlled public ownership qualification and routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
 
 Live provider/region, management/PDS domains, spend ceiling, production issuer, mail sender, backup custody and commercial billing remain deferred. Do not invent defaults or close issues on the strength of local rehearsal. The 15-minute target needs fresh measured pilot attempts; retries and management simulations do not establish it.
 
@@ -110,3 +110,5 @@ The 15-minute managed-domain target must be measured through M3. Report all atte
 Default to one region and prepared shared hosts with isolated PDS containers. Provider, account budget, purchased domains, identity issuer, exact plans/limits, key custody, support hours and retention remain explicit issue-level decisions. No Kubernetes, independent relay network, custom AT implementation, existing-application integration or mandatory npm distribution is required for the first launch.
 
 [Implementation plan](implementation-plan.md) describes architecture, failure behavior and recovery. [Issue index](issues/README.md) provides the complete backlog and blockers.
+
+Exclusive hostname claims now have local competition, expiry/release, recovery-hold and namespace-refusal evidence. See [local claims](local-exclusive-endpoint-claims.md). Positive public reservations, populated-claim recovery and activation remain unqualified. An unverified choice still reserves no hostname.

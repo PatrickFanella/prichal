@@ -62,6 +62,8 @@ func reply(w http.ResponseWriter, status int, value any) {
 func failure(w http.ResponseWriter, err error) {
 	status, message := 503, "Endpoint planning is temporarily unavailable."
 	switch {
+	case errors.Is(err, ErrProofUnconfirmed):
+		status, message = 409, "The exact current TXT challenge was not confirmed. No claim was reserved. Review the saved choice and retry its DNS check."
 	case errors.Is(err, ErrConflict):
 		status, message = 409, "The endpoint choice conflicts with a retained request, native hosting or ownership handover. Refresh and review the current intent."
 	case errors.Is(err, ErrNotFound):

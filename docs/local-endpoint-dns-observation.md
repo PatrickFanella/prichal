@@ -8,7 +8,7 @@ Cancelled and expired choices send no query. Local `.test` choices return `local
 
 After lookup, the query rechecks current ownership, original actor, cancellation, proof/payload identity and expiry. Cancellation/expiry clears a transient match; ownership loss denies the result and changed proof conflicts. Expiry and the reported check time use the same PostgreSQL statement timestamp. No observation updates the choice, writes an audit or queues work.
 
-`challenge_match` means the resolver returned the exact unexpired challenge at that check. It grants no exclusive domain reservation or activation authority. A later verified-claim design must resolve competing ownership, qualify resolver trust/request budgets and recheck before supported routing/TLS/provisioning. Existing native endpoints remain untouched.
+`challenge_match` means the resolver returned the exact unexpired challenge at that check. It grants no exclusive domain reservation or activation authority. A separate [local exclusive-claim workflow](local-exclusive-endpoint-claims.md) now serializes competing reservations and supports release/expiry. Positive public claims, resolver trust and routing/TLS/provisioning remain unqualified. Observation itself still grants no reservation. Existing native endpoints remain untouched.
 
 ## Verification
 

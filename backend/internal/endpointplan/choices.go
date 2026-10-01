@@ -202,6 +202,9 @@ func (s *Store) CancelChoice(ctx context.Context, actor, org, id, key string, co
 		}
 		return c, nil
 	}
+	if _, err = tx.Exec(ctx, `WITH released AS (UPDATE endpoint_claims SET state='released' WHERE choice_id=$1 AND state='reserved' RETURNING id) INSERT INTO endpoint_claim_events(claim_id,actor_id,action) SELECT id,$2,'release' FROM released`, id, actor); err != nil {
+		return Choice{}, err
+	}
 	if _, err = tx.Exec(ctx, `UPDATE endpoint_choices SET state='cancelled',cancelled_at=clock_timestamp(),cancellation_key=$2 WHERE id=$1`, id, key); err != nil {
 		return Choice{}, err
 	}
