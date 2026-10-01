@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const Version = 8
+const Version = 9
 
 //go:embed sql/*.sql
 var migrations embed.FS
@@ -35,7 +35,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("incompatible management schema: database version %d exceeds supported version %d", version, Version)
 	}
 	for next := version + 1; next <= Version; next++ {
-		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql"}[next]
+		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql", 9: "sql/009_retained_recovery_namespaces.sql"}[next]
 		sql, err := migrations.ReadFile(file)
 		if err != nil {
 			return err

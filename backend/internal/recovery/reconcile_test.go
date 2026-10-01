@@ -26,7 +26,7 @@ func (o observerFixture) Status(_ context.Context, _ nodeagent.Peer, id string) 
 	return nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "running", Healthy: o.healthy}, nil
 }
 func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
-	pool := testdb.New(t)
+	pool := testdb.NewRecovery(t)
 	ctx := context.Background()
 	if err := migrate.Apply(ctx, pool); err != nil {
 		t.Fatal(err)
@@ -64,7 +64,30 @@ func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
 			t.Fatalf("failed reconciliation changed hold: %v", err)
 		}
 	}
-	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, healthy: true}); err != nil {
+	extra := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	complete := observerFixture{ids: []string{id, extra}, healthy: true}
+	if err := AcknowledgeRetained(ctx, pool, complete, node, id); err == nil {
+		t.Fatal("managed instance exempted")
+	}
+	if err := AcknowledgeRetained(ctx, pool, observerFixture{}, node, extra); err == nil {
+		t.Fatal("absent fixture acknowledged")
+	}
+	if err := AcknowledgeRetained(ctx, pool, complete, node, extra); err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(ctx, pool); !errors.Is(err, ErrHeld) {
+		t.Fatal("acknowledgement released hold")
+	}
+	if err := Hold(ctx, pool, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reconcile(ctx, pool, complete); err == nil {
+		t.Fatal("new snapshot reused acknowledgement")
+	}
+	if err := AcknowledgeRetained(ctx, pool, complete, node, extra); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reconcile(ctx, pool, complete); err != nil {
 		t.Fatal(err)
 	}
 	if err := Check(ctx, pool); err != nil {

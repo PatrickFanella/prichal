@@ -12,7 +12,12 @@ import (
 	"time"
 )
 
-func New(t *testing.T) *pgxpool.Pool {
+func New(t *testing.T) *pgxpool.Pool { return create(t, "pds_smoke_", 8) }
+
+// NewRecovery creates only a disposable recovery copy on the same guarded local/CI parent.
+func NewRecovery(t *testing.T) *pgxpool.Pool { return create(t, "pds_recovery_", 16) }
+
+func create(t *testing.T, prefix string, size int) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("PDS_TEST_ADMIN_URL")
 	if url == "" {
@@ -33,12 +38,12 @@ func New(t *testing.T) *pgxpool.Pool {
 		admin.Close()
 		t.Fatal("test admin must target pds_local or pds_ci")
 	}
-	var bytes [8]byte
-	if _, err = rand.Read(bytes[:]); err != nil {
+	bytes := make([]byte, size)
+	if _, err = rand.Read(bytes); err != nil {
 		admin.Close()
 		t.Fatal(err)
 	}
-	name := "pds_smoke_" + hex.EncodeToString(bytes[:])
+	name := prefix + hex.EncodeToString(bytes)
 	identifier := pgx.Identifier{name}.Sanitize()
 	if _, err = admin.Exec(ctx, "CREATE DATABASE "+identifier); err != nil {
 		admin.Close()

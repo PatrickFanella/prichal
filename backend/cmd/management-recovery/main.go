@@ -59,10 +59,24 @@ func run() error {
 		log.Print("restored management database held; do not start services before host reconciliation")
 	case "check":
 		return recovery.Check(ctx, pool)
-	case "reconcile":
+	case "reconcile", "acknowledge-local-fixture", "qualify-replay":
 		client, err := nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
 		if err != nil {
 			return err
+		}
+		if os.Args[1] == "qualify-replay" {
+			if err = replay(ctx, pool, client, os.Getenv("PDS_RECOVERY_REPLAY_INSTANCE_ID")); err != nil {
+				return err
+			}
+			log.Print("disposable management replay completed against existing local runtime")
+			return nil
+		}
+		if os.Args[1] == "acknowledge-local-fixture" {
+			if err = recovery.AcknowledgeRetained(ctx, pool, client, os.Getenv("PDS_RECOVERY_RETAINED_NODE_ID"), os.Getenv("PDS_RECOVERY_RETAINED_INSTANCE_ID")); err != nil {
+				return err
+			}
+			log.Print("local fixture retained and recorded; management recovery remains held")
+			return nil
 		}
 		if err = recovery.Reconcile(ctx, pool, client); err != nil {
 			return err

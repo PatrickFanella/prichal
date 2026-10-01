@@ -94,6 +94,33 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 			delete(inventory, id)
 			verified++
 		}
+		retained, err := tx.Query(ctx, `SELECT instance_id::text FROM recovery_retained_namespaces WHERE node_id=$1`, peer.NodeID)
+		if err != nil {
+			return err
+		}
+		var retainedIDs []string
+		for retained.Next() {
+			var id string
+			if err = retained.Scan(&id); err != nil {
+				retained.Close()
+				return err
+			}
+			retainedIDs = append(retainedIDs, id)
+		}
+		retained.Close()
+		if err = retained.Err(); err != nil {
+			return err
+		}
+		for _, id := range retainedIDs {
+			var managed bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deployments WHERE id=$1)`, id).Scan(&managed); err != nil {
+				return err
+			}
+			if managed || !inventory[id] {
+				return errors.New("retained namespace acknowledgement no longer matches inventory")
+			}
+			delete(inventory, id)
+		}
 		if len(inventory) != 0 {
 			return errors.New("untracked host namespaces require operator reconciliation")
 		}

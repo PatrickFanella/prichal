@@ -45,5 +45,8 @@ func Hold(ctx context.Context, pool *pgxpool.Pool, snapshot []byte) error {
 	if err != nil {
 		return err
 	}
+	if _, err = tx.Exec(ctx, `DELETE FROM recovery_retained_namespaces`); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
