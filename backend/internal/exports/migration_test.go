@@ -72,36 +72,48 @@ func TestMigrationInventoryVersionAndPrivacy(t *testing.T) {
 	}
 }
 
-func TestMigrationRejectsChangesDuringArchiveRead(t *testing.T) {
-	for _, change := range []string{"owner", "expiry", "checkpoint", "hold", "cancel_context"} {
-		t.Run(change, func(t *testing.T) {
-			s, id := migrationFixture(t, false)
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			read := func(id, deployment, did string) ([]byte, Manifest, error) {
-				plain, manifest, err := s.Artifacts.Read(id, deployment, did)
-				if err != nil {
-					return plain, manifest, err
+func TestExportDisclosureRejectsChangesDuringArchiveRead(t *testing.T) {
+	for _, method := range []string{"inventory", "download"} {
+		for _, change := range []string{"owner", "expiry", "checkpoint", "hold", "cancel_context"} {
+			t.Run(method+"/"+change, func(t *testing.T) {
+				s, id := migrationFixture(t, false)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				read := func(id, deployment, did string) ([]byte, Manifest, error) {
+					plain, manifest, err := s.Artifacts.Read(id, deployment, did)
+					if err != nil {
+						return plain, manifest, err
+					}
+					switch change {
+					case "owner":
+						_, err = s.Pool.Exec(ctx, `UPDATE organizations SET owner_id=$1 WHERE id=(SELECT organization_id FROM deployments WHERE id=$2)`, foreignID, deployment)
+					case "expiry":
+						_, err = s.Pool.Exec(ctx, `UPDATE export_operations SET captured_at=now()-interval '25 hours',expires_at=now()-interval '1 hour' WHERE id=$1`, id)
+					case "checkpoint":
+						_, err = s.Pool.Exec(ctx, `UPDATE export_operations SET archive_sha256=repeat('a',64) WHERE id=$1`, id)
+					case "hold":
+						err = recovery.Hold(ctx, s.Pool, make([]byte, 32))
+					case "cancel_context":
+						cancel()
+					}
+					if err != nil {
+						t.Fatal("Authority-change fixture failed:", err)
+					}
+					return plain, manifest, nil
 				}
-				switch change {
-				case "owner":
-					_, err = s.Pool.Exec(ctx, `UPDATE organizations SET owner_id=$1 WHERE id=(SELECT organization_id FROM deployments WHERE id=$2)`, foreignID, deployment)
-				case "expiry":
-					_, err = s.Pool.Exec(ctx, `UPDATE export_operations SET expires_at=now()-interval '1 minute' WHERE id=$1`, id)
-				case "checkpoint":
-					_, err = s.Pool.Exec(ctx, `UPDATE export_operations SET archive_sha256=repeat('a',64) WHERE id=$1`, id)
-				case "hold":
-					err = recovery.Hold(ctx, s.Pool, make([]byte, 32))
-				case "cancel_context":
-					cancel()
+				if method == "inventory" {
+					result, err := s.preflightMigration(ctx, ownerID, id, read)
+					if err == nil || result.ExportID != "" {
+						t.Fatal("stale authority/checkpoint published")
+					}
+				} else {
+					plain, err := s.download(ctx, ownerID, id, read)
+					if err == nil || plain != nil {
+						t.Fatal("stale authority disclosed archive bytes")
+					}
 				}
-				return plain, manifest, err
-			}
-			result, err := s.preflightMigration(ctx, ownerID, id, read)
-			if err == nil || result.ExportID != "" {
-				t.Fatal("stale authority/checkpoint published")
-			}
-		})
+			})
+		}
 	}
 }
 
