@@ -100,10 +100,45 @@ func TestHTTPEnforcesOwnerOriginCSRFAndPasswordBoundary(t *testing.T) {
 			t.Fatal("foreign enrollment read")
 		}
 	}
+	cancelPath := "/api/enrollments/" + op.ID + "/cancel"
+	for _, entry := range []struct {
+		token, origin, csrf, body string
+		status                    int
+	}{
+		{"", "http://localhost", "", "{}", 401},
+		{aliceToken, "http://localhost", "wrong", "{}", 403},
+		{aliceToken, "http://foreign.invalid", "test-csrf", "{}", 403},
+		{bobToken, "http://localhost", "test-csrf", "{}", 404},
+		{aliceToken, "http://localhost", "test-csrf", `{"action":"delete"}`, 400},
+		{aliceToken, "http://localhost", "test-csrf", "{} {}", 400},
+	} {
+		if w := request(true, "POST", cancelPath, entry.token, entry.origin, entry.csrf, entry.body); w.Code != entry.status {
+			t.Fatalf("cancellation boundary: %d want %d", w.Code, entry.status)
+		}
+	}
+	if request(false, "POST", cancelPath, aliceToken, "http://localhost", "test-csrf", "{}").Code != 503 {
+		t.Fatal("production cancellation opened")
+	}
+	if w := request(true, "POST", cancelPath, aliceToken, "http://localhost", "test-csrf", "{}"); w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"cancelled"`) || !strings.Contains(w.Body.String(), `"canCancel":false`) {
+		t.Fatal("queued cancellation refused behind admission pause")
+	}
+	if request(true, "POST", cancelPath, aliceToken, "http://localhost", "test-csrf", "{}").Code != 200 {
+		t.Fatal("cancellation retry failed")
+	}
+	if _, err = f.store.SetAdmission(ctx, "operator", "local_qualification", true); err != nil {
+		t.Fatal(err)
+	}
+	op, err = f.store.Submit(ctx, f.owner, f.deployment, Request{Key: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", Recover: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 	withdrawPath := "/api/enrollments/" + op.ID + "/withdraw"
 	worker := &Worker{Pool: f.pool, Cipher: f.store.Cipher, Agent: &agentFixture{}}
 	if err = worker.Work(ctx, job(op.ID, 1)); err != nil {
 		t.Fatal(err)
+	}
+	if request(true, "POST", "/api/enrollments/"+op.ID+"/cancel", aliceToken, "http://localhost", "test-csrf", "{}").Code != 409 {
+		t.Fatal("dispatched enrollment cancelled")
 	}
 	for _, entry := range []struct {
 		token, origin, csrf, body string

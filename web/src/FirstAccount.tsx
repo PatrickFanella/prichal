@@ -99,7 +99,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
   }
   async function refresh() {
-    if (!operation || busyRef.current || !loaded || withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn'].includes(operation.state)) return;
+    if (!operation || busyRef.current || !loaded || withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(operation.state)) return;
     busyRef.current = true; policyRead.current++;
     const controller = new AbortController(); mutation.current = controller;
     setBusy(true); setError(''); setNotice('');
@@ -140,7 +140,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const expired = operation?.state === 'invitation_ready' && (!operation.expiresAt || Date.parse(operation.expiresAt) <= now);
   const state = expired ? 'expired' : operation?.state;
   const canWithdraw = !!operation && ['invitation_ready', 'expired', 'failed'].includes(operation.state ?? '') && operation.withdrawalAttempts < 3;
-  const canRecover = !operation || (!operation.withdrawalRequested && ['expired', 'failed', 'superseded'].includes(state ?? '')) || state === 'withdrawn';
+  const canRecover = !operation || (!operation.withdrawalRequested && ['expired', 'failed', 'superseded', 'cancelled'].includes(state ?? '')) || state === 'withdrawn';
   return <section className="first-account" aria-label="First AT account">
     <h4>First account</h4>
     {admission?.open === false && <p role="status">New first-account requests are paused. Retained requests and account status remain available. Already-issued invitations remain valid until expiry.</p>}
@@ -157,7 +157,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
     {!withdrawalId && (canRecover || request) && <button type="button" disabled={busy || !loaded || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
-    {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
+    {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
     {withdrawalId && <p role="status">An unconfirmed withdrawal request is retained in this browser tab. Invitation copying, account creation and replacement are paused. Any retry uses the same invitation ticket.</p>}
     {state === 'withdrawing' && <p>Waiting for native confirmation. An account that completed signup will be preserved.</p>}
     {state === 'failed' && operation?.withdrawalRequested && <p>Withdrawal is unconfirmed. Invitation replacement is blocked. {operation.withdrawalAttempts >= 3 ? 'The local retry limit was reached. Contact support.' : 'Review a withdrawal retry with the same ticket or contact support.'}</p>}
