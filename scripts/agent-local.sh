@@ -29,6 +29,9 @@ case "${1:-help}" in
     ;;
   run)
     export PDS_MODE=local PDS_AGENT_CA_FILE="$agent_certs/ca.crt" PDS_AGENT_CERT_FILE="$agent_certs/agent.crt" PDS_AGENT_KEY_FILE="$agent_certs/agent.key" PDS_AGENT_STATE_DIRECTORY="$agent_root/state"
+    if [[ -f "$agent_root/enrolled/node.crt" && -f "$agent_root/enrolled/node.key" ]]; then
+      export PDS_AGENT_CERT_FILE="$agent_root/enrolled/node.crt" PDS_AGENT_KEY_FILE="$agent_root/enrolled/node.key"
+    fi
     agent_socket_url=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
     [[ "$agent_socket_url" == unix:///* ]] || { printf 'Local qualification needs a Unix Docker socket.\n' >&2; exit 1; }
     export PDS_AGENT_DOCKER_SOCKET="${agent_socket_url#unix://}"

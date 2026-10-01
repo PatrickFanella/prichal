@@ -62,3 +62,12 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - Actual local qualification created container `0dbad504a32c` for UUID `aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa`. Repeated requests before and after agent restart retained one container and exactly two labeled volumes. A fixed health probe returned HTTP 200 and version 0.4.5036. A TLS request without a client certificate failed.
 - This is partial #6 groundwork. Automatic placement, measured capacity, one-time node enrollment, public ingress and worker-to-agent integration remain open. Container running status is not deployment readiness.
 - [PR #33](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/33) holds the preceding durable operation slice; [CI run 11349](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11349) passed at commit `6bf1e74`.
+
+## Local node enrollment and reservation
+
+- Schema version 4 stores registered node endpoints, public-key hashes, public certificates, one-time bootstrap hashes and unique deployment placements.
+- The separate local enrollment service signs ECDSA P-256 CSRs after checking a 15-minute, node-bound token. Consuming the token and activating the node commit together. CSR-selected roles and extensions cannot grant worker identity.
+- The node retains its private key. A lost response can recover the existing public certificate after key/identity/trust verification, without issuing another certificate or accepting a replayed token.
+- Database tests verify unknown/expired/replayed enrollment rejection, invalid CSR without token consumption, bounded certificate expiry and server-only role, plus concurrent reservation of a single slot and stable placement after node drain.
+- Actual local CLI enrollment registered node `d795a58b-1ab4-4178-8649-03c9c25d0d9e` at the loopback agent endpoint with two operator slots. Repeating the client recovered the same public certificate after the server rejected token replay. Secrets stayed in ignored private files.
+- Slot ceilings are not yet measured capacity, and registration does not prove the node's availability. Worker integration and verified measurements remain next. No provider or live node has been provisioned.
