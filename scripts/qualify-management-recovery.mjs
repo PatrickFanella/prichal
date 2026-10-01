@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, lstatSync, openSync, closeSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { sealRecovery, openRecovery } from './recovery-crypto.mjs';
+import {managementInventorySQL,managementSequenceSQL} from './management-inventory.mjs';
 const id = randomUUID();
 const database = `pds_recovery_${id.replaceAll('-', '')}`;
 const work = resolve('.local/management-recovery', id);
@@ -27,8 +28,15 @@ assert.equal(container.Config.Labels['com.docker.compose.service'], 'db');
 const source = new URL(process.env.PDS_DATABASE_URL);
 assert.equal(source.hostname, '127.0.0.1'); assert.equal(source.port, '35433'); assert.equal(source.pathname, '/pds_local');
 function sql(target, query) { return docker('exec', 'pds-ass-local-db-1', 'psql', '-U', 'pds_local', '-d', target, '-At', '-v', 'ON_ERROR_STOP=1', '-c', query).trim(); }
-const tables = ['owners', 'organizations', 'deployments', 'deployment_events', 'instance_placements', 'hosting_nodes'];
-const inventoryQuery = `SELECT json_build_object(${tables.map(table => `'${table}',json_build_object('count',(SELECT count(*) FROM ${table}),'sha256',(SELECT encode(sha256(convert_to(coalesce(string_agg(row_to_json(snapshot)::text, E'\\n' ORDER BY row_to_json(snapshot)::text),''),'UTF8')),'hex') FROM ${table} snapshot))`).join(',')})`;
+assert.equal(process.env.PDS_LOCAL_MANAGEMENT_QUIESCED,'true','Stop only this project management API, worker and monitor before stable inventory qualification');
+const allTables=sql('pds_local',"SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").split('\n');allTables.forEach(table=>assert.match(table,/^[a-z][a-z0-9_]{0,62}$/));assert.ok(allTables.includes('service_operations')&&allTables.includes('enrollment_operations')&&allTables.includes('instance_usage'));
+const tables=allTables.filter(table=>!['management_recovery','recovery_retained_namespaces'].includes(table));
+const durableTables=tables.filter(table=>!['management_sessions','login_attempts','cli_credentials','cli_device_grants'].includes(table));
+
+const inventoryQuery=managementInventorySQL(tables),durableInventoryQuery=managementInventorySQL(durableTables);
+
+const sequences=JSON.parse(sql('pds_local',managementSequenceSQL));
+const schemaVersion=Number(sql('pds_local','SELECT version FROM schema_version'));const currentVersion=Number(/const Version = ([0-9]+)/.exec(readFileSync('backend/internal/migrate/migrate.go','utf8'))?.[1]);assert.equal(schemaVersion,currentVersion,'Current local management schema required');
 
 const before = JSON.parse(sql('pds_local', inventoryQuery));
 const dump = join(work, 'management.dump');
@@ -47,19 +55,24 @@ unlinkSync(dump);
 sql('pds_local', `CREATE DATABASE ${database}`);
 fd = openSync(authenticated, 'r');
 try { command('docker', ['exec', '-i', 'pds-ass-local-db-1', 'pg_restore', '-U', 'pds_local', '--exit-on-error', '--no-owner', '-d', database], { stdio: [fd, 'pipe', 'pipe'] }); } finally { closeSync(fd); }
+assert.deepEqual(JSON.parse(sql(database,inventoryQuery)),before,'Complete restored snapshot differs');
+assert.deepEqual(JSON.parse(sql(database,managementSequenceSQL)),sequences,'Restored sequence positions differ');
 source.pathname = `/${database}`;
 const environment = { ...process.env, PDS_MODE: 'local', PDS_DATABASE_URL: source.toString(), PDS_RECOVERY_SNAPSHOT_SHA256: digest };
 command('go', ['run', './cmd/management-recovery', 'hold'], { cwd: resolve('backend'), env: environment });
-assert.deepEqual(JSON.parse(sql(database, inventoryQuery)), before);
+assert.deepEqual(JSON.parse(sql(database,durableInventoryQuery)),Object.fromEntries(durableTables.map(table=>[table,before[table]])));
+assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)+(SELECT count(*) FROM cli_credentials)+(SELECT count(*) FROM cli_device_grants)'),'0');
 assert.equal(sql(database, `SELECT state FROM management_recovery`), 'held');
 const check = spawnSync('go', ['run', './cmd/management-recovery', 'check'], { cwd: resolve('backend'), env: environment, encoding: 'utf8', timeout: 60000 });
 assert.notEqual(check.status, 0, 'Restored database must refuse execution before reconciliation');
 const worker = spawnSync('go', ['run', './cmd/worker'], { cwd: resolve('backend'), env: environment, encoding: 'utf8', timeout: 30000 });
 assert.notEqual(worker.status, 0, 'Restored worker started before reconciliation');
 assert.ok(worker.stderr.includes('management recovery requires host reconciliation'), 'Worker must stop for the recovery hold');
-assert.deepEqual(JSON.parse(sql(database, inventoryQuery)), before);
+assert.deepEqual(JSON.parse(sql(database,durableInventoryQuery)),Object.fromEntries(durableTables.map(table=>[table,before[table]])));
+assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)+(SELECT count(*) FROM cli_credentials)+(SELECT count(*) FROM cli_device_grants)'),'0');
 assert.deepEqual(JSON.parse(sql('pds_local', inventoryQuery)), before);
+assert.deepEqual(JSON.parse(sql('pds_local',managementSequenceSQL)),sequences,'Source sequence positions changed');
 unlinkSync(authenticated);
-const report = { id, database, snapshotSha256: digest, bundle, recoveryKeyFile: key, inventory: before, state: 'held', workerRefused: true, sourceInventoryUnchanged: true, completedAt: new Date().toISOString() };
+const report = { id, database, snapshotSha256: digest, bundle, recoveryKeyFile: key, inventory: before, schemaVersion, sequences, tables:tables.length, sequencesVerified:true, copiedAuthenticationRevoked:true, state: 'held', workerRefused: true, sourceInventoryUnchanged: true, completedAt: new Date().toISOString() };
 writeFileSync(join(work, 'report.json'), JSON.stringify(report, null, 2)+'\n', { mode: 0o600, flag: 'wx' });
-console.log(JSON.stringify({ database, inventory: Object.fromEntries(Object.entries(before).map(([table,value]) => [table,value.count])), state: 'held', workerRefused: true, sourceInventoryUnchanged: true }));
+console.log(JSON.stringify({ database, schemaVersion, tables:tables.length,sequencesVerified:true,copiedAuthenticationRevoked:true, inventory: Object.fromEntries(Object.entries(before).map(([table,value]) => [table,value.count])), state: 'held', workerRefused: true, sourceInventoryUnchanged: true }));

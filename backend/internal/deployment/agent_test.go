@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
@@ -49,6 +50,9 @@ func TestAgentSuccessAfterUncertainCompletion(t *testing.T) {
 	}
 	store, err := New(pool)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = (entitlement.Store{Pool: pool}).Submit(ctx, "test-operator", org, entitlement.Request{Key: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", State: "active", Plan: "local-single", Hours: 24, Reason: "qualification"}); err != nil {
 		t.Fatal(err)
 	}
 	op, err := store.Submit(ctx, owner, org, Request{Kind: "agent", Name: "real", Region: "local", Key: "request"})
