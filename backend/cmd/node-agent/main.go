@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -52,6 +53,15 @@ func run() error {
 	runtime, err := nodeagent.NewDocker(os.Getenv("PDS_AGENT_DOCKER_SOCKET"), os.Getenv("PDS_AGENT_STATE_DIRECTORY"))
 	if err != nil {
 		return err
+	}
+	if value := os.Getenv("PDS_AGENT_MAXIMUM_SLOTS"); value != "" {
+		ceiling, parseErr := strconv.Atoi(value)
+		if parseErr != nil {
+			return errors.New("invalid agent capacity ceiling")
+		}
+		if err = runtime.SetCapacityCeiling(ceiling); err != nil {
+			return err
+		}
 	}
 	if os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") == "true" {
 		runtime.EnableLocalIdentityFixtures()

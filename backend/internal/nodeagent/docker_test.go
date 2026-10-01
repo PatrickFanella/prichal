@@ -208,3 +208,37 @@ func TestMeasuredCapacityBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestOperatorCapacityStillReservesMeasuredResources(t *testing.T) {
+	for _, entry := range []struct {
+		name              string
+		cpus              int
+		memory            int64
+		ceiling, expected int
+	}{{"three measured tenants", 8, 8 << 30, 3, 3}, {"CPU remains bounded", 3, 8 << 30, 8, 1}, {"memory remains bounded", 8, 2<<30 + 960<<20, 8, 1}, {"operator reduction", 8, 8 << 30, 1, 1}} {
+		t.Run(entry.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/info") {
+					_ = json.NewEncoder(w).Encode(map[string]any{"NCPU": entry.cpus, "MemTotal": entry.memory})
+				} else {
+					_ = json.NewEncoder(w).Encode([]any{})
+				}
+			}))
+			defer server.Close()
+			docker := &Docker{client: &http.Client{Transport: &rewriteTransport{base: server.URL, transport: http.DefaultTransport}}}
+			docker.EnableLocalIdentityFixtures()
+			if err := docker.SetCapacityCeiling(entry.ceiling); err != nil {
+				t.Fatal(err)
+			}
+			capacity, err := docker.Capacity(context.Background())
+			if err != nil || capacity.MaximumSlots != entry.expected {
+				t.Fatal("operator ceiling bypassed measured resource policy")
+			}
+		})
+	}
+	for _, maximum := range []int{-1, 0, 9, 1000} {
+		if err := (&Docker{}).SetCapacityCeiling(maximum); err == nil {
+			t.Fatal("unbounded ceiling accepted")
+		}
+	}
+}

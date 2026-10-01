@@ -32,6 +32,7 @@ type Docker struct {
 	mutex         sync.Mutex
 	healthProbe   func(context.Context, string) bool
 	localIdentity bool
+	maximumSlots  int
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
