@@ -29,7 +29,7 @@ func failure(w http.ResponseWriter, err error) {
 		status, message = 409, "Review current membership, invitation expiry and handover eligibility before retrying."
 	}
 	if errors.Is(err, ErrCursor) {
-		status, message = 400, "Reload the latest organization access history before paging again."
+		status, message = 400, "Refresh current organization access before loading another page."
 	}
 	reply(w, status, map[string]string{"error": message})
 }
@@ -68,6 +68,19 @@ func (s *Store) Register(sessions Sessions) func(*http.ServeMux) {
 		}
 		bind("GET /api/team/organizations", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
 			v, err := s.Mine(r.Context(), a.OwnerID)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			reply(w, 200, v)
+		})
+		bind("GET /api/team/organizations/page", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
+			after, err := organizationQuery(r.URL.RawQuery)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			v, err := s.MinePage(r.Context(), a.OwnerID, after)
 			if err != nil {
 				failure(w, err)
 				return
