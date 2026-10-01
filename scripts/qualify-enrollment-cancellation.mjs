@@ -23,7 +23,7 @@ function inventory() {
   return { work: digest(work), custody: digest(JSON.stringify(custody)) };
 }
 const readiness = await fetch('http://localhost:5173/api/readiness'); assert.equal(readiness.status, 200);
-assert.equal((await readiness.json()).schemaVersion, 29);
+assert.equal((await readiness.json()).schemaVersion, 30);
 const before = inventory();
 const clients = [];
 for (const entry of entries) {
@@ -50,6 +50,6 @@ assert.equal((await clients[1].client.api(clients[0].path, {})).status, 404);
 assert.deepEqual(inventory(), before, 'Retained enrollment/work or native custody changed');
 const run = randomUUID(), directory = '.local/enrollment-cancellation/' + run;
 mkdirSync(directory, { recursive: true, mode: 0o700 });
-const report = { run, schemaVersion: 29, existingAccountsPreserved: 2, repeatedRequests: 4, scopeAndCSRFEnforced: true, unsupportedAuthorityDenied: true,
+const report = { run, schemaVersion: 30, existingAccountsPreserved: 2, repeatedRequests: 4, scopeAndCSRFEnforced: true, unsupportedAuthorityDenied: true,
   sourceWorkAndNativeUnchanged: true, sourcePositiveCancellationQualified: false, disposableQueueCancellationCovered: true, completedAt: new Date().toISOString() };
 writeFileSync(directory + '/report.json', JSON.stringify(report, null, 2) + '\n', { mode: 0o600, flag: 'wx' }); console.log(JSON.stringify(report));
