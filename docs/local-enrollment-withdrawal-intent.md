@@ -36,6 +36,6 @@ The script accepts only the two fixed disposable local instances and requires al
 
 ## Remaining gates and rollback
 
-Browser review/retry controls, cancelled preparation, fresh native empty-PDS withdrawal, actual drain/restart failure and signup/withdrawal races remain open. Three retained native slots remain occupied. No tenant, volume, recovery copy or signing custody was deleted to make room. Independent storage, live provider/domain decisions, production agent/operator policy and public release remain deferred. Issue #26 remains open.
+[Browser review/retry](local-enrollment-withdrawal-workspace.md) has fixture and actual unresolved-ticket reload checks. Actual fresh native empty-PDS/browser withdrawal, cancelled preparation, drain/restart failure and signup/withdrawal races remain open. Three retained native slots remain occupied. No tenant, volume, recovery copy or signing custody was deleted to make room. Independent storage, live provider/domain decisions, production agent/operator policy and public release remain deferred. Issue #26 remains open.
 
 Migration 28 is forward-only. Older management binaries refuse the newer schema. Retain the pre-migration encrypted recovery copy for a reviewed restoration; do not drop the new columns or edit source operation history as a rollback. Agents predating the restricted withdrawal command cannot confirm these jobs, so install the designated agent before exposing the control.
