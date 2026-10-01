@@ -51,3 +51,11 @@ _Avoid_: Service suspension, account registration, public launch approval
 **Enrollment admission**:
 The operator policy that pauses new first-account invitation requests while preserving retained requests, issued invitations and existing account recovery/status.
 _Avoid_: Invitation revocation, native account suspension, public signup approval
+
+**Custom endpoint choice**:
+A reviewed owner intent for a new PDS hostname. A pending choice does not establish domain ownership or activate hosting and blocks silent fallback to a default native address.
+_Avoid_: Domain reservation, verified endpoint, account handle
+
+**Endpoint ownership proof**:
+An expiring scoped TXT challenge for later domain-control verification. Preparing its instruction alone proves no control of the domain.
+_Avoid_: Routing record, TLS certificate, activation permission

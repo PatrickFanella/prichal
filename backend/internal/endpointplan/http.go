@@ -62,6 +62,8 @@ func reply(w http.ResponseWriter, status int, value any) {
 func failure(w http.ResponseWriter, err error) {
 	status, message := 503, "Endpoint planning is temporarily unavailable."
 	switch {
+	case errors.Is(err, ErrConflict):
+		status, message = 409, "The endpoint choice conflicts with a retained request, native hosting or ownership handover. Refresh and review the current intent."
 	case errors.Is(err, ErrNotFound):
 		status, message = 404, "Organization reference not found."
 	case errors.Is(err, ErrInvalid):
