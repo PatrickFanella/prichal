@@ -21,8 +21,7 @@ jobs:
       - name: Validate local runtime scripts
         run: |
           for script in scripts/*.sh; do bash -n "$script"; done
-          node --check scripts/check-pds.mjs
-          node --check scripts/qualify-pds.mjs
+          for script in scripts/*.mjs deploy/local/fixtures/*.mjs deploy/local/fixtures/*.cjs; do node --check "$script"; done
       - name: Start disposable PostgreSQL
         run: ./scripts/ci-db.sh start
       - name: Build and clean-database smoke

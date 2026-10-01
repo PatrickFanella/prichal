@@ -89,3 +89,14 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - The first local Caddy configuration had same-line block syntax that the actual Caddy parser rejected. The generated template was corrected, its local fixture updated and the pinned image validated the final configuration. Unit tests alone had not caught this parser error.
 - `node scripts/check-ingress.mjs http://bca4cb84-cfb2-4e58-afc6-26c5edad9ade.localhost:44292` passed health/version, unknown host 421 and WebSocket upgrade. The collaborative browser reached the same hostname and displayed version 0.4.5036.
 - Reconciliation retained the same PDS container, volumes and endpoint. New agent readiness combines internal PDS health with ingress health. This is partial #7 local evidence; public domain/DNS/TLS qualification remains deferred by the user's instruction.
+
+## Isolated account and media qualification
+
+- A separate local PLC/mail fixture uses the pinned upstream PLC implementation, persists operation history and mail captures, accepts only localhost identity endpoints and `.invalid` mail recipients, and rejects malformed or forged updates. No public identity operation or external mail delivery occurred.
+- `./scripts/pds-local.sh qualify-account` passed fresh account creation and login, invite reuse rejection, forward/reverse handle and DID resolution, captured verification mail and confirmation-token reuse rejection.
+- A single fixture post references an authenticated image upload. Record and blob reads match the written data. The WebSocket route delivers the matching commit. Upstream CAR validation checks block hashes and repository signature, rejects a wrong signing key and rejects a tampered export.
+- Restarting the qualification PDS and protocol fixture retained login, confirmed email, DID document, record and media. Private fixture credentials remain in ignored `.local/account-fixtures/`; account data is retained for recovery qualification.
+- The initial handle exceeded the upstream username limit, and the first PLC fixture route did not decode the upstream client's encoded DID path. Both were corrected. Email confirmation also required the upstream procedure's empty-body request rather than a JSON input. These checks exercise the actual pinned runtime.
+- `./scripts/dev.sh smoke` passed frontend build, Go vet and race tests. Basic runtime qualification also passed SQLite integrity, invite/blob-volume persistence and stopped-runtime failure detection after populated account qualification.
+- Product enrollment expiry, wrong-tenant invitations, account/disk limits, public DNS/TLS, approved live email and downstream relay/indexing remain open. This does not complete #4, #8 or #9.
+- [PR #37](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/37) passed [CI run 11362](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11362) at `22ea5ca`.

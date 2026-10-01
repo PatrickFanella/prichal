@@ -14,16 +14,36 @@ services:
       PDS_INVITE_REQUIRED: 'true'
       PDS_RATE_LIMITS_ENABLED: 'true'
       PDS_SERVICE_HANDLE_DOMAINS: .test
-      PDS_DID_PLC_URL: http://127.0.0.1:9
+      PDS_DID_PLC_URL: http://protocol-fixtures:2582
+      PDS_EMAIL_SMTP_URL: smtp://protocol-fixtures:2525
+      PDS_EMAIL_FROM_ADDRESS: noreply@fixture.invalid
       PDS_CRAWLERS: ''
       LOG_ENABLED: 'false'
     volumes:
       - pds-data:/pds
       - pds-blobs:/blobs
+      - ./fixtures/verify-repo.cjs:/qualification/verify-repo.cjs:ro
     networks: [isolated]
     mem_limit: 768m
     cpus: 1
     pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: 'no'
+  protocol-fixtures:
+    image: ghcr.io/bluesky-social/pds:0.4@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336
+    command: [node, /fixtures/protocol-services.mjs]
+    environment:
+      PDS_FIXTURE_MODE: local
+    volumes:
+      - ./fixtures/protocol-services.mjs:/fixtures/protocol-services.mjs:ro
+      - protocol-data:/fixture-data
+    networks: [isolated, ingress]
+    ports:
+      - '127.0.0.1:2582:2582'
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 64
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: 'no'
@@ -49,3 +69,4 @@ networks:
 volumes:
   pds-data:
   pds-blobs:
+  protocol-data:
