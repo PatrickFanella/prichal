@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { EndpointClaim } from './endpoint-claim';
 import { EndpointDNSObservation } from './endpoint-dns-observation';
 
 type Plan = { hostname: string; applicationHosts: string[]; state: 'planning_only' | 'existing_native_requires_review' };
@@ -24,6 +25,7 @@ function matches(c: Choice, retained: Intent): boolean {
 export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { organizationId: string; ownerId: string; csrfToken: string; plan: Plan | null }) {
   const storageKey = `pds-endpoint-intent:${ownerId}:${organizationId}`;
   const [current, setCurrent] = useState<Choice | null>(null), [known, setKnown] = useState(false), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
+  const [claimPending, setClaimPending] = useState(false);
   const [pending, setPending] = useState<Intent | null>(null), [blocked, setBlocked] = useState(false), [reviewed, setReviewed] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const read = useRef<AbortController | null>(null), mutation = useRef<AbortController | null>(null), reviewHeading = useRef<HTMLHeadingElement | null>(null), result = useRef<HTMLParagraphElement | null>(null), failure = useRef<HTMLParagraphElement | null>(null);
   useEffect(() => { if (pending || blocked) { const panel = reviewHeading.current?.closest('details'); if (panel) panel.open = true; reviewHeading.current?.focus(); } }, [pending, blocked]);
@@ -50,7 +52,7 @@ export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { o
     return () => { read.current?.abort(); read.current = null; mutation.current?.abort(); mutation.current = null; };
   }, [storageKey]);
   function stage(value: Intent) {
-    if (!known || loading || busy || pending || blocked) return;
+    if (!known || loading || busy || pending || blocked || claimPending) return;
     try { sessionStorage.setItem(storageKey, JSON.stringify(value)); setPending(value); setReviewed(false); setError(''); setNotice(''); }
     catch { setError('Enable session storage before reviewing an address request.'); }
   }
@@ -60,7 +62,7 @@ export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { o
     catch { setError('The retained browser request could not be cleared.'); }
   }
   async function submit() {
-    if (!pending || !reviewed || busy || loading || !known) return;
+    if (!pending || !reviewed || busy || loading || !known || claimPending) return;
     const retained = pending, controller = new AbortController(); mutation.current = controller; read.current?.abort(); read.current = null; setBusy(true); setError(''); setNotice('');
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(retained));
@@ -80,14 +82,15 @@ export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { o
     <h4 id={`endpoint-choice-title-${organizationId}`}>Saved address choice</h4><p>Saving prepares an unverified address for new hosting. It does not reserve the domain, verify DNS or activate a server.</p>
     {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}{notice && <p role="status" ref={result} tabIndex={-1}>{notice}</p>}
     <button type="button" disabled={busy || loading} onClick={() => { void refresh(); }}>{loading ? 'Loading address choice…' : 'Refresh saved address choice'}</button>
-    {current && <div className="endpoint-choice-current"><p><strong>{current.hostname}</strong> is awaiting ownership verification. New default native hosting and ownership handover are paused.</p><p>Publish this TXT record only on the domain you control. Proof expires {new Date(current.expiresAt).toLocaleString()}. An expired proof still needs explicit cancellation before default hosting.</p><dl><dt>TXT name</dt><dd><code>{current.proofName}</code></dd><dt>TXT value</dt><dd><code>{current.proofValue}</code></dd></dl><p>Exclusive ownership claims, supported DNS routing, HTTPS and activation remain unavailable.</p><EndpointDNSObservation key={current.id} organizationId={organizationId} choiceId={current.id} hostname={current.hostname} csrfToken={csrfToken} disabled={busy || loading || !!pending || blocked || !known} onAccessDenied={() => { setCurrent(null); setKnown(false); setReviewed(false); setNotice(''); setError('Current access to this address choice could not be confirmed. Refresh organization access before continuing.'); }}/><button type="button" disabled={busy || loading || !!pending || blocked} onClick={() => stage({ kind: 'cancel', key: crypto.randomUUID(), id: current.id, hostname: current.hostname })}>Review cancellation of this choice</button></div>}
+    {current && <div className="endpoint-choice-current"><p><strong>{current.hostname}</strong> is a saved address choice. Ownership observations and reservation receipts are checked separately. New default native hosting and ownership handover are paused.</p><p>Publish this TXT record only on the domain you control. Proof expires {new Date(current.expiresAt).toLocaleString()}. An expired proof still needs explicit cancellation before default hosting.</p><dl><dt>TXT name</dt><dd><code>{current.proofName}</code></dd><dt>TXT value</dt><dd><code>{current.proofValue}</code></dd></dl><p>A separate claim request can reserve the hostname after fresh proof. Supported DNS routing, HTTPS and activation remain unavailable.</p><EndpointDNSObservation key={current.id} organizationId={organizationId} choiceId={current.id} hostname={current.hostname} csrfToken={csrfToken} disabled={busy || loading || !!pending || blocked || claimPending || !known} onAccessDenied={() => { setCurrent(null); setKnown(false); setReviewed(false); setNotice(''); setError('Current access to this address choice could not be confirmed. Refresh organization access before continuing.'); }}/><button type="button" disabled={busy || loading || !!pending || blocked || claimPending} onClick={() => stage({ kind: 'cancel', key: crypto.randomUUID(), id: current.id, hostname: current.hostname })}>Review cancellation of this choice</button></div>}
+    <EndpointClaim organizationId={organizationId} ownerId={ownerId} csrfToken={csrfToken} choice={current} disabled={busy || loading || !!pending || blocked || !known} onPendingChange={setClaimPending} onAccessDenied={() => { setCurrent(null); setKnown(false); setReviewed(false); setNotice(''); setError('Access to the retained claim choice could not be confirmed. Refresh organization access before continuing.'); }}/>
     {known && !current && <p>No pending address choice was found.</p>}
-    {known && !current && plan?.state === 'planning_only' && plan.hostname.length <= 244 && <button type="button" disabled={busy || loading || !!pending || blocked} onClick={() => stage({ kind: 'save', key: crypto.randomUUID(), hostname: plan.hostname, applicationHosts: plan.applicationHosts })}>Review saving {plan.hostname}</button>}
+    {known && !current && plan?.state === 'planning_only' && plan.hostname.length <= 244 && <button type="button" disabled={busy || loading || !!pending || blocked || claimPending} onClick={() => stage({ kind: 'save', key: crypto.randomUUID(), hostname: plan.hostname, applicationHosts: plan.applicationHosts })}>Review saving {plan.hostname}</button>}
     {(pending || blocked) && <section className="endpoint-choice-review" aria-labelledby={`endpoint-choice-review-${organizationId}`}><h5 id={`endpoint-choice-review-${organizationId}`} tabIndex={-1} ref={reviewHeading}>Review retained address request</h5>
       <p>{pending ? pending.kind === 'save' ? `Save ${pending.hostname} for new hosting. Declared app/OAuth hosts: ${pending.applicationHosts.join(', ') || 'none'}.` : `Cancel saved choice ${pending.id} for ${pending.hostname}.` : 'The retained request could not be validated. Check current server-side state before clearing the browser request.'}</p>
-      <p>Saving pauses new default native hosting and handover. Cancellation retains the receipt and submits no deployment. Clearing a browser request does not undo a saved choice.</p>
+      <p>Saving pauses new default native hosting and handover. Cancellation releases any reservation for this choice, retains receipts and submits no deployment. Clearing a browser request does not undo a saved choice.</p>
       <label><input type="checkbox" checked={reviewed} disabled={busy || loading || !known} onChange={event => setReviewed(event.target.checked)}/>I checked the current choice and this exact address request.</label>
-      <button type="button" disabled={busy || loading || !known || !reviewed || pending === null} onClick={() => { void submit(); }}>Confirm or retry address request</button>
+      <button type="button" disabled={busy || loading || !known || !reviewed || pending === null || claimPending} onClick={() => { void submit(); }}>Confirm or retry address request</button>
       <button type="button" disabled={busy || loading || !known || !reviewed} onClick={clear}>Clear browser request after checking current state</button>
     </section>}
   </section>;

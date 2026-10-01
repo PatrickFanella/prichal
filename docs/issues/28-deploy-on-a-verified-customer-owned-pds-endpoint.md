@@ -35,3 +35,5 @@ Phase: M5 - Additional access and portability. Priority: P2.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
 
 Schema-30 exclusive hostname reservations now have local competing-proof, atomic audit/release/expiry, recovery-hold and actual local-namespace refusal evidence. See [local claims](../local-exclusive-endpoint-claims.md). Positive public reservation, browser review, populated-claim recovery and routing/TLS/activation remain open.
+
+Local browser claim review, scoped receipts and exact-ticket retry are implemented. See [workspace evidence](../local-endpoint-claim-workspace.md); public DNS, populated-claim recovery and activation remain open.

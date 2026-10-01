@@ -112,3 +112,5 @@ Default to one region and prepared shared hosts with isolated PDS containers. Pr
 [Implementation plan](implementation-plan.md) describes architecture, failure behavior and recovery. [Issue index](issues/README.md) provides the complete backlog and blockers.
 
 Exclusive hostname claims now have local competition, expiry/release, recovery-hold and namespace-refusal evidence. See [local claims](local-exclusive-endpoint-claims.md). Positive public reservations, populated-claim recovery and activation remain unqualified. An unverified choice still reserves no hostname.
+
+Local endpoint claim review and exact-choice retry are implemented and verified; [browser evidence](local-endpoint-claim-workspace.md) separates fixture reservations from live qualification. Public DNS, populated-claim recovery and routing/TLS/activation remain open.
