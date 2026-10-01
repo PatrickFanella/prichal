@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/observability"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,16 +36,17 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
-	ManagedHostname string  `json:"managedHostname"`
-	Endpoint        string  `json:"endpoint"`
-	Kind            string  `json:"kind"`
-	ID              string  `json:"id"`
-	OrganizationID  string  `json:"organizationId"`
-	Name            string  `json:"name"`
-	Region          string  `json:"region"`
-	State           string  `json:"state"`
-	Message         string  `json:"message"`
-	Events          []Event `json:"events"`
+	Service         observability.Status `json:"service"`
+	ManagedHostname string               `json:"managedHostname"`
+	Endpoint        string               `json:"endpoint"`
+	Kind            string               `json:"kind"`
+	ID              string               `json:"id"`
+	OrganizationID  string               `json:"organizationId"`
+	Name            string               `json:"name"`
+	Region          string               `json:"region"`
+	State           string               `json:"state"`
+	Message         string               `json:"message"`
+	Events          []Event              `json:"events"`
 }
 type Args struct {
 	DeploymentID string `json:"deploymentId"`
@@ -151,6 +153,10 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}
+	if err != nil {
+		return op, err
+	}
+	op.Service, err = observability.DeploymentStatus(ctx, s.Pool, id)
 	if err != nil {
 		return op, err
 	}
