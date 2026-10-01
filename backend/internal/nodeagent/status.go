@@ -12,6 +12,10 @@ func (d *Docker) Status(ctx context.Context, id string) (Instance, error) {
 	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	return d.status(ctx, id)
+}
+
+func (d *Docker) status(ctx context.Context, id string) (Instance, error) {
 	var current, edge inspected
 	if _, err := d.call(ctx, "GET", "/containers/pds-ass-tenant-"+id+"/json", nil, &current); err != nil {
 		return Instance{}, err

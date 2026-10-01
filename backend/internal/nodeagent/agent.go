@@ -68,6 +68,35 @@ func Handler(runtime Runtime) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(result)
 	})
+	mux.HandleFunc("POST /v1/instances/{id}/enrollment", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			Enroll(context.Context, string, string) (Enrollment, error)
+		})
+		if !ok {
+			http.Error(w, "enrollment unavailable", 503)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 128)
+		var body struct {
+			Ticket string `json:"ticket"`
+		}
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !instanceID.MatchString(body.Ticket) {
+			http.Error(w, "enrollment ticket required", 400)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		result, err := provider.Enroll(ctx, r.PathValue("id"), body.Ticket)
+		if err != nil {
+			http.Error(w, "enrollment could not be confirmed", 503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("PUT /v1/instances/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
@@ -94,6 +123,10 @@ func Handler(runtime Runtime) http.Handler {
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && r.URL.Path == "/v1/capacity" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/enrollment") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/enrollment")) {
 			mux.ServeHTTP(w, r)
 			return
 		}

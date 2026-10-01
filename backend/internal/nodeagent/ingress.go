@@ -176,6 +176,14 @@ func (d *Docker) validateIngress(id string, current inspected) error {
 	network := "pds-ass-tenant-" + id + "-network"
 	configPath := filepath.Join(d.directory, id+"-edge", "Caddyfile")
 	tlsPath := filepath.Join(d.directory, id+"-tls.pem")
+	configInfo, err := os.Lstat(configPath)
+	if err != nil || !configInfo.Mode().IsRegular() {
+		return errors.New("ingress policy file unavailable")
+	}
+	configuration, err := os.ReadFile(configPath)
+	if err != nil || string(configuration) != d.ingressConfiguration(id) {
+		return errors.New("ingress policy differs from configuration")
+	}
 	if len(current.NetworkSettings.Networks) != 2 || current.NetworkSettings.Networks[network] == nil || current.NetworkSettings.Networks["pds-ass-agent-ingress"] == nil {
 		return errors.New("ingress networks differ from policy")
 	}
