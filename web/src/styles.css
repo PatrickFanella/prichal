@@ -52,3 +52,13 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
   .organizations > li > div { grid-column: 1 / -1; grid-row: 2; }
   .organizations > li > .owner-badge { grid-column: 2; grid-row: 1; justify-self: end; margin-left: 0; }
 }
+
+.customer-exports { min-width: 0; overflow-wrap: anywhere; }
+.customer-exports > ul { padding-left: 0; list-style: none; }
+.customer-exports li { display: block; min-width: 0; }
+.migration-inventory { min-width: 0; margin-top: .8rem; }
+.migration-inventory dl { display: block; }
+.migration-inventory dd { margin: 0 0 .8rem; }
+.migration-inventory ul { padding-left: 1.2rem; }
+.migration-inventory li { border: 0; padding: .2rem 0; }
+.deployments > ul > li > div { min-width: 0; width: 100%; }
