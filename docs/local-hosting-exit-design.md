@@ -1,0 +1,9 @@
+# Local hosting exit contract
+
+An owner can rehearse ending one local hosting service with a dated service end and retention review. The owner must choose an existing, verified, unexpired portable export and acknowledge the timeline and confirm that they saved the selected archive. The request includes the exact reviewed delay and retention policy; a changed policy requires fresh review. A private local policy supplies the service delay and retention days. Production configuration rejects that policy, and default startup leaves scheduling disabled. This rehearsal does not change a Stripe subscription or establish a commercial retention contract.
+
+Scheduling retains the owner's stable request, export reference, policy snapshot, dates and audit event with two River jobs, one for service end and one for retention review. Before the deadline, reversal records withdrawal without touching native service. After the deadline, the worker atomically creates a fixed service-stop operation through the existing lifecycle path. Native execution stays in the restricted agent. Successful stop ends hosting while preserving containers, volumes, identity custody and account moderation.
+
+Reversal during retention can resume only the service fence created by that same exit. An unrelated newer operator hold, uncertain host outcome or pending lifecycle action requires review. Reversal cannot undo native account moderation. Failed or conflicting transitions retain evidence and data rather than guessing whether to resume.
+
+The retention date schedules review, not deletion. There is no deletion job or host deletion endpoint. Confirmed disposable deletion rehearsal, commercial cancellation, notifications, independent backups and live exit behavior remain later gates. Existing export download windows remain explicit; customers must keep their downloaded copy, and retained artifact custody does not extend a 24-hour download window automatically.

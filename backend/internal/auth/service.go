@@ -103,6 +103,7 @@ func (s *Service) Register(mux *http.ServeMux) {
 			handler(w, r.WithContext(ctx))
 		})
 	}
+	s.registerDevices(bind)
 	bind("GET /api/auth/login", s.login)
 	bind("GET /api/auth/callback", s.callback)
 	bind("GET /api/session", s.session)
@@ -239,6 +240,9 @@ type Session struct {
 }
 
 func (s *Service) Authorize(w http.ResponseWriter, r *http.Request, mutation bool) (Session, bool) {
+	if _, present := r.Header["Authorization"]; present {
+		return s.authorizeCLI(w, r)
+	}
 	var session Session
 	cookie, err := r.Cookie(s.settings.cookie("session"))
 	if err != nil || len(cookie.Value) != 43 {
@@ -274,7 +278,7 @@ func (s *Service) endSessions(w http.ResponseWriter, r *http.Request, all bool) 
 	}
 	var err error
 	if all {
-		_, err = s.pool.Exec(r.Context(), `DELETE FROM management_sessions WHERE owner_id=$1`, session.OwnerID)
+		err = s.revokeOwnerDevices(r.Context(), session.OwnerID)
 	} else {
 		cookie, _ := r.Cookie(s.settings.cookie("session"))
 		_, err = s.pool.Exec(r.Context(), `DELETE FROM management_sessions WHERE token_hash=$1`, hash(cookie.Value))
