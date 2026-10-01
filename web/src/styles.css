@@ -16,3 +16,7 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .handle-setup form { display: grid; gap: .5rem; }
 .handle-setup code, .handle-setup dd { overflow-wrap: anywhere; }
 .handle-setup dd { margin-left: 0; }
+
+.support-workspace { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line, #d6d9d2); overflow-wrap: anywhere; }
+.support-workspace form { display: grid; gap: .7rem; margin: 1rem 0; }
+.support-workspace select, .support-workspace input:not([type="checkbox"]) { max-width: 100%; min-width: 0; padding: .7rem; font: inherit; }
