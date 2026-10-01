@@ -31,3 +31,15 @@ _Avoid_: Automatic deletion, account erasure
 **Payment cancellation**:
 A change to subscription billing with its own authority, effective date and financial consequences.
 _Avoid_: Hosting exit, data deletion
+
+**Organization member**:
+A verified management identity with a current, scoped role in a hosting organization.
+_Avoid_: Native account delegate, shared login
+
+**Management invitation**:
+An expiring offer of a scoped organization role to one exact verified management identity.
+_Avoid_: Email identity, enrollment invitation
+
+**Ownership handover**:
+An explicit transfer of organization management responsibility that preserves a single owner and requires separate native custody decisions for populated hosting.
+_Avoid_: Account migration, signing delegation
