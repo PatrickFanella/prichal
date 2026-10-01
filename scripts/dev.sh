@@ -21,11 +21,12 @@ case "${1:-help}" in
   issuer) cd backend; exec go run ./cmd/test-issuer ;;
   node-enroll) shift; cd backend; exec go run ./cmd/node-enroll "$@" ;;
   node-admin) shift; cd backend; exec go run ./cmd/node-admin "$@" ;;
+  entitlement-admin) shift; cd backend; exec go run ./cmd/entitlement-admin "$@" ;;
   service-admin) shift; cd backend; exec go run ./cmd/service-admin "$@" ;;
   worker) cd backend; exec go run ./cmd/worker ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|service-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|entitlement-admin|service-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
 esac

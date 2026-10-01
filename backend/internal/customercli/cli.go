@@ -84,11 +84,11 @@ func (e httpError) Error() string {
 	case 401:
 		return "Sign-in expired or was revoked. Run login again."
 	case 403:
-		return "The credential does not allow this operation."
+		return "Operation denied. Check CLI permissions and your hosting entitlement."
 	case 404:
 		return "Organization or deployment not found."
 	case 409:
-		return "Request conflicts with existing work. Check its key and payload."
+		return "Deployment is blocked or conflicts with existing work. Check allowance and its original request key."
 	case 429:
 		return "Too many requests. Wait before retrying."
 	}

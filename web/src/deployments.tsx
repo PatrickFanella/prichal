@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FirstAccount } from './FirstAccount';
+import { HostingEntitlement } from './hosting-entitlement';
 import type { FormEvent } from 'react';
 
 type Event = { state: string; message: string; createdAt: string };
@@ -68,6 +69,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
   }
   return <div className="deployments">
     <h4>Servers</h4><p>Local qualification. Public hosting is unavailable.</p>
+    <HostingEntitlement organizationId={organizationId}/>
     {error && <p role="alert">{error}</p>}
     {!loaded && <p role="status">Loading deployments...</p>}
     <ul>{operations.map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">Open local PDS health</a></p>}<p role="status">{item.state}: {item.message}</p>{item.kind === 'agent' && <p>Local service observation: {item.service?.state ?? 'unknown'}.{item.service?.checkedAt && <> Checked {new Date(item.service.checkedAt).toLocaleString()}.</>} Scheduled backups are not configured.</p>}{item.kind === 'agent' && <p>Storage observation: {item.usage.state}. {item.usage.checkedAt && <>{((item.usage.dataBytes + item.usage.blobBytes) / 1048576).toFixed(2)} MiB, {item.usage.accounts} account. Checked {new Date(item.usage.checkedAt).toLocaleString()}.</>} Total storage limits are not configured.</p>}{item.kind === 'agent' && item.service.account!=='running' && <p role="status">Account moderation: {item.service.account}. Reason: {item.service.accountReason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.service.lifecycle!=='running' && <p role="status">Service lifecycle: {item.service.lifecycle}. Reason: {item.service.reason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.state === 'ready' && item.service.lifecycle==='running' && item.service.account==='running' && <FirstAccount deploymentId={item.id} csrfToken={csrfToken} />}<details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
