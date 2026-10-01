@@ -1,8 +1,9 @@
 // Creates one retained, isolated account on the fixed local qualification PDS.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { prepareFixtureEnrollment, publishFixtureLease } from './local-enrollment.mjs';
 const pds = 'http://localhost:2583';
 const directory = 'http://localhost:2582';
 const health = await fetch(`${directory}/_health`, { signal: AbortSignal.timeout(5000) });
@@ -28,10 +29,50 @@ assert.equal(description.inviteCodeRequired, true);
 assert.deepEqual(description.availableUserDomains, ['.test'], 'Disposable handle domain required');
 const account = { handle: `qual-${tag}.test`, email: `qualification-${tag}@fixture.invalid`, password: randomBytes(24).toString('hex') };
 mkdirSync('.local/account-fixtures', { recursive: true, mode: 0o700 });
+const lockPath = '.local/account-fixtures/qualification.lock';
+mkdirSync(lockPath, { mode: 0o700 }); // A crashed qualification stays locked for operator review.
+process.on('exit', () => rmdirSync(lockPath));
 const statePath = `.local/account-fixtures/${tag}.json`;
 // Save before creation so a failed journey retains recoverable fixture credentials.
 writeFileSync(statePath, JSON.stringify(account), { flag: 'wx', mode: 0o600 });
-const invite = await xrpc('com.atproto.server.createInviteCode', { useCount: 1 }, admin);
+const staleInvite = await prepareFixtureEnrollment(admin);
+const invite = await prepareFixtureEnrollment(admin);
+await xrpc('com.atproto.server.createAccount', { ...account, inviteCode: staleInvite.code }, undefined, 400);
+// These requests contain no password and must be rejected at ingress before reaching PDS.
+for (const lease of [
+  { ...invite.lease, issuedAt: Date.now() - 2000, expiresAt: Date.now() - 1000 },
+  { ...invite.lease, tenant: 'another-tenant' },
+  { ...invite.lease, expiresAt: invite.lease.issuedAt + 16 * 60 * 1000 },
+  { ...invite.lease, issuedAt: Date.now() + 10000 },
+  {},
+]) {
+  publishFixtureLease(lease);
+  await xrpc('com.atproto.server.createAccount', {}, undefined, 403);
+  for (const alias of ['com.atproto.server.createAccount/', 'com.atproto.server.createaccount', 'com.atproto.server.%63reateAccount']) {
+    await xrpc(alias, {}, undefined, 403);
+  }
+  const signUp = await fetch(`${pds}/@atproto/oauth-provider/~api/sign-up`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(signUp.status, 403, 'OAuth registration expiry bypass');
+}
+publishFixtureLease(invite.lease);
+const guardStopped = spawnSync('docker', ['compose', '-f', 'deploy/local/compose.yaml', 'stop', 'protocol-fixtures'], { encoding: 'utf8', timeout: 15000 });
+assert.equal(guardStopped.status, 0, 'Local registration guard stop');
+try {
+  await xrpc('com.atproto.server.createAccount', {}, undefined, 502);
+  assert.equal((await fetch(`${pds}/xrpc/_health`)).status, 200, 'Registration fault affected existing PDS health');
+} finally {
+  const started = spawnSync('docker', ['compose', '-f', 'deploy/local/compose.yaml', 'start', 'protocol-fixtures'], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(started.status, 0, 'Local registration guard recovery');
+}
+for (let attempt = 0; ; attempt++) {
+  try {
+    const ready = await fetch(`${directory}/_fixture/registration`, { signal: AbortSignal.timeout(1000) });
+    assert.equal(ready.status, 200); break;
+  } catch (error) {
+    if (attempt >= 49) throw error;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
 const session = await xrpc('com.atproto.server.createAccount', { ...account, inviteCode: invite.code });
 assert.match(session.did, /^did:plc:[a-z2-7]{24}$/);
 writeFileSync(statePath, JSON.stringify({ ...account, did: session.did }), { mode: 0o600 });
@@ -39,6 +80,7 @@ const authorization = `Bearer ${session.accessJwt}`;
 const login = await xrpc('com.atproto.server.createSession', { identifier: account.handle, password: account.password });
 assert.equal(login.did, session.did);
 await xrpc('com.atproto.server.createAccount', { ...account, handle: `reuse-${tag}.test`, email: `reuse-${tag}@fixture.invalid`, inviteCode: invite.code }, undefined, 400);
+publishFixtureLease({ tenant: 'qualification', issuedAt: 0, expiresAt: 1 });
 const resolved = await xrpc(`com.atproto.identity.resolveHandle?handle=${account.handle}`);
 assert.equal(resolved.did, session.did);
 const didDoc = await (await fetch(`${directory}/${session.did}`)).json();
@@ -107,4 +149,5 @@ assert.equal(retainedBlob.status, 200); assert.deepEqual(Buffer.from(await retai
 assert.equal((await (await fetch(`${directory}/${session.did}`)).json()).id, session.did);
 console.log('Account, confirmed email, PLC identity, record and uploaded media persisted across restart.');
 console.log('Local account login, invite reuse rejection, DID/handle resolution, captured email confirmation, record and media retrieval passed.');
+console.log('Expired, wrong-tenant, malformed and excessive leases rejected on both registration routes; stale invite recovery and guard outage checks passed.');
 console.log(`Retained fixture credentials: ${statePath}; downstream federation remains unqualified.`);

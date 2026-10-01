@@ -5,6 +5,10 @@
 :80 {
     @allowed host localhost 127.0.0.1
     handle @allowed {
+        @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+        forward_auth @registration protocol-fixtures:2582 {
+            uri /_fixture/registration
+        }
         reverse_proxy pds:2583
     }
     handle {

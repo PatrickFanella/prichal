@@ -3,6 +3,7 @@ import http from 'node:http';
 import net from 'node:net';
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
+import { lstatSync, readFileSync } from 'node:fs';
 if (process.env.PDS_FIXTURE_MODE !== 'local') throw new Error('Protocol fixtures require explicit local mode');
 const rootRequire = createRequire('/app/package.json');
 const require = createRequire(rootRequire.resolve('@atproto/pds'));
@@ -28,6 +29,21 @@ const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://fixture');
     if (request.method === 'GET' && url.pathname === '/_health') return reply(response, 200, { localFixture: true });
+    if (request.method === 'GET' && url.pathname === '/_fixture/registration') {
+      let allowed = false;
+      try {
+        const file = '/fixture-data/registration-lease.json';
+        const info = lstatSync(file);
+        if (info.isFile() && (info.mode & 0o077) === 0 && info.size < 1024) {
+          const lease = JSON.parse(readFileSync(file, 'utf8'));
+          const now = Date.now();
+          allowed = lease.tenant === 'qualification' && Number.isSafeInteger(lease.issuedAt) &&
+            Number.isSafeInteger(lease.expiresAt) && lease.issuedAt <= now && lease.expiresAt > now &&
+            lease.expiresAt > lease.issuedAt && lease.expiresAt - lease.issuedAt <= 15 * 60 * 1000;
+        }
+      } catch { /* Missing, corrupt or unavailable policy closes registration. */ }
+      return reply(response, allowed ? 200 : 403, { registration: allowed ? 'permitted' : 'closed' });
+    }
     if (request.method === 'GET' && url.pathname === '/_fixture/mail') {
       const recipient = url.searchParams.get('recipient');
       if (!recipient?.endsWith('.invalid')) return reply(response, 400, { error: 'Fixture recipient required' });
