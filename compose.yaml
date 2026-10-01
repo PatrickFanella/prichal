@@ -1,0 +1,19 @@
+name: pds-ass-local
+services:
+  db:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_USER: pds_local
+      POSTGRES_DB: pds_local
+      POSTGRES_PASSWORD: ${PDS_LOCAL_DB_PASSWORD:?Run scripts/dev.sh db first}
+    ports:
+      - "127.0.0.1:35433:5432"
+    volumes:
+      - management-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pds_local -d pds_local"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  management-data:

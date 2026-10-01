@@ -13,4 +13,4 @@ The initial target is a usable PDS within 15 minutes on a provider-managed domai
 
 The planned stack is Go, PostgreSQL, River jobs, React with TypeScript, the official Bluesky PDS container, Docker, Caddy, OpenTofu, and Ansible. PDS SQLite databases and blobs remain separate from the management database.
 
-This repository currently contains planning and research, not a functioning hosting service. Earlier research explored hosting Subcult OS and Patchwork applications. The implementation plan supersedes that product scope: this service has its own codebase, authentication, database, and deployment lifecycle.
+The repository now includes a local Go API, React interface, PostgreSQL schema and smoke checks. See [local development](docs/local-development.md) for startup and verification, and [local PDS qualification](docs/local-pds-runtime.md) for the separate upstream runtime. Public PDS hosting is not available yet. Earlier research explored hosting Subcult OS and Patchwork applications. The implementation plan supersedes that product scope: this service has its own codebase, authentication, database, and deployment lifecycle.

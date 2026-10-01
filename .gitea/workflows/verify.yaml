@@ -1,0 +1,32 @@
+name: Verify local foundation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: https://github.com/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: backend/go.sum
+      - uses: https://github.com/actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.15.0'
+      - name: Install pinned package manager
+        run: npm install --global pnpm@12.6.0
+      - name: Validate local runtime scripts
+        run: |
+          for script in scripts/*.sh; do bash -n "$script"; done
+          node --check scripts/check-pds.mjs
+          node --check scripts/qualify-pds.mjs
+      - name: Start disposable PostgreSQL
+        run: ./scripts/ci-db.sh start
+      - name: Build and clean-database smoke
+        run: ./scripts/smoke.sh
+      - name: Stop disposable PostgreSQL
+        if: always()
+        run: ./scripts/ci-db.sh stop

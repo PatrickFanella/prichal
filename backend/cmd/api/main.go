@@ -1,0 +1,57 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/app"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+func run() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	startup, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(startup, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	if err = migrate.Apply(startup, pool); err != nil {
+		return err
+	}
+	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(migrate.Probe{Pool: pool}), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	done := make(chan error, 1)
+	go func() {
+		log.Printf("management API listening on %s", cfg.ListenAddress)
+		done <- server.ListenAndServe()
+	}()
+	select {
+	case err = <-done:
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdown)
+	}
+}
