@@ -598,3 +598,13 @@ Unavailable/invalid-authority fixtures cleared stale results and focused errors.
 PR #82 and #83 remote CI runs 11580/11583 remain queued as of 20:09Z. Local API/inventory gates passed; this does not imply remote CI completion, visual qualification or migration completion.
 
 The final full smoke gate passed after list and capture error states were separated. No actionable findings remain in the local inventory-control review. Remote CI, snapshot/visual qualification and live migration gates remain open.
+
+## Export download authority recheck
+
+Downloads now share the inventory disclosure guard. After authenticating the retained archive/checkpoint, the guard reads current/original scope, expiry and recovery status together before returning any bytes or inventory. Changed checkpoints and cancelled requests also return no content.
+
+The pre-fix download body, with only an injected artifact-reader seam, disclosed stale bytes in all five authority-change regression cases. The shared guard passes both download and inventory cases. An initial expiry fixture only changed expiry and hit the exact 24-hour database constraint; its earlier denial did not exercise post-read expiry. The corrected fixture changes capture/expiry consistently and fails on any mutation error. Disposable test databases contain all regression mutations. Source archive dates remain unchanged.
+
+Final full smoke passed. Repeat actual read-only drill `f4900482-269c-4f15-b50d-0c17a36fbd5e` completed at 20:18:04Z against all four retained version 1/2 archives. Owned downloads/inventory, scope denials and independent offline signatures/media passed. Source work, sealed artifacts and native custody matched the baseline. No source expiry reset, new capture, target allocation or identity mutation occurred. Schema remains 26; retained native resources and recovery copies remain untouched.
+
+PR #82 commit `b0cb80b` and #83 commit `23097f5` passed remote CI runs 11580/11583. PR #84 run 11584 is in progress. No actionable findings remain in the disclosure-guard review after the corrected expiry regression and final gate.

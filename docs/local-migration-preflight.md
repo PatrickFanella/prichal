@@ -2,7 +2,7 @@
 
 `GET /api/exports/{id}/migration-preflight` reads an existing owned, ready, unexpired portable archive. It requires the current organization owner and original export owner, a management browser session and local mode. Bearer authorization is denied. Responses use `no-store`. The API does not contact a source host, target host or identity directory.
 
-The response reports archive version, capture time, archive bytes/hash, repository bytes, captured record count, blob count/bytes and preference coverage. AES-GCM scope authentication and every member hash must pass, and the retained management checkpoint must match. PostgreSQL stores capture times at microsecond precision; comparison truncates the authenticated manifest timestamp to that precision. Ownership, expiry, recovery status and checkpoint are rechecked after the read. Unavailable, expired, tampered, foreign or changed artifacts reveal no inventory.
+The response reports archive version, capture time, archive bytes/hash, repository bytes, captured record count, blob count/bytes and preference coverage. AES-GCM scope authentication and every member hash must pass, and the retained management checkpoint must match. PostgreSQL stores capture times at microsecond precision; comparison truncates the authenticated manifest timestamp to that precision. Ownership, expiry, recovery status and checkpoint are rechecked after the read. Downloads use the same guard. The final checkpoint statement reads scope, expiry and recovery status together. Unavailable, expired, tampered, foreign or changed artifacts reveal no inventory.
 
 `state` remains `archive_inventory_only`, with `canTransfer` and `canSwitchIdentity` false. The API reports `signatureVerification: not_rechecked`. Archive integrity is distinct from independently verifying the signed CAR and blob references, or proving current identity control. The record count is the captured manifest count. No archive contents, private preference values, signing keys, host credentials, storage paths or encryption keys appear in the response.
 
@@ -27,3 +27,7 @@ Drill `48734021-122b-4944-9b22-f4247020b9e0` completed at 2026-10-01T20:02:34Z. 
 - Preferences and application state held outside the exported PDS.
 
 This completes a retained-archive inventory component of issue #29. It does not complete old-host access preflight, inbound/outbound migration or rollback qualification. No target or identity mutation is available. Schema remains 26 and no job kind or native resource is added. Existing recovery copies remain retained.
+
+## Download disclosure regression
+
+The former download path checked authority before artifact reading and could return bytes after ownership, expiry, checkpoint or recovery changes, or request cancellation. The retained pre-fix body, with only an injected artifact-reader seam, failed all five cases. The shared disclosure guard now refuses both inventory and archive bytes after those changes. An initial expiry test changed only expiry and hit the database constraint before exercising the guard. The corrected fixture changes capture/expiry together to preserve the exact 24-hour window and requires every fixture mutation to succeed. This corrects the earlier expiry-test evidence. All mutations occur in disposable test databases; retained source expiry is unchanged.

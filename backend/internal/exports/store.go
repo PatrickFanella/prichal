@@ -169,23 +169,10 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 
 // Download authenticates the retained artifact and its management checkpoint before disclosure.
 func (s *Store) Download(ctx context.Context, owner, id string) ([]byte, error) {
-	if err := recovery.Check(ctx, s.Pool); err != nil {
-		return nil, err
-	}
-	operation, err := s.Get(ctx, owner, id)
-	if err != nil {
-		return nil, err
-	}
-	if !operation.DownloadAvailable || operation.SHA256 == nil || operation.Bytes == nil {
-		return nil, ErrUnavailable
-	}
-	var did string
-	if err = s.Pool.QueryRow(ctx, `SELECT account_did FROM export_operations WHERE id=$1 AND owner_id=$2`, id, owner).Scan(&did); err != nil {
-		return nil, err
-	}
-	plain, _, err := s.Artifacts.Read(id, operation.DeploymentID, did)
-	if err != nil || int64(len(plain)) != *operation.Bytes || digest(plain) != *operation.SHA256 {
-		return nil, ErrUnavailable
-	}
-	return plain, nil
+	return s.download(ctx, owner, id, s.Artifacts.Read)
+}
+
+func (s *Store) download(ctx context.Context, owner, id string, read func(string, string, string) ([]byte, Manifest, error)) ([]byte, error) {
+	plain, _, _, err := s.readOwnedArchive(ctx, owner, id, read)
+	return plain, err
 }
