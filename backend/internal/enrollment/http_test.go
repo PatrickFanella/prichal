@@ -100,6 +100,43 @@ func TestHTTPEnforcesOwnerOriginCSRFAndPasswordBoundary(t *testing.T) {
 			t.Fatal("foreign enrollment read")
 		}
 	}
+	withdrawPath := "/api/enrollments/" + op.ID + "/withdraw"
+	worker := &Worker{Pool: f.pool, Cipher: f.store.Cipher, Agent: &agentFixture{}}
+	if err = worker.Work(ctx, job(op.ID, 1)); err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range []struct {
+		token, origin, csrf, body string
+		status                    int
+	}{
+		{"", "http://localhost", "", "{}", 401},
+		{aliceToken, "http://localhost", "wrong", "{}", 403},
+		{aliceToken, "http://foreign.invalid", "test-csrf", "{}", 403},
+		{bobToken, "http://localhost", "test-csrf", "{}", 404},
+		{aliceToken, "http://localhost", "test-csrf", `{"action":"delete"}`, 400},
+		{aliceToken, "http://localhost", "test-csrf", "{} {}", 400},
+		{aliceToken, "http://localhost", "test-csrf", "{}", 200},
+	} {
+		w := request(true, "POST", withdrawPath, entry.token, entry.origin, entry.csrf, entry.body)
+		if w.Code != entry.status {
+			t.Fatalf("withdrawal boundary: %d want %d", w.Code, entry.status)
+		}
+		if entry.status == 200 && (!strings.Contains(w.Body.String(), `"state":"withdrawing"`) || strings.Contains(w.Body.String(), `"code":`)) {
+			t.Fatal("withdrawal state or invitation disclosure")
+		}
+	}
+	if request(false, "POST", withdrawPath, aliceToken, "http://localhost", "test-csrf", "{}").Code != 503 {
+		t.Fatal("production withdrawal gate opened")
+	}
+	cliMux := http.NewServeMux()
+	f.store.Register(owners, true)(cliMux)
+	cliRequest := httptest.NewRequest("POST", withdrawPath, strings.NewReader("{}"))
+	cliRequest.Header.Set("Authorization", "Bearer "+strings.Repeat("c", 43))
+	cliResponse := httptest.NewRecorder()
+	cliMux.ServeHTTP(cliResponse, cliRequest)
+	if cliResponse.Code != 403 {
+		t.Fatal("deployment-scoped CLI credential acquired withdrawal authority")
+	}
 	w := request(false, "POST", path, aliceToken, "http://localhost", "test-csrf", body)
 	if w.Code != 503 {
 		t.Fatal("live gate opened")
