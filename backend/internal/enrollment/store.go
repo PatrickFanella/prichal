@@ -46,6 +46,7 @@ type Operation struct {
 	Handle              string     `json:"handle,omitempty"`
 	EmailConfirmed      bool       `json:"emailConfirmed"`
 	WithdrawalRequested bool       `json:"withdrawalRequested"`
+	CanCancel           bool       `json:"canCancel"`
 	WithdrawalAttempts  int        `json:"withdrawalAttempts"`
 	Events              []Event    `json:"events"`
 }
@@ -118,10 +119,10 @@ func (s *Store) Submit(ctx context.Context, owner, deployment string, request Re
 	if count >= 3 {
 		return Operation{}, ErrConflict
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO enrollment_events(enrollment_id,state,message) SELECT id,'superseded','Replaced by an owner-authorized recovery request.' FROM enrollment_operations WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn')`, deployment); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO enrollment_events(enrollment_id,state,message) SELECT id,'superseded','Replaced by an owner-authorized recovery request.' FROM enrollment_operations WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn','cancelled')`, deployment); err != nil {
 		return Operation{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE enrollment_operations SET state='superseded',code_ciphertext=NULL,message='Replaced by an owner-authorized recovery request.',updated_at=now() WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn')`, deployment); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE enrollment_operations SET state='superseded',code_ciphertext=NULL,message='Replaced by an owner-authorized recovery request.',updated_at=now() WHERE deployment_id=$1 AND state IN ('invitation_ready','expired','failed','withdrawn','cancelled')`, deployment); err != nil {
 		return Operation{}, err
 	}
 	if err = tx.QueryRow(ctx, `INSERT INTO enrollment_operations(deployment_id,owner_id,idempotency_key,recovery_requested) VALUES($1,$2,$3,$4) RETURNING id::text`, deployment, owner, request.Key, request.Recover).Scan(&id); err != nil {
@@ -169,7 +170,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 	var op Operation
 	var encoded []byte
 	var organization, endpoint string
-	err = tx.QueryRow(ctx, `SELECT e.id::text,e.deployment_id::text,e.state,e.message,e.code_ciphertext,e.expires_at,coalesce(e.account_did,''),coalesce(e.account_handle,''),e.email_confirmed,d.organization_id::text,d.endpoint_url,e.withdrawal_requested_at IS NOT NULL,e.withdrawal_attempts FROM enrollment_operations e JOIN deployments d ON d.id=e.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE e.id=$1 AND e.owner_id=$2 AND o.owner_id=$2 FOR SHARE OF e`, id, owner).Scan(&op.ID, &op.DeploymentID, &op.State, &op.Message, &encoded, &op.ExpiresAt, &op.DID, &op.Handle, &op.EmailConfirmed, &organization, &endpoint, &op.WithdrawalRequested, &op.WithdrawalAttempts)
+	err = tx.QueryRow(ctx, `SELECT e.id::text,e.deployment_id::text,e.state,e.message,e.code_ciphertext,e.expires_at,coalesce(e.account_did,''),coalesce(e.account_handle,''),e.email_confirmed,d.organization_id::text,d.endpoint_url,e.withdrawal_requested_at IS NOT NULL,e.withdrawal_attempts,(e.state='pending' AND e.dispatch_started_at IS NULL) FROM enrollment_operations e JOIN deployments d ON d.id=e.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE e.id=$1 AND e.owner_id=$2 AND o.owner_id=$2 FOR SHARE OF e`, id, owner).Scan(&op.ID, &op.DeploymentID, &op.State, &op.Message, &encoded, &op.ExpiresAt, &op.DID, &op.Handle, &op.EmailConfirmed, &organization, &endpoint, &op.WithdrawalRequested, &op.WithdrawalAttempts, &op.CanCancel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}
@@ -251,7 +252,7 @@ func (s *Store) Refresh(ctx context.Context, owner, id string) (Operation, error
 		}
 		return s.Get(ctx, owner, id)
 	}
-	if state == "superseded" || state == "failed" || state == "withdrawing" || state == "withdrawn" {
+	if state == "superseded" || state == "failed" || state == "withdrawing" || state == "withdrawn" || state == "cancelled" {
 		return Operation{}, ErrConflict
 	}
 	if refreshed != nil && time.Since(*refreshed) < 5*time.Second {

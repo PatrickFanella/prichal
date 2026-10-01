@@ -55,7 +55,7 @@ func (w *Worker) recordFailure(ctx context.Context, id string, withdrawalAttempt
 	}
 	// A later owner intent must not be failed by an older attempt whose
 	// native transaction has already released its locks.
-	result, txErr := tx.Exec(ctx, `UPDATE enrollment_operations SET state='failed',code_ciphertext=NULL,message=CASE WHEN withdrawal_requested_at IS NOT NULL THEN 'Invitation withdrawal could not be confirmed. Retry withdrawal or contact support. An existing account is preserved.' ELSE 'Enrollment could not be confirmed. Request bounded recovery or contact support.' END,updated_at=now() WHERE id=$1 AND withdrawal_attempts=$2 AND state NOT IN ('superseded','verified','account_created','withdrawn')`, id, withdrawalAttempt)
+	result, txErr := tx.Exec(ctx, `UPDATE enrollment_operations SET state='failed',code_ciphertext=NULL,message=CASE WHEN withdrawal_requested_at IS NOT NULL THEN 'Invitation withdrawal could not be confirmed. Retry withdrawal or contact support. An existing account is preserved.' ELSE 'Enrollment could not be confirmed. Request bounded recovery or contact support.' END,updated_at=now() WHERE id=$1 AND withdrawal_attempts=$2 AND state NOT IN ('superseded','verified','account_created','withdrawn','cancelled')`, id, withdrawalAttempt)
 	if txErr == nil && result.RowsAffected() > 0 {
 		_, txErr = tx.Exec(ctx, `INSERT INTO enrollment_events(enrollment_id,state,message) VALUES($1,'failed','Enrollment could not be confirmed. Native resources are preserved.')`, id)
 	}
@@ -72,6 +72,16 @@ func (w *Worker) NextRetry(job *river.Job[Args]) time.Time {
 	return time.Now().Add(time.Duration(job.Attempt) * time.Second)
 }
 func (w *Worker) perform(ctx context.Context, id string, withdrawalAttempt *int) error {
+	cancelled, err := w.reserveDispatch(ctx, id)
+	if err != nil {
+		return err
+	}
+	if cancelled {
+		return nil
+	}
+	return w.performReserved(ctx, id, withdrawalAttempt)
+}
+func (w *Worker) performReserved(ctx context.Context, id string, withdrawalAttempt *int) error {
 	if w.Agent == nil || w.Cipher == nil {
 		return errors.New("enrollment worker is not configured")
 	}
@@ -93,7 +103,7 @@ func (w *Worker) perform(ctx context.Context, id string, withdrawalAttempt *int)
 	if err = tx.QueryRow(ctx, `SELECT owner_id::text,state,withdrawal_requested_at,withdrawal_attempts FROM enrollment_operations WHERE id=$1 FOR UPDATE`, id).Scan(&opOwner, &previous, &withdrawal, withdrawalAttempt); err != nil {
 		return err
 	}
-	if previous == "superseded" || previous == "withdrawn" || (withdrawal != nil && (previous == "failed" || previous == "verified")) {
+	if previous == "cancelled" || previous == "superseded" || previous == "withdrawn" || (withdrawal != nil && (previous == "failed" || previous == "verified")) {
 		return tx.Commit(ctx)
 	}
 	if opOwner != owner || runtimeState != "ready" {

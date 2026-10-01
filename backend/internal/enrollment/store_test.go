@@ -149,7 +149,7 @@ func TestRecoveredCheckpointKeepsCodeEncryptedAndEventsBounded(t *testing.T) {
 	}
 	agent := &agentFixture{}
 	worker := &Worker{Pool: f.pool, Cipher: f.store.Cipher, Agent: agent}
-	if _, err = f.pool.Exec(ctx, `CREATE FUNCTION fail_enrollment_checkpoint() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'checkpoint unavailable'; END $$; CREATE TRIGGER fail_enrollment_checkpoint BEFORE UPDATE ON enrollment_operations FOR EACH ROW EXECUTE FUNCTION fail_enrollment_checkpoint()`); err != nil {
+	if _, err = f.pool.Exec(ctx, `CREATE FUNCTION fail_enrollment_checkpoint() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.state='invitation_ready' THEN RAISE EXCEPTION 'checkpoint unavailable'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_enrollment_checkpoint BEFORE UPDATE ON enrollment_operations FOR EACH ROW EXECUTE FUNCTION fail_enrollment_checkpoint()`); err != nil {
 		t.Fatal(err)
 	}
 	if err = worker.Work(ctx, job(op.ID, 1)); err == nil {

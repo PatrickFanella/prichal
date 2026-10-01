@@ -252,11 +252,11 @@ func TestWithdrawalMigrationPreservesPreviousSchemaIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var before string
-	if err = f.pool.QueryRow(ctx, `SELECT (to_jsonb(e)-'withdrawal_requested_at'-'withdrawal_attempts')::text FROM enrollment_operations e WHERE id=$1`, op.ID).Scan(&before); err != nil {
+	if err = f.pool.QueryRow(ctx, `SELECT (to_jsonb(e)-'withdrawal_requested_at'-'withdrawal_attempts'-'dispatch_started_at')::text FROM enrollment_operations e WHERE id=$1`, op.ID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	// Reconstruct schema 27 only in this disposable integration database.
-	if _, err = f.pool.Exec(ctx, `ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_withdrawal_intent; ALTER TABLE enrollment_operations DROP COLUMN withdrawal_requested_at, DROP COLUMN withdrawal_attempts; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_operations_state_check; ALTER TABLE enrollment_operations ADD CONSTRAINT enrollment_operations_state_check CHECK(state IN ('pending','invitation_ready','account_created','verified','expired','failed','superseded')); UPDATE schema_version SET version=27`); err != nil {
+	if _, err = f.pool.Exec(ctx, `ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_cancellation_checkpoint; ALTER TABLE enrollment_operations DROP COLUMN dispatch_started_at; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_withdrawal_intent; ALTER TABLE enrollment_operations DROP COLUMN withdrawal_requested_at, DROP COLUMN withdrawal_attempts; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_operations_state_check; ALTER TABLE enrollment_operations ADD CONSTRAINT enrollment_operations_state_check CHECK(state IN ('pending','invitation_ready','account_created','verified','expired','failed','superseded')); UPDATE schema_version SET version=27`); err != nil {
 		t.Fatal(err)
 	}
 	if err = migrate.Apply(ctx, f.pool); err != nil {
@@ -265,7 +265,7 @@ func TestWithdrawalMigrationPreservesPreviousSchemaIntent(t *testing.T) {
 	var after string
 	var attempts int
 	var requested bool
-	if err = f.pool.QueryRow(ctx, `SELECT (to_jsonb(e)-'withdrawal_requested_at'-'withdrawal_attempts')::text,withdrawal_attempts,withdrawal_requested_at IS NOT NULL FROM enrollment_operations e WHERE id=$1`, op.ID).Scan(&after, &attempts, &requested); err != nil || after != before || attempts != 0 || requested {
+	if err = f.pool.QueryRow(ctx, `SELECT (to_jsonb(e)-'withdrawal_requested_at'-'withdrawal_attempts'-'dispatch_started_at')::text,withdrawal_attempts,withdrawal_requested_at IS NOT NULL FROM enrollment_operations e WHERE id=$1`, op.ID).Scan(&after, &attempts, &requested); err != nil || after != before || attempts != 0 || requested {
 		t.Fatal("upgrade changed previous intent")
 	}
 	if _, err = f.pool.Exec(ctx, `UPDATE enrollment_operations SET state='withdrawing' WHERE id=$1`, op.ID); err == nil {

@@ -16,19 +16,27 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const [withdrawalId, setWithdrawalId] = useState(() => {
     try { const id = sessionStorage.getItem(withdrawalStorageKey); return id && uuid.test(id) ? id : ''; } catch { return ''; }
   });
+  const cancellationStorageKey = `pds-enrollment-cancellation:${deploymentId}`;
+  const [cancellationId, setCancellationId] = useState(() => {
+    try { const id = sessionStorage.getItem(cancellationStorageKey); return id && uuid.test(id) ? id : ''; } catch { return ''; }
+  });
+  const [cancellationReview, setCancellationReview] = useState(false);
+  const cancellationTitle = useRef<HTMLHeadingElement | null>(null);
+  const cancellationLauncher = useRef<HTMLButtonElement | null>(null);
   const [review, setReview] = useState(false);
   const [understood, setUnderstood] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const failure = useRef<HTMLParagraphElement | null>(null);
   const reviewTitle = useRef<HTMLHeadingElement | null>(null);
   const result = useRef<HTMLParagraphElement | null>(null);
+  const focusResult = useRef(false);
   const reviewLauncher = useRef<HTMLButtonElement | null>(null);
   const mutation = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     busyRef.current = false; setBusy(false);
-    return () => { mutation.current?.abort(); mutation.current = null; busyRef.current = false; policyRead.current++; };
+    return () => { mutation.current?.abort(); mutation.current = null; busyRef.current = false; focusResult.current = false; policyRead.current++; };
   }, [deploymentId, csrfToken]);
   function clearWithdrawal() {
     try { sessionStorage.removeItem(withdrawalStorageKey); } catch { /* Confirmed status is retained by the service. */ }
@@ -39,19 +47,22 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const [loadError, setLoadError] = useState('');
   const [now, setNow] = useState(Date.now());
   useEffect(() => { if (error || loadError) failure.current?.focus(); }, [error, loadError]);
+  useEffect(() => { if (cancellationReview) cancellationTitle.current?.focus(); }, [cancellationReview]);
   useEffect(() => { if (review) reviewTitle.current?.focus(); }, [review]);
-  useEffect(() => { setUnderstood(false); setReview(false); setNotice(''); }, [operation?.id, operation?.state, operation?.withdrawalAttempts]);
+  useEffect(() => { if (focusResult.current && loaded && operation) { result.current?.focus(); focusResult.current = false; } }, [operation, loaded, cancellationId]);
+  useEffect(() => { setUnderstood(false); setReview(false); setCancellationReview(false); setNotice(''); }, [operation?.id, operation?.state, operation?.withdrawalAttempts, operation?.canCancel]);
   useEffect(() => {
     const controller = new AbortController();
     let loading = false;
     const load = async () => {
       if (loading || busyRef.current || controller.signal.aborted) return;
+      if (withdrawalId && cancellationId) { setOperation(null); setLoaded(false); setLoadError('Conflicting retained enrollment actions require support review. No action will be retried automatically.'); return; }
       loading = true;
       const sequence = ++policyRead.current;
       try {
         const [policyReadResult, enrollmentReadResult] = await Promise.allSettled([
           fetch(`/api/deployments/${deploymentId}/enrollment/admission`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) }),
-          fetch(withdrawalId ? `/api/enrollments/${withdrawalId}` : `/api/deployments/${deploymentId}/enrollment`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) }),
+          fetch((withdrawalId || cancellationId) ? `/api/enrollments/${withdrawalId || cancellationId}` : `/api/deployments/${deploymentId}/enrollment`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) }),
         ]);
         if (controller.signal.aborted || policyRead.current !== sequence) return;
         try {
@@ -66,12 +77,18 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
         try {
           if (enrollmentReadResult.status !== 'fulfilled') throw new Error('Enrollment unavailable');
           const response = enrollmentReadResult.value;
-          if (response.status === 404) { setOperation(null); setLoaded(!withdrawalId); setLoadError(withdrawalId ? 'The retained withdrawal request could not be found. Sign in with its original owner or contact support.' : ''); return; }
+          if (response.status === 404) { setOperation(null); setLoaded(!withdrawalId && !cancellationId); setLoadError((withdrawalId || cancellationId) ? 'The retained enrollment action could not be found. Sign in with its original owner or contact support.' : ''); return; }
           if (response.status === 401 || response.status === 403) { setOperation(null); setLoaded(false); setLoadError('Sign in again to view account status.'); return; }
           const value: unknown = await response.json();
           if (controller.signal.aborted || policyRead.current !== sequence) return;
-          if (!response.ok || !valid(value, deploymentId) || (withdrawalId && value.id !== withdrawalId)) throw new Error('Enrollment unavailable');
+          if (!response.ok || !valid(value, deploymentId) || ((withdrawalId || cancellationId) && value.id !== (withdrawalId || cancellationId))) throw new Error('Enrollment unavailable');
           setOperation(value); setLoaded(true); setLoadError('');
+          if (cancellationId && value.id === cancellationId && !value.canCancel) {
+            try { sessionStorage.removeItem(cancellationStorageKey); } catch { /* The server retains the result. */ }
+            setCancellationId(''); setError('');
+            setNotice(value.state === 'cancelled' ? 'Queued cancellation is confirmed. Native preparation did not start for this request.' : 'Queued cancellation is no longer available. Review the current enrollment result.');
+            focusResult.current = true;
+          }
           if (withdrawalId && value.id === withdrawalId && (value.withdrawalRequested || ['account_created', 'verified', 'withdrawn', 'superseded'].includes(value.state))) { clearWithdrawal(); setError(''); }
         } catch { if (!controller.signal.aborted && policyRead.current === sequence) { setOperation(null); setLoaded(false); setLoadError('Account status is temporarily unavailable. Invitation controls are paused until status returns.'); } }
       } finally { loading = false; }
@@ -79,9 +96,9 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     void load();
     const interval = window.setInterval(() => { setNow(Date.now()); void load(); }, 3000);
     return () => { controller.abort(); window.clearInterval(interval); };
-  }, [deploymentId, withdrawalId]);
+  }, [deploymentId, withdrawalId, cancellationId]);
   async function prepare(recover: boolean) {
-    if (busyRef.current || !loaded || withdrawalId || (operation?.withdrawalRequested && operation.state !== 'withdrawn') || (!request && admission?.open !== true)) return;
+    if (busyRef.current || !loaded || withdrawalId || cancellationId || (operation?.withdrawalRequested && operation.state !== 'withdrawn') || (!request && admission?.open !== true)) return;
     busyRef.current = true; policyRead.current++;
     const controller = new AbortController(); mutation.current = controller;
     setBusy(true); setError(''); setNotice('');
@@ -99,7 +116,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
   }
   async function refresh() {
-    if (!operation || busyRef.current || !loaded || withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn'].includes(operation.state)) return;
+    if (!operation || busyRef.current || !loaded || withdrawalId || cancellationId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(operation.state)) return;
     busyRef.current = true; policyRead.current++;
     const controller = new AbortController(); mutation.current = controller;
     setBusy(true); setError(''); setNotice('');
@@ -113,7 +130,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
   }
   async function withdraw() {
-    if (!operation || busyRef.current || !loaded || !review || !understood || (withdrawalId && withdrawalId !== operation.id)) return;
+    if (!operation || cancellationId || busyRef.current || !loaded || !review || !understood || (withdrawalId && withdrawalId !== operation.id)) return;
     if (!['invitation_ready', 'expired', 'failed'].includes(operation.state) || operation.withdrawalAttempts >= 3) return;
     const target = withdrawalId || operation.id;
     try { sessionStorage.setItem(withdrawalStorageKey, target); }
@@ -137,10 +154,33 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     } catch { if (!controller.signal.aborted) setError('Invitation withdrawal could not be confirmed. The same request is retained. Refresh status before reviewing a retry.'); }
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
   }
+  async function cancelQueued() {
+    if (!operation?.canCancel || busyRef.current || !loaded || !cancellationReview || !understood || withdrawalId || (cancellationId && cancellationId !== operation.id)) return;
+    const target = cancellationId || operation.id;
+    try { sessionStorage.setItem(cancellationStorageKey, target); }
+    catch { setError('This browser cannot retain a cancellation request. Enable session storage before proceeding.'); return; }
+    busyRef.current = true; policyRead.current++;
+    const controller = new AbortController(); mutation.current = controller;
+    setCancellationId(target); setLoaded(false); setBusy(true); setError(''); setNotice(''); setCancellationReview(false); setUnderstood(false);
+    try {
+      const response = await fetch(`/api/enrollments/${target}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: '{}', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+      const value: unknown = await response.json();
+      if (controller.signal.aborted) return;
+      if (!response.ok || !valid(value, deploymentId) || value.id !== target || value.state !== 'cancelled') {
+        if ([401, 403, 404].includes(response.status)) { setOperation(null); setLoaded(false); }
+        setError('Queued cancellation could not be confirmed. The exact request is retained. Wait for status before reviewing a retry.'); return;
+      }
+      try { sessionStorage.removeItem(cancellationStorageKey); } catch { /* The server retains the confirmed result. */ }
+      setCancellationId(''); setOperation(value); setLoaded(true);
+      setNotice('Queued cancellation is confirmed. Native preparation did not start for this request.');
+      window.setTimeout(() => { if (!controller.signal.aborted) result.current?.focus(); }, 0);
+    } catch { if (!controller.signal.aborted) setError('Queued cancellation could not be confirmed. The exact request is retained. Wait for status before reviewing a retry.'); }
+    finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
+  }
   const expired = operation?.state === 'invitation_ready' && (!operation.expiresAt || Date.parse(operation.expiresAt) <= now);
   const state = expired ? 'expired' : operation?.state;
   const canWithdraw = !!operation && ['invitation_ready', 'expired', 'failed'].includes(operation.state ?? '') && operation.withdrawalAttempts < 3;
-  const canRecover = !operation || (!operation.withdrawalRequested && ['expired', 'failed', 'superseded'].includes(state ?? '')) || state === 'withdrawn';
+  const canRecover = !operation || (!operation.withdrawalRequested && ['expired', 'failed', 'superseded', 'cancelled'].includes(state ?? '')) || state === 'withdrawn';
   return <section className="first-account" aria-label="First AT account">
     <h4>First account</h4>
     {admission?.open === false && <p role="status">New first-account requests are paused. Retained requests and account status remain available. Already-issued invitations remain valid until expiry.</p>}
@@ -148,26 +188,36 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     {policyChecked && admission === null && <p>New first-account availability could not be confirmed. Retained requests and account status remain available.</p>}
     <p>Create your account directly on your PDS. Your account password stays with the PDS.</p>
     <p>For this local test, use a .test handle with 3–18 characters before the suffix and a .invalid email address. Confirmation mail stays in the test inbox.</p>
-    {operation && <p role="status" ref={result} tabIndex={-1}>{withdrawalId ? 'withdrawal unconfirmed' : state}: {withdrawalId ? 'The retained request is awaiting status confirmation.' : expired ? 'This invitation expired. Request recovery to replace it.' : operation.message}</p>}
-    {state === 'invitation_ready' && !withdrawalId && loaded && operation?.code && <>
+    {operation && <p role="status" ref={result} tabIndex={-1}>{withdrawalId ? 'withdrawal unconfirmed' : cancellationId ? 'cancellation unconfirmed' : state}: {(withdrawalId || cancellationId) ? 'The retained request is awaiting status confirmation.' : expired ? 'This invitation expired. Request recovery to replace it.' : operation.message}</p>}
+    {state === 'invitation_ready' && !withdrawalId && !cancellationId && loaded && operation?.code && <>
       <p>One-use invitation: <code>{operation.code}</code></p>
       <p>Expires {operation.expiresAt && new Date(operation.expiresAt).toLocaleString()}.</p>
       <button type="button" onClick={() => { if (!navigator.clipboard) { setError('Copy unavailable. Select the invitation text.'); return; } void navigator.clipboard.writeText(operation.code ?? '').then(() => setNotice('Invitation copied.'), () => setError('Copy unavailable. Select the invitation text.')); }}>Copy invitation</button>
       <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your PDS</a></p>
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
-    {!withdrawalId && (canRecover || request) && <button type="button" disabled={busy || !loaded || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
-    {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
+    {!withdrawalId && !cancellationId && loaded && (canRecover || request) && <button type="button" disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
+    {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || !!cancellationId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
     {withdrawalId && <p role="status">An unconfirmed withdrawal request is retained in this browser tab. Invitation copying, account creation and replacement are paused. Any retry uses the same invitation ticket.</p>}
     {state === 'withdrawing' && <p>Waiting for native confirmation. An account that completed signup will be preserved.</p>}
     {state === 'failed' && operation?.withdrawalRequested && <p>Withdrawal is unconfirmed. Invitation replacement is blocked. {operation.withdrawalAttempts >= 3 ? 'The local retry limit was reached. Contact support.' : 'Review a withdrawal retry with the same ticket or contact support.'}</p>}
-    {canWithdraw && loaded && !review && <button ref={reviewLauncher} type="button" disabled={busy || !!request} onClick={() => { setError(''); setUnderstood(false); setReview(true); }}>{withdrawalId || operation?.withdrawalRequested ? 'Review withdrawal retry' : 'Review invitation withdrawal'}</button>}
-    {review && operation && canWithdraw && loaded && <div className="enrollment-withdrawal-review" role="group" aria-labelledby={`withdrawal-review-${deploymentId}`}>
+    {canWithdraw && !cancellationId && loaded && !review && <button ref={reviewLauncher} type="button" disabled={busy || !!request} onClick={() => { setError(''); setUnderstood(false); setCancellationReview(false); setReview(true); }}>{withdrawalId || operation?.withdrawalRequested ? 'Review withdrawal retry' : 'Review invitation withdrawal'}</button>}
+    {review && !cancellationId && operation && canWithdraw && loaded && <div className="enrollment-withdrawal-review" role="group" aria-labelledby={`withdrawal-review-${deploymentId}`}>
       <h5 id={`withdrawal-review-${deploymentId}`} ref={reviewTitle} tabIndex={-1}>Review invitation withdrawal</h5>
       <p>This closes the retained invitation. The server may briefly restart while signup is drained. A completed account and its data remain preserved. Completion requires a confirmed native result.</p>
       <label><input type="checkbox" checked={understood} onChange={event => setUnderstood(event.target.checked)} disabled={busy} /> I understand that an account already created will be preserved.</label>
       <button type="button" disabled={busy || !understood} onClick={() => { void withdraw(); }}>{withdrawalId || operation.withdrawalRequested ? 'Retry invitation withdrawal' : 'Request invitation withdrawal'}</button>
       <button type="button" disabled={busy} onClick={() => { setReview(false); setUnderstood(false); window.setTimeout(() => reviewLauncher.current?.focus(), 0); }}>Close review</button>
+    </div>}
+    {cancellationId && <p role="status">An unconfirmed queued cancellation is retained in this browser tab. Invitation use, replacement and status refresh are paused. A fresh scoped read is required before retrying the same request.</p>}
+    {state === 'pending' && loaded && !operation?.canCancel && !cancellationId && <p>Native preparation has started or its prior dispatch history is uncertain. Queued cancellation is unavailable. Wait for status or contact support.</p>}
+    {operation?.canCancel && loaded && !withdrawalId && !cancellationReview && <button ref={cancellationLauncher} type="button" disabled={busy || !!request} onClick={() => { setError(''); setUnderstood(false); setReview(false); setCancellationReview(true); }}>{cancellationId ? 'Review queued cancellation retry' : 'Review queued cancellation'}</button>}
+    {cancellationReview && operation?.canCancel && loaded && !withdrawalId && <div className="enrollment-withdrawal-review" role="group" aria-labelledby={`cancellation-review-${deploymentId}`}>
+      <h5 id={`cancellation-review-${deploymentId}`} ref={cancellationTitle} tabIndex={-1}>Review queued cancellation</h5>
+      <p>This cancels this request only if native preparation has not started. If preparation starts first, cancellation is refused and the current result remains available. No account or server data is deleted.</p>
+      <label><input type="checkbox" checked={understood} onChange={event => setUnderstood(event.target.checked)} disabled={busy} /> I understand that cancellation may be refused if preparation starts first.</label>
+      <button type="button" disabled={busy || !understood} onClick={() => { void cancelQueued(); }}>{cancellationId ? 'Retry queued cancellation' : 'Cancel queued enrollment'}</button>
+      <button type="button" disabled={busy} onClick={() => { setCancellationReview(false); setUnderstood(false); window.setTimeout(() => cancellationLauncher.current?.focus(), 0); }}>Close review</button>
     </div>}
     {state === 'verified' && <HandleSetup deploymentId={deploymentId} csrfToken={csrfToken} />}
     {notice && <p role="status">{notice}</p>}{(error || loadError) && <p role="alert" ref={failure} tabIndex={-1}>{loadError || error}</p>}
