@@ -38,3 +38,5 @@ Phase: M4 - Public launch. Priority: P0.
 ## Local control evidence
 
 [Management-owner admission](../local-owner-admission.md) adds audited pause/reopen of new verified management subjects while preserving existing-owner sign-in. It is separate from deployment/enrollment admission and issued native invitations. Local close/reopen and a fresh schema-27 recovery checkpoint passed. Production operator administration, designated live infrastructure, public launch evidence and sign-off remain open; this does not open public signup.
+
+[Issued-invitation withdrawal](../local-enrollment-withdrawal-agent.md) supplies a restricted exact-ticket agent command and typed worker client. Fixture retry/drain/race tests and actual retained-account preservation passed. Management intent/audit/queue, browser controls and fresh empty-PDS runtime qualification remain open. No acceptance criterion is marked complete by this partial command.

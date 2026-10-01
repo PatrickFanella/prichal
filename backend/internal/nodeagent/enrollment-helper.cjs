@@ -22,7 +22,7 @@ async function inventory() {
 (async () => {
   if (process.env.PDS_DEV_MODE !== 'true' || process.env.PDS_DID_PLC_URL !== 'http://pds-ass-protocol-fixtures:2582') throw new Error('Isolated native PDS required');
   if (action === 'inventory') return inventory();
-  if (action !== 'invitation') throw new Error('Unsupported native enrollment action');
+  if (action !== 'invitation' && action !== 'withdraw') throw new Error('Unsupported native enrollment action');
   const account = await inventory();
   if (account.count) return account;
   const codes = [];
@@ -35,6 +35,7 @@ async function inventory() {
     if (pageNumber === 9) throw new Error('Native invitation inventory limit exceeded');
   }
   if (codes.length) await call('com.atproto.admin.disableInviteCodes', { codes });
+  if (action === 'withdraw') return inventory();
   const invitation = await call('com.atproto.server.createInviteCode', { useCount: 1 });
   return { count: 0, code: invitation.code };
 })().then(value => process.stdout.write(JSON.stringify(value)), () => { process.stderr.write('Native enrollment operation failed'); process.exitCode = 1; });

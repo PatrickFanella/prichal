@@ -61,7 +61,7 @@ func (d *Docker) readEnrollmentLease(id string) (enrollmentLease, error) {
 		return lease, errors.New("invalid enrollment lease")
 	}
 	switch lease.State {
-	case "closed", "preparing", "open", "complete", "expired":
+	case "closed", "preparing", "open", "complete", "expired", "withdrawing", "withdrawn":
 	default:
 		return lease, errors.New("invalid enrollment state")
 	}
@@ -135,6 +135,9 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 	lease, err := d.readEnrollmentLease(id)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return result, err
+	}
+	if lease.Ticket == ticket && (lease.State == "withdrawing" || lease.State == "withdrawn") {
+		return result, errors.New("withdrawn enrollment requires a new recovery ticket")
 	}
 	current, err := d.status(ctx, id)
 	if err != nil {
@@ -248,6 +251,96 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 }
 func validInvitationCode(code string) bool {
 	return regexp.MustCompile(`^[A-Za-z0-9._:-]{1,256}$`).MatchString(code)
+}
+
+// WithdrawEnrollment closes only the retained first-account ticket. It never
+// deletes an account, suspends service, or replaces an invitation.
+func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enrollment, error) {
+	result := Enrollment{InstanceID: id, Ticket: ticket}
+	if !d.localIdentity || !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+		return result, errors.New("isolated instance and enrollment ticket required")
+	}
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	lease, err := d.readEnrollmentLease(id)
+	if err != nil || lease.Ticket != ticket {
+		return result, errors.New("retained enrollment ticket required")
+	}
+	current, err := d.status(ctx, id)
+	if err != nil || current.State == "suspended" || (!current.Healthy && lease.State != "withdrawing") {
+		return result, errors.New("guarded local PDS policy could not be confirmed")
+	}
+	// A retry after an interrupted drain must finish the drain before inventory.
+	if lease.State != "withdrawing" {
+		var native nativeEnrollment
+		if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"inventory"}, &native); err != nil {
+			return result, err
+		}
+		if native.Count == 1 {
+			return enrollmentAccount(result, native)
+		}
+		if native.Count != 0 || lease.State == "complete" {
+			return result, errors.New("first-account inventory conflicts with retained enrollment")
+		}
+		if lease.State == "withdrawn" {
+			result.State = "withdrawn"
+			return result, nil
+		}
+	}
+	lease = enrollmentLease{InstanceID: id, Ticket: ticket, State: "withdrawing"}
+	if err = d.publishEnrollmentLease(ctx, lease); err != nil {
+		return result, err
+	}
+	// Drain ingress too: a previously authorized proxy request must not survive
+	// the native restart and arrive after the final account inventory.
+	for _, name := range []string{"pds-ass-edge-" + id, "pds-ass-tenant-" + id} {
+		if _, err = d.call(ctx, "POST", "/containers/"+name+"/stop?t=10", nil, nil); err != nil {
+			return result, err
+		}
+	}
+	for _, name := range []string{"pds-ass-tenant-" + id, "pds-ass-edge-" + id} {
+		if _, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil); err != nil {
+			return result, err
+		}
+	}
+	if err = d.waitEnrollmentRuntime(ctx, id); err != nil {
+		return result, err
+	}
+	var native nativeEnrollment
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"withdraw"}, &native); err != nil {
+		return result, err
+	}
+	if native.Count == 1 {
+		account, err := enrollmentAccount(result, native)
+		if err != nil {
+			return result, err
+		}
+		lease.State = "complete"
+		if err = d.publishEnrollmentLease(ctx, lease); err != nil {
+			return result, err
+		}
+		return account, nil
+	}
+	if native.Count != 0 || native.Code != "" || native.DID != "" || native.Handle != "" || native.EmailConfirmed {
+		return result, errors.New("invalid withdrawn account inventory")
+	}
+	lease.State = "withdrawn"
+	if err = d.publishEnrollmentLease(ctx, lease); err != nil {
+		return result, err
+	}
+	result.State = "withdrawn"
+	return result, nil
+}
+
+func enrollmentAccount(result Enrollment, native nativeEnrollment) (Enrollment, error) {
+	if native.Count != 1 || !accountDID.MatchString(native.DID) || native.Handle == "" || len(native.Handle) > 253 || native.Code != "" {
+		return result, errors.New("invalid native account status")
+	}
+	result.State, result.DID, result.Handle, result.EmailConfirmed = "account_created", native.DID, native.Handle, native.EmailConfirmed
+	if native.EmailConfirmed {
+		result.State = "verified"
+	}
+	return result, nil
 }
 
 func (d *Docker) waitEnrollmentRuntime(ctx context.Context, id string) error {

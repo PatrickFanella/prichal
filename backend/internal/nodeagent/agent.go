@@ -33,6 +33,36 @@ var instanceID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 // Handler accepts only an empty configuration object and a stable instance UUID.
 func Handler(runtime Runtime) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/instances/{id}/enrollment/withdraw", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		provider, ok := runtime.(interface {
+			WithdrawEnrollment(context.Context, string, string) (Enrollment, error)
+		})
+		if !ok {
+			http.Error(w, "enrollment withdrawal unavailable", 503)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 128)
+		var body struct {
+			Ticket string `json:"ticket"`
+		}
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !instanceID.MatchString(body.Ticket) {
+			http.Error(w, "enrollment ticket required", 400)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		result, err := provider.WithdrawEnrollment(ctx, r.PathValue("id"), body.Ticket)
+		if err != nil {
+			http.Error(w, "enrollment withdrawal could not be confirmed", 503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("POST /v1/instances/{id}/export", func(w http.ResponseWriter, r *http.Request) {
 		provider, ok := runtime.(interface {
 			Export(context.Context, string, string) (PortableExport, error)
@@ -265,6 +295,10 @@ func Handler(runtime Runtime) http.Handler {
 			return
 		}
 		if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/usage") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/usage")) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/enrollment/withdraw") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/enrollment/withdraw")) {
 			mux.ServeHTTP(w, r)
 			return
 		}
