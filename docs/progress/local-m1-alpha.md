@@ -488,3 +488,15 @@ Full smoke passed. Tests traverse 117 rows of each kind over three pages and ver
 Actual browser receipts showed the retained revoked member without action controls and an accepted invitation; keyboard reload focused the count. Temporary read-only 50-to-one fixtures preserved focus for both final pages, then original fetch and real data were restored. Five sizes had no document/receipt overflow. At 17:55:53–54Z, default feature disablement cleared both lists, focused errors and cleared busy state. Refresh hid collaboration while ordinary owner controls stayed available. Metadata remains in `.local/membership-receipts-browser.json`; T3 text snapshot succeeded.
 
 Source API is on schema 24 with fixture permissions disabled and admission open. Incoming-offer pagination, assistive screen-reader and live milestone gates remain open. No native host operation, container/volume deletion or recovery-copy removal occurred.
+
+PR #75 commit `933f0f8` passed remote CI run 11550.
+
+## Paged incoming invitations and ownership offers
+
+Separate 50-offer pages remove the browser's 30-of-each limit while retaining the old response. Each page checks current recipient identity, expiry, offering ownership and required membership. Cursors bind identity/list kind. Acceptance still stages the existing persisted request with fresh acknowledgement and independent current eligibility checks. See [incoming offer pages](../local-incoming-offers.md).
+
+Full smoke passed. Disposable PostgreSQL tests traverse 117 offers of each kind with tied timestamps, then remove expired/revoked/identity-mismatched or no-longer-authorized offers between pages. A UUID/text fixture parameter conflict was corrected. Actual read-only drill `2d5ec057-768a-4ec8-8b9c-258894dcd14d` completed at 18:02:03Z: both identities have zero pending offers, legacy projections/repeats and denied-access checks passed, and audits/jobs/native custody remained unchanged.
+
+Actual browser keyboard reload focused the empty count. Temporary read-only 50-to-one responses preserved final-page focus; synthetic ownership review remained unchecked/disabled and paging reset acknowledgement. The retained request was cleared through the reviewed UI, zero mutation requests were sent, original fetch was restored and actual lists reloaded. A delayed synthetic response after refresh was discarded. Five sizes had no document/offer overflow. At 18:05:03–05Z, feature disablement cleared both lists, focused errors and cleared busy state. Refresh hid collaboration while ordinary owner controls stayed available. Metadata remains in `.local/incoming-offers-browser.json`.
+
+Source API is on schema 24 with fixture permissions disabled and admission open. Snapshot capture remains intermittent. Assistive screen-reader, delegated hosting/domain work, populated handover and live gates remain open. No host operation, native container/volume deletion or recovery-copy removal occurred.

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { CollaborationHistory } from './collaboration-history';
+import { IncomingCollaborationOffers, incomingOfferPage } from './incoming-collaboration-offers';
 import { SharedInstanceStatus } from './shared-instance-status';
 import { CollaborationMembers, CollaborationInvitationReceipts } from './collaboration-receipts';
 
 type Role = 'administrator' | 'viewer';
 type Organization = { organizationId: string; name: string; role: Role | 'owner' };
 type OrganizationPage = { items: Organization[]; hasMore: boolean; nextAfter: string | null };
-type Incoming = { invitations: { id: string; organizationId: string; role: Role; expiresAt: string }[]; transfers: { id: string; organizationId: string; expiresAt: string }[] };
+type OfferPage = { items: { id: string; organizationId: string; role?: Role; expiresAt: string }[]; hasMore: boolean; nextAfter: string | null };
+type Incoming = { invitations: OfferPage; transfers: OfferPage };
 type Shared = Organization & { instances: { id: string; name: string; state: string; kind: string }[]; hasMore: boolean };
 type Intent =
   | { kind: 'invite'; organizationId: string; identityId: string; role: Role; key: string }
@@ -19,13 +21,9 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 function object(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
 function identity(value: unknown): value is string { return typeof value === 'string' && uuid.test(value); }
 function role(value: unknown): value is Role { return value === 'administrator' || value === 'viewer'; }
-function date(value: unknown): value is string { return typeof value === 'string' && Number.isFinite(Date.parse(value)); }
 function organization(value: unknown): value is Organization { return object(value) && identity(value.organizationId) && typeof value.name === 'string' && (value.role === 'owner' || role(value.role)); }
 function organizationPage(value: unknown): value is OrganizationPage {
   return object(value) && Array.isArray(value.items) && value.items.length <= 50 && value.items.every(organization) && typeof value.hasMore === 'boolean' && (value.hasMore ? typeof value.nextAfter === 'string' && value.nextAfter.length > 0 && value.nextAfter.length <= 256 : value.nextAfter === null);
-}
-function incoming(value: unknown): value is Incoming {
-  return object(value) && Array.isArray(value.invitations) && value.invitations.length <= 30 && value.invitations.every(item => object(item) && identity(item.id) && identity(item.organizationId) && role(item.role) && date(item.expiresAt)) && Array.isArray(value.transfers) && value.transfers.length <= 30 && value.transfers.every(item => object(item) && identity(item.id) && identity(item.organizationId) && date(item.expiresAt));
 }
 function shared(value: unknown): value is Shared { return object(value) && Array.isArray(value.instances) && value.instances.length <= 100 && value.instances.every(item => object(item) && identity(item.id) && typeof item.name === 'string' && typeof item.state === 'string' && typeof item.kind === 'string') && typeof value.hasMore === 'boolean' && organization(value); }
 function intent(value: unknown): Intent | null {
@@ -65,7 +63,7 @@ function request(value: Intent): { path: string; method: 'POST' | 'PATCH'; body:
 export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { ownerId: string; csrfToken: string; onChanged: () => void }) {
   const storageKey = `pds-collaboration-intent:${ownerId}`;
   const [pending, setPending] = useState<Intent | null>(null), [reviewed, setReviewed] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [blocked, setBlocked] = useState(false);
-  const [available, setAvailable] = useState(false), [organizations, setOrganizations] = useState<OrganizationPage>({ items: [], hasMore: false, nextAfter: null }), [offers, setOffers] = useState<Incoming>({ invitations: [], transfers: [] });
+  const [available, setAvailable] = useState(false), [organizations, setOrganizations] = useState<OrganizationPage>({ items: [], hasMore: false, nextAfter: null }), [offers, setOffers] = useState<Incoming>({ invitations: { items: [], hasMore: false, nextAfter: null }, transfers: { items: [], hasMore: false, nextAfter: null } });
   const [view, setView] = useState<Shared | null>(null), [target, setTarget] = useState(''), [inviteRole, setInviteRole] = useState<Role>('viewer'), [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false), [listBusy, setListBusy] = useState(false), [listError, setListError] = useState('');
   const listRead = useRef<AbortController | null>(null), listStatus = useRef<HTMLParagraphElement | null>(null), listFailure = useRef<HTMLParagraphElement | null>(null), focusList = useRef(false);
@@ -79,13 +77,13 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     read.current?.abort(); listRead.current?.abort(); setListBusy(false); setListError(''); const controller = new AbortController(); read.current = controller;
     try {
       const get = (path: string) => fetch(path, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
-      const responses = await Promise.all([get('/api/team/organizations/page'), get('/api/team/incoming')]);
+      const responses = await Promise.all([get('/api/team/organizations/page'), get('/api/team/incoming/invitations/page'), get('/api/team/incoming/transfers/page')]);
       if (controller.signal.aborted) return;
       if (responses.some(response => response.status === 404)) { setAvailable(false); setView(null); return; }
-      const [list, incomingOffers]: unknown[] = await Promise.all(responses.map(response => response.json()));
+      const [list, invitations, transfers]: unknown[] = await Promise.all(responses.map(response => response.json()));
       if (controller.signal.aborted) return;
-      if (!responses.every(response => response.ok) || !organizationPage(list) || !incoming(incomingOffers)) throw new Error('Invalid collaboration response');
-      setAvailable(true); setOrganizations(list); setOffers(incomingOffers); setView(null);
+      if (!responses.every(response => response.ok) || !organizationPage(list) || !incomingOfferPage(invitations, 'invitations') || !incomingOfferPage(transfers, 'transfers')) throw new Error('Invalid collaboration response');
+      setAvailable(true); setOrganizations(list); setOffers({ invitations, transfers }); setView(null);
     } catch { if (!controller.signal.aborted) setError('Organization collaboration is temporarily unavailable.'); }
   }
   useEffect(() => {
@@ -150,11 +148,9 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     {error && <p role="alert">{error}</p>}{notice && <p role="status" ref={receiptNotice} tabIndex={-1}>{notice}</p>}
     {(pending || blocked) && <section className="collaboration-review" aria-labelledby="collaboration-review-title"><h4 id="collaboration-review-title" ref={reviewHeading} tabIndex={-1}>Review retained action</h4><p>{pending ? description(pending) : 'A retained request could not be verified. Check current membership and invitation history before clearing it.'}</p><label><input type="checkbox" checked={reviewed} disabled={busy} onChange={event => setReviewed(event.target.checked)}/>I checked this identity, role and action. {pending?.kind === 'accept-offer' && 'I accept management ownership of this empty organization.'}</label><button type="button" disabled={busy || !reviewed || pending === null} onClick={() => { void submit(); }}>Confirm or retry this action</button><button type="button" disabled={busy || !reviewed} onClick={clear}>Clear request after checking current access</button></section>}
     <button type="button" disabled={busy} onClick={() => { void refresh(); }}>Refresh collaboration access</button>
-    <h4>Incoming invitations</h4><p>Only offers for your verified identity appear. Inviting and accepting a management role does not merge native accounts.</p>
-    <ul>{offers.invitations.map(item => <li key={item.id}><p>Organization {item.organizationId}: {item.role}. Expires <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time>.</p><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'accept-invite', id: item.id, organizationId: item.organizationId, role: item.role })}>Review invitation acceptance</button></li>)}</ul>
-    {offers.invitations.length === 0 && <p>No pending invitations.</p>}
-    <ul>{offers.transfers.map(item => <li key={item.id}><p>Ownership offer for empty organization {item.organizationId}. Expires <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleString()}</time>.</p><button type="button" disabled={busy || (pending !== null || blocked)} onClick={() => stage({ kind: 'accept-offer', id: item.id, organizationId: item.organizationId })}>Review ownership acceptance</button></li>)}</ul>
-    <h4>Permitted organizations</h4><p>Each page checks your current access. Incoming offers remain limited to 30 of each type; contact support if an offer is outside that list.</p>
+    <IncomingCollaborationOffers kind="invitations" initial={offers.invitations} working={busy} mutationBlocked={pending !== null || blocked} beforeRead={() => setReviewed(false)} onReview={item => { if (item.role) stage({ kind: 'accept-invite', id: item.id, organizationId: item.organizationId, role: item.role }); }}/>
+    <IncomingCollaborationOffers kind="transfers" initial={offers.transfers} working={busy} mutationBlocked={pending !== null || blocked} beforeRead={() => setReviewed(false)} onReview={item => stage({ kind: 'accept-offer', id: item.id, organizationId: item.organizationId })}/>
+    <h4>Permitted organizations</h4><p>Each page checks your current access.</p>
     <p role="status" ref={listStatus} tabIndex={-1}>{organizations.items.length} permitted organizations shown.</p>
     {listError && <p role="alert" ref={listFailure} tabIndex={-1}>{listError}</p>}
     <button type="button" disabled={busy || listBusy} onClick={() => { void loadOrganizations(); }}>Load first organization page</button>
