@@ -414,3 +414,17 @@ Full smoke passed. Actual drill `38d7984c-e379-4fad-80b8-b92f9775860a` completed
 Fresh recovery `cbc79c44-2096-4503-b138-90e2aa1af9ca` matched all 43 schema-23 tables and sequences, including two invitations, two retained membership rows, one transfer and eight access audits. Copied authentication was revoked and held worker startup refused. Host reconciliation and dedicated-queue replay preserved copied default work, source rows/sequences and native custody. Source API/worker/monitor resumed with collaboration, exit scheduling, fixture billing and operator authority disabled; an authenticated request confirmed the collaboration route is disabled.
 
 PR #66 commit `faf7ef1` passed remote CI run 11447. Browser collaboration controls, delegated administrator hosting/domain work, full list pagination, populated handover and live qualification remain open. Both native services run; no container, volume or recovery copy was removed.
+
+## Browser collaboration, reviewed persistence and recovery
+
+The collaboration browser controls now stage a typed owner-scoped request before mutation, show the exact identity/role/organization, require fresh review after reload or failure and preserve stable invitation/offer requests. Viewer, administrator and owner controls reflect their qualified API scope. Separate recipient acceptance remains required for empty-organization ownership. See [browser collaboration](../local-collaboration-workspace.md).
+
+Native T3 DOM evaluation/interactions work despite snapshot capture failure. The actual browser drill completed at 16:05:05Z: invitation persistence without automatic submission, keyboard Tab/Space/Enter confirmation, focused review/receipt, owner-separated retained state across sign-out, viewer controls, administrator rename/invitation boundary, ownership offer/acceptance and former-owner denial passed. A local API outage retained the action and reset acknowledgement; explicit retry after recovery recorded one rename. Both native signed repositories/media, containers and protected custody remained unchanged.
+
+Viewer and owner review/form layouts had zero document overflow/offscreen collaboration elements at 320×568, 375×812, 812×375, 768×1024 and 1440×900. Visible controls had labels. Snapshot appearance, assistive screen-reader testing and broader failure journeys remain unqualified. Full smoke and final frontend build passed. PR #67 commit `1450971` and merged main `081ea55` passed remote CI runs 11485 and 11486.
+
+Default restart hid collaboration controls while the ordinary owner workspace stayed available. Empty browser test organization `a982ab3f-19d0-4bc6-a6b1-7fc7a16c193c` and its eight effective access audits remain retained under Bob's ownership. No native host operation, container/volume deletion or external invitation message occurred.
+
+Post-browser recovery `b3a05f17-fa9f-4599-85af-4b5d39dab6de` matched all 43 schema-23 tables and sequences, including three invitations, three retained membership rows, two transfers, 16 access audits and 79 River jobs. Copied authentication was revoked and held worker startup refused. Reconciliation/dedicated-queue replay preserved copied ordinary jobs, source management rows/sequences and native custody. Recovery copies remain retained.
+
+Source API, worker and monitor resumed after this checkpoint with collaboration, exit scheduling, fixture billing and operator authority disabled. Native services remain running.
