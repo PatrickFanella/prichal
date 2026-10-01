@@ -47,3 +47,7 @@ _Avoid_: Account migration, signing delegation
 **Deployment admission**:
 The operator policy that accepts or pauses new deployment intent while preserving committed work, existing service and supported recovery.
 _Avoid_: Service suspension, account registration, public launch approval
+
+**Enrollment admission**:
+The operator policy that pauses new first-account invitation requests while preserving retained requests, issued invitations and existing account recovery/status.
+_Avoid_: Invitation revocation, native account suspension, public signup approval
