@@ -576,3 +576,13 @@ T3 reconnected and shared original fetch/actual null state were restored before 
 Source checks preserved six cancelled choices/twelve audits, zero pending choices, jobs/endpoints/admission policy and native data/custody. Schema remains 26, fixture permissions disabled and admission open. No native container, volume or recovery-copy deletion occurred. PR #81 commit `5efbba6` passed remote CI 11562. Controlled public DNS, exclusive verified claims, routing/TLS/activation, assistive screen-reader behavior and migration remain open.
 
 The final full smoke gate passed after the phone/grid style change. All local address viewport/cache-denial checks and shared-fixture cleanup are now qualified; controlled public DNS and activation remain open.
+
+## Read-only outbound migration inventory
+
+Existing owned, unexpired exports now have a local browser-only inventory preflight. It authenticates the sealed archive/member hashes and management checkpoint, then rechecks scope, expiry and recovery status. It reports captured totals and version 1/2 preference coverage, with signature rechecking, transfer and identity switching explicitly unavailable. See [migration preflight](../local-migration-preflight.md).
+
+Full smoke passed. Tests reject ownership/expiry/checkpoint/hold changes during artifact reading, cancelled contexts, tampering, missing custody, foreign owners, CLI and production use. Archive content and private preferences remain undisclosed; export/event/job rows stay unchanged.
+
+Actual read-only drill `48734021-122b-4944-9b22-f4247020b9e0` completed at 20:02:34Z against all four retained archives. Both versions, exact repeats and scope denials passed. Independent offline verification confirmed captured signatures/media and inventory totals. Source management work, sealed artifacts and both native inventories/custody matched the baseline. Local sign-ins intentionally changed authentication activity. No new export, expiry reset, allowance reset, target allocation, import or identity switch occurred.
+
+Schema remains 26, fixture permissions disabled and admissions open. Existing native containers, volumes and recovery copies remain retained. Current source authority/recovery, designated targets, resumable imports, post-switch checks and external application state remain open under issue #29.
