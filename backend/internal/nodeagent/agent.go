@@ -1,0 +1,73 @@
+// Package nodeagent exposes a fixed lifecycle contract; requests cannot supply host paths or images.
+package nodeagent
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// Instance contains no runtime credentials or host administration details.
+type Instance struct {
+	ID    string `json:"id"`
+	State string `json:"state"`
+	Port  string `json:"port"`
+}
+
+// Runtime reconciles a stable, service-owned instance ID.
+type Runtime interface {
+	Ensure(context.Context, string) (Instance, error)
+}
+
+var instanceID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+
+// Handler accepts only an empty configuration object and a stable instance UUID.
+func Handler(runtime Runtime) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /v1/instances/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		if !instanceID.MatchString(r.PathValue("id")) {
+			http.Error(w, "invalid instance ID", 400)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 128)
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		var request struct{}
+		if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF {
+			http.Error(w, "unsupported instance configuration", 400)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		result, err := runtime.Ensure(ctx, r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "instance reconciliation unavailable", 503)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(result)
+	})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" || !strings.HasPrefix(r.URL.Path, "/v1/instances/") || !instanceID.MatchString(strings.TrimPrefix(r.URL.Path, "/v1/instances/")) {
+			http.NotFound(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+// Authenticate requires a TLS-verified client certificate issued by the dedicated agent CA.
+func Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != "pds-ass-worker" {
+			http.Error(w, "verified worker identity required", 401)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

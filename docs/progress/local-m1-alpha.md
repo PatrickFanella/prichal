@@ -52,3 +52,13 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - Browser verification submitted `restart-proof` while the worker was absent, observed queued status, started the worker and reloaded to the same ready operation. No horizontal overflow at 375×812, 768×1024, 812×375 and 1440×900.
 - The browser lists stored operations and polls status. It retains unconfirmed request parameters in local storage for replay after a page closes. Local test readiness explicitly states that no PDS has been deployed.
 - Hard-kill rescue timing, real host execution and public readiness remain subsequent qualification. No live deployment has been created.
+
+## Restricted node agent qualification
+
+- Added a separate local node-agent command with a TLS 1.3 listener requiring a CA-verified worker certificate. The API cannot reach the Docker socket through its own implementation.
+- The allowlisted operation accepts only an instance UUID and an empty object. Fixed image, separate named data/blob volumes, internal network, CPU/memory/PID limits, dropped capabilities and no-new-privileges are agent policy. Existing foreign resources or altered container security/storage settings fail reconciliation.
+- Private credential files survive agent reconstruction; atomic publication preserves the existing secret set. No deletion endpoint exists.
+- `./scripts/dev.sh smoke` passed. Unit tests cover contract rejection, unauthenticated requests, secret persistence/symlink rejection, fixed Docker configuration and retry without another container.
+- Actual local qualification created container `0dbad504a32c` for UUID `aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa`. Repeated requests before and after agent restart retained one container and exactly two labeled volumes. A fixed health probe returned HTTP 200 and version 0.4.5036. A TLS request without a client certificate failed.
+- This is partial #6 groundwork. Automatic placement, measured capacity, one-time node enrollment, public ingress and worker-to-agent integration remain open. Container running status is not deployment readiness.
+- [PR #33](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/33) holds the preceding durable operation slice; [CI run 11349](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11349) passed at commit `6bf1e74`.
