@@ -7,3 +7,6 @@ test('portable references reject unsafe paths, depth and aggregate content befor
 test('portable HTTP reads enforce size while streaming and reject unsuccessful responses',async()=>{
  assert.deepEqual(await boundedBody(new Response('abc'),3),Buffer.from('abc'));await assert.rejects(boundedBody(new Response('abcd'),3));await assert.rejects(boundedBody(new Response('private',{status:401}),100));
 });
+test('private preferences select bounded app-specific records and preserve exact customer values',()=>{
+ const {preferences}=createRequire(import.meta.url)('../backend/internal/nodeagent/export-helper.cjs');const value={$type:'app.bsky.actor.defs#adultContentPref',enabled:false};assert.deepEqual(JSON.parse(preferences([{name:value.$type,valueJson:JSON.stringify(value)}])),{namespace:'app.bsky',preferences:[value]});assert.throws(()=>preferences([{name:'com.atproto.server.password',valueJson:'{}'}]));assert.throws(()=>preferences([{name:value.$type,valueJson:'{"$type":"other.app"}'}]));assert.throws(()=>preferences(Array.from({length:1001},()=>({name:value.$type,valueJson:JSON.stringify(value)}))));assert.throws(()=>preferences([{name:value.$type,valueJson:JSON.stringify({...value,large:'a'.repeat(1024*1024)})}]));
+});

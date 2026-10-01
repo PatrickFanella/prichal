@@ -147,3 +147,30 @@ func TestArtifactPrivateCustodyAndWrongKey(t *testing.T) {
 		t.Fatal("live storage opened")
 	}
 }
+
+func TestPrivatePreferenceArchivesPreserveVersionOneReplay(t *testing.T) {
+	store := artifactFixture(t)
+	data := portableFixture()
+	old, _, err := store.Publish(exportID, deploymentID, fixtureDID, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.Preferences = []byte(`{"namespace":"app.bsky","preferences":[{"$type":"app.bsky.actor.defs#personalDetailsPref","birthDate":"2000-01-01"}]}`)
+	replay, manifest, err := store.Publish(exportID, deploymentID, fixtureDID, data)
+	if err != nil || manifest.Version != 1 || !bytes.Equal(old, replay) {
+		t.Fatal("version one snapshot changed after preference support")
+	}
+	nextID := "dddddddd-dddd-4ddd-dddd-dddddddddddd"
+	plain, manifest, err := store.Publish(nextID, deploymentID, fixtureDID, data)
+	if err != nil || manifest.Version != 2 || len(manifest.Files) != 2 || manifest.Files[1].Name != "preferences.json" || !bytes.Contains(plain, data.Preferences) {
+		t.Fatal("private preferences lost")
+	}
+	encoded, err := os.ReadFile(filepath.Join(store.directory, nextID+".sealed"))
+	if err != nil || bytes.Contains(encoded, []byte("2000-01-01")) {
+		t.Fatal("private preferences retained in plaintext")
+	}
+	reopened, _, err := store.Read(nextID, deploymentID, fixtureDID)
+	if err != nil || !bytes.Equal(plain, reopened) {
+		t.Fatal("version two preferences could not be authenticated")
+	}
+}

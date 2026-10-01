@@ -86,3 +86,17 @@ func TestPortableFrameLimitsDoNotWidenOrdinaryHelpers(t *testing.T) {
 		t.Fatal("stderr disclosed")
 	}
 }
+
+func TestPrivatePreferencesRejectUnsupportedScopeAndBounds(t *testing.T) {
+	for _, value := range []string{`{"namespace":"other.app","preferences":[]}`, `{"namespace":"app.bsky","preferences":null}`, `{"namespace":"app.bsky","preferences":[{"$type":"com.atproto.server.password"}]}`, `{"namespace":"app.bsky","preferences":[],"hostKey":"private"}`, `{"namespace":"app.bsky","preferences":[]} {}`} {
+		if ValidPreferences([]byte(value)) {
+			t.Fatal("unsupported preference content accepted")
+		}
+	}
+	if !ValidPreferences([]byte(`{"namespace":"app.bsky","preferences":[{"$type":"app.bsky.actor.defs#adultContentPref","enabled":false}]}`)) {
+		t.Fatal("supported preferences rejected")
+	}
+	if ValidPreferences(bytes.Repeat([]byte{' '}, (1<<20)+1)) {
+		t.Fatal("unbounded preferences")
+	}
+}
