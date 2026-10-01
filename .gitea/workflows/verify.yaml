@@ -17,6 +17,11 @@ jobs:
           node-version: '24.15.0'
       - name: Install pinned package manager
         run: npm install --global pnpm@12.6.0
+      - name: Validate local runtime scripts
+        run: |
+          bash -n scripts/*.sh
+          node --check scripts/check-pds.mjs
+          node --check scripts/qualify-pds.mjs
       - name: Start disposable PostgreSQL
         run: ./scripts/ci-db.sh start
       - name: Build and clean-database smoke

@@ -33,7 +33,7 @@ Local PostgreSQL binds to `127.0.0.1:35433`; the API defaults to `127.0.0.1:8080
 
 This installs from the lockfile, builds the interface, runs Go vet and race-enabled tests, and creates a uniquely named disposable smoke database. The smoke test applies migrations twice, checks real database-backed readiness, rejects a future schema version, and checks an unavailable connection. It drops only its own smoke database. The configured parent database must be named `pds_local` or `pds_ci`.
 
-The Gitea workflow runs the same gate against a new PostgreSQL service using disposable CI credentials. Cloud secrets are unnecessary. A queued workflow is not a verified CI result.
+The Gitea workflow runs the same gate against a new tmpfs-backed PostgreSQL container using disposable CI credentials. It needs a Docker-backed runner with Docker CLI and daemon access; the job records its own container ID and cleans up only that labeled container. Cloud secrets are unnecessary. A queued workflow is not a verified CI result.
 
 To check failure recovery in the browser:
 
@@ -50,4 +50,4 @@ Stop the local database with `./scripts/dev.sh down`. This retains the managemen
 
 ## Current boundary
 
-The status page is a working foundation. Owner authentication, server provisioning and public PDS service are subsequent pieces. The local HTTP listeners are for workstation use. Live host selection, public domains, TLS, email delivery and federation qualification remain pending.
+The status page is a working foundation. A separate [disposable local PDS runtime](local-pds-runtime.md) qualifies the upstream container. Owner authentication, server provisioning and public PDS service are subsequent pieces. The local HTTP listeners are for workstation use. Live host selection, public domains, TLS, email delivery and federation qualification remain pending.
