@@ -13,6 +13,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/auth"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,7 +55,18 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(migrate.Probe{Pool: pool}, owners.Register, deployments.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	var enrollmentCipher *enrollment.Cipher
+	if path := os.Getenv("PDS_ENROLLMENT_KEY_FILE"); path != "" {
+		enrollmentCipher, err = enrollment.LoadCipher(path)
+		if err != nil {
+			return err
+		}
+	}
+	enrollments, err := enrollment.New(pool, enrollmentCipher)
+	if err != nil {
+		return err
+	}
+	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(migrate.Probe{Pool: pool}, owners.Register, deployments.Register(owners, cfg.Auth.Mode == "local"), enrollments.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
 	done := make(chan error, 1)
 	go func() {
 		log.Printf("management API listening on %s", cfg.ListenAddress)

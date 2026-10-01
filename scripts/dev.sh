@@ -10,6 +10,8 @@ source .local/local.env
 set +a
 # Local-only defaults. Direct production startup has no fixture fallback.
 unset PDS_OIDC_CLIENT_SECRET
+node scripts/init-enrollment-key.mjs
+export PDS_ENROLLMENT_KEY_FILE="$PWD/.local/enrollment.key"
 export PDS_MODE=local
 export PDS_OIDC_ISSUER=http://localhost:5556
 export PDS_OIDC_CLIENT_ID=pds-local

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FirstAccount } from './FirstAccount';
 import type { FormEvent } from 'react';
 
 type Event = { state: string; message: string; createdAt: string };
@@ -69,7 +70,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
     <h4>Servers</h4><p>Local qualification. Public hosting is unavailable.</p>
     {error && <p role="alert">{error}</p>}
     {!loaded && <p role="status">Loading deployments...</p>}
-    <ul>{operations.map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">Open local PDS health</a></p>}<p role="status">{item.state}: {item.message}</p>{item.kind === 'agent' && <p>Local service observation: {item.service?.state ?? 'unknown'}.{item.service?.checkedAt && <> Checked {new Date(item.service.checkedAt).toLocaleString()}.</>} Scheduled backups are not configured.</p>}<details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
+    <ul>{operations.map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">Open local PDS health</a></p>}<p role="status">{item.state}: {item.message}</p>{item.kind === 'agent' && <p>Local service observation: {item.service?.state ?? 'unknown'}.{item.service?.checkedAt && <> Checked {new Date(item.service.checkedAt).toLocaleString()}.</>} Scheduled backups are not configured.</p>}{item.kind === 'agent' && item.state === 'ready' && <FirstAccount deploymentId={item.id} csrfToken={csrfToken} />}<details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
     <form onSubmit={event => { void submit(event); }}>
       <label htmlFor={`kind-${organizationId}`}>Deployment mode</label>
       <select id={`kind-${organizationId}`} value={kind} disabled={busy || uncertain} onChange={event => setKind(event.target.value === 'agent' ? 'agent' : 'test')}><option value="test">Simulate deployment</option><option value="agent">Create a local PDS</option></select>
