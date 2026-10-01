@@ -109,6 +109,8 @@ func operationReply(w http.ResponseWriter, op Operation, err error) {
 	}
 	status, message := 503, "Deployment status is temporarily unavailable. Retry with the same request key."
 	switch {
+	case errors.Is(err, ErrAdmissionClosed):
+		status, message = 503, "New deployments are paused. Retained requests and existing servers remain available; retry with the same request key."
 	case errors.Is(err, entitlement.ErrDenied):
 		status, message = 403, "New native servers require an active hosting grant. Existing data is retained."
 	case errors.Is(err, entitlement.ErrLimit):

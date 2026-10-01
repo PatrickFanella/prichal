@@ -125,6 +125,9 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
+	if err = checkAdmission(ctx, tx); err != nil {
+		return Operation{}, err
+	}
 	if r.Kind == "agent" {
 		if err = entitlement.CheckAllocation(ctx, tx, org); err != nil {
 			return Operation{}, err
