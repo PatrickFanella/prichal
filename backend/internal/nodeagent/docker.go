@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -46,7 +48,9 @@ func NewDocker(socket, directory string) (*Docker, error) {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}
-	return &Docker{client: &http.Client{Transport: transport, Timeout: 20 * time.Second}, directory: directory, healthProbe: localIngressHealthy}, nil
+	docker := &Docker{client: &http.Client{Transport: transport, Timeout: 20 * time.Second}, directory: directory}
+	docker.healthProbe = docker.localIngressHealthy
+	return docker, nil
 }
 func (d *Docker) call(ctx context.Context, method, path string, body, result any) (int, error) {
 	var data bytes.Buffer
@@ -187,6 +191,7 @@ type inspected struct {
 	Config struct {
 		Image  string
 		Labels map[string]string
+		Env    []string
 	}
 	State struct {
 		Running bool
@@ -216,8 +221,11 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 		if capacityErr != nil {
 			return Instance{}, capacityErr
 		}
-		if len(capacity.InstanceIDs) >= capacity.MaximumSlots {
+		if capacity.MaximumSlots < 1 || len(capacity.InstanceIDs) >= capacity.MaximumSlots && !slices.Contains(capacity.InstanceIDs, id) {
 			return Instance{}, errors.New("hosting capacity exhausted")
+		}
+		if err := d.fenceRetainedNamespace(ctx, id); err != nil {
+			return Instance{}, err
 		}
 		secret, err := d.credentials(id)
 		if err != nil {
@@ -256,7 +264,7 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 				return Instance{}, err
 			}
 		}
-		payload := map[string]any{"Healthcheck": map[string]any{"Test": []string{"CMD", "node", "-e", "fetch('http://127.0.0.1:2583/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"}, "Interval": int64(1e9), "Timeout": int64(2e9), "StartPeriod": int64(10e9), "Retries": 3}, "Image": PDSImage, "Labels": map[string]string{label: id}, "Env": []string{"PDS_HOSTNAME=" + id + ".localhost", "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}, "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "0"}}}, "RestartPolicy": map[string]string{"Name": "no"}}}
+		payload := map[string]any{"Healthcheck": map[string]any{"Test": []string{"CMD", "node", "-e", "fetch('http://127.0.0.1:2583/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"}, "Interval": int64(1e9), "Timeout": int64(2e9), "StartPeriod": int64(10e9), "Retries": 3}, "Image": PDSImage, "Labels": map[string]string{label: id}, "Env": runtimeEnvironment(id, secret), "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "0"}}}, "RestartPolicy": map[string]string{"Name": "no"}}}
 		status, err = d.call(ctx, "POST", "/containers/create?name="+url.QueryEscape(name), payload, nil)
 		if err != nil && status != 409 {
 			return Instance{}, err
@@ -267,6 +275,23 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	}
 	if current.Config.Labels[label] != id || current.Config.Image != PDSImage {
 		return Instance{}, errors.New("foreign runtime name conflict")
+	}
+	secret, err := d.credentials(id)
+	if err != nil {
+		return Instance{}, err
+	}
+	environment := map[string]string{}
+	for _, entry := range current.Config.Env {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			environment[key] = value
+		}
+	}
+	for _, entry := range runtimeEnvironment(id, secret) {
+		key, value, _ := strings.Cut(entry, "=")
+		if environment[key] != value {
+			return Instance{}, errors.New("runtime environment differs from policy")
+		}
 	}
 	if current.HostConfig.Privileged || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != name+"-network" || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
 		return Instance{}, errors.New("runtime security configuration differs from policy")
@@ -312,4 +337,8 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 		result.Port = ports[0].HostPort
 	}
 	return result, nil
+}
+
+func runtimeEnvironment(id string, secret secrets) []string {
+	return []string{"PDS_HOSTNAME=" + strings.TrimPrefix(LocalEndpoint(id), "https://"), "PDS_SERVICE_DID=did:web:" + id + ".localhost%3A" + strings.Split(LocalEndpoint(id), ":")[2], "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}
 }

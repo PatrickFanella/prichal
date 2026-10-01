@@ -7,7 +7,7 @@ function object(value: unknown): value is Record<string, unknown> { return typeo
 function localEndpoint(value: unknown, hostname: unknown): boolean {
   if (value === '') return true;
   if (typeof value !== 'string' || typeof hostname !== 'string') return false;
-  try { const endpoint = new URL(value); return endpoint.protocol === 'http:' && endpoint.hostname === hostname && /^[a-f0-9-]{36}\.localhost$/.test(hostname) && Number(endpoint.port) >= 36000 && Number(endpoint.port) < 46000 && !endpoint.username && !endpoint.password && endpoint.pathname === '/' && !endpoint.search && !endpoint.hash; } catch { return false; }
+  try { const endpoint = new URL(value); return endpoint.protocol === 'https:' && endpoint.hostname === hostname && /^[a-f0-9-]{36}\.localhost$/.test(hostname) && Number(endpoint.port) >= 36000 && Number(endpoint.port) < 46000 && !endpoint.username && !endpoint.password && endpoint.pathname === '/' && !endpoint.search && !endpoint.hash; } catch { return false; }
 }
 function operation(value: unknown): value is Operation {
   return object(value) && typeof value.endpoint === 'string' && typeof value.managedHostname === 'string' && localEndpoint(value.endpoint, value.managedHostname) && (value.kind === 'test' || value.kind === 'agent') && typeof value.id === 'string' && typeof value.name === 'string' &&

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -73,6 +74,7 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 					mounts = append(mounts, map[string]any{"Type": "bind", "Source": parts[0], "Destination": parts[1], "RW": false})
 				}
 			}
+			slices.Reverse(mounts) // Engine inspection does not promise mount order.
 			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
 				if config, ok := payload["NetworkingConfig"].(map[string]any); ok {
 					return config["EndpointsConfig"].(map[string]any)
@@ -123,6 +125,11 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	}
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
+	}
+	// A healthy process with a different advertised endpoint cannot qualify as this PDS.
+	configurations["pds-ass-tenant-"+id]["Env"] = []string{"PDS_HOSTNAME=foreign.localhost"}
+	if _, err := docker.Ensure(context.Background(), id); err == nil {
+		t.Fatal("accepted mismatched runtime identity")
 	}
 }
 
