@@ -29,3 +29,10 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .collaboration-workspace button:focus, .collaboration-workspace [tabindex="-1"]:focus { outline: 3px solid #347555; outline-offset: 3px; }
 .collaboration-workspace li { display: block; }
 .collaboration-review { border: 1px solid #b6c4b3; border-radius: 6px; padding: 1rem; margin-block: 1rem; }
+
+.endpoint-preflight { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line, #d6d9d2); border-radius: 0.5rem; overflow-wrap: anywhere; }
+.endpoint-preflight form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+.endpoint-preflight input { width: 100%; min-width: 0; max-width: 100%; padding: 0.6rem; }
+.endpoint-preflight button { min-width: 0; max-width: 100%; white-space: normal; }
+.endpoint-preflight textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 0.6rem; font: inherit; resize: vertical; }
+.endpoint-preflight button:focus, .endpoint-preflight [tabindex="-1"]:focus { outline: 3px solid #347555; outline-offset: 3px; }
