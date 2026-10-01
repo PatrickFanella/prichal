@@ -87,7 +87,7 @@ Management-owner creation can now be paused independently of deployment/enrollme
 
 ## Next local work
 
-The [issued-invitation withdrawal command](local-enrollment-withdrawal-agent.md) and [durable owner intent/worker processing](local-enrollment-withdrawal-intent.md) have fixture, retained-account preservation and schema-28 recovery evidence. Add browser review/retry and separate preparing-request cancellation. Qualify real empty-PDS withdrawal without deleting retained tenants to free capacity.
+The [issued-invitation withdrawal command](local-enrollment-withdrawal-agent.md), [durable owner intent/worker processing](local-enrollment-withdrawal-intent.md) and [browser review/retry](local-enrollment-withdrawal-workspace.md) have fixture, retained-account preservation, reload and schema-28 recovery evidence. Add separate preparing-request cancellation. Qualify real empty-PDS/browser withdrawal without deleting retained tenants to free capacity.
 
 Continue browser onboarding/failure and assistive screen-reader checks, production signup/operator and issued-invitation controls, verified exclusive domain claims, routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
 
