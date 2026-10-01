@@ -63,3 +63,8 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .migration-inventory ul { padding-left: 1.2rem; }
 .migration-inventory li { border: 0; padding: .2rem 0; }
 .deployments > ul > li > div { min-width: 0; width: 100%; }
+
+.endpoint-claim { min-width: 0; max-width: 100%; margin-top: 1rem; overflow-wrap: anywhere; }
+.endpoint-claim .endpoint-choice-review { max-width: 100%; box-sizing: border-box; }
+.endpoint-claim button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+.endpoint-claim [tabindex="-1"]:focus { outline: 2px solid currentColor; outline-offset: 3px; }

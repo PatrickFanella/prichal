@@ -26,4 +26,4 @@ Private evidence remains in ignored `.local/`. No native tenant, occupied slot, 
 
 ## Remaining gates
 
-Add browser review, scoped receipt/status and exact-ticket transport retry. Positive public DNS matching/reservation is currently covered only by injected resolver/database tests. No positive populated-claim recovery or live routing/TLS/activation is claimed. A designated controlled domain and independent infrastructure remain necessary. DNS request budgets, resolver trust, revalidation, support policy and production qualification must be completed before claims authorize customer hosting.
+Browser review, scoped receipts and exact-ticket transport retry are implemented; see [the workspace evidence](local-endpoint-claim-workspace.md). Positive public DNS matching/reservation is currently covered only by injected resolver/database tests. No positive populated-claim recovery or live routing/TLS/activation is claimed. A designated controlled domain and independent infrastructure remain necessary. DNS request budgets, resolver trust, revalidation, support policy and production qualification must be completed before claims authorize customer hosting.
