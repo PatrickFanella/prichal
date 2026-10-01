@@ -20,3 +20,11 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .support-workspace { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line, #d6d9d2); overflow-wrap: anywhere; }
 .support-workspace form { display: grid; gap: .7rem; margin: 1rem 0; }
 .support-workspace select, .support-workspace input:not([type="checkbox"]) { max-width: 100%; min-width: 0; padding: .7rem; font: inherit; }
+
+.collaboration-workspace { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #cfd7c8; min-width: 0; overflow-wrap: anywhere; }
+.collaboration-workspace button { margin: .3rem .5rem .3rem 0; max-width: 100%; white-space: normal; }
+.collaboration-workspace input:not([type="checkbox"]), .collaboration-workspace select { max-width: 100%; min-width: 0; padding: .7rem; font: inherit; }
+.collaboration-workspace code { overflow-wrap: anywhere; }
+.collaboration-workspace select:focus-visible, .collaboration-workspace summary:focus-visible { outline: 3px solid #7aa389; outline-offset: 3px; }
+.collaboration-workspace li { display: block; }
+.collaboration-review { border: 1px solid #b6c4b3; border-radius: 6px; padding: 1rem; margin-block: 1rem; }

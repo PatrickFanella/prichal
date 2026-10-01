@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Deployments } from './deployments';
 import { SupportWorkspace } from './support-workspace';
 import { CLIAccess } from './cli-access';
+import { CollaborationWorkspace } from './collaboration-workspace';
 
 type Session = { ownerId: string; displayName: string; csrfToken: string; expiresAt: string };
 type Organization = { id: string; name: string };
@@ -75,6 +76,7 @@ export function OwnerWorkspace() {
       <label htmlFor="organization-name">Organization name</label>
       <div className="form-row"><input id="organization-name" name="organizationName" value={name} onChange={event => setName(event.target.value)} maxLength={100} required disabled={busy} placeholder="Your studio or community"/><button type="submit" disabled={busy || !name.trim()}>{busy ? 'Working…' : 'Create organization'}</button></div>
     </form>
+    <CollaborationWorkspace key={workspace.session.ownerId} ownerId={workspace.session.ownerId} csrfToken={workspace.session.csrfToken} onChanged={() => { void load(); }}/>
     <CLIAccess csrfToken={workspace.session.csrfToken}/>
     <SupportWorkspace csrfToken={workspace.session.csrfToken} ownerId={workspace.session.ownerId}/>
     <div className="session-actions"><button className="text-button" disabled={busy} onClick={() => { void load(); }}>Refresh organizations</button><button className="text-button" disabled={busy} onClick={() => { void signOut(true); }}>Sign out all devices</button></div>
