@@ -108,6 +108,12 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if usage, usageErr := client.Usage(context.Background(), peer, nodeID); usageErr != nil || usage.Accounts != 1 {
 		t.Fatal("registered usage failed")
 	}
+	if _, err = client.Account(context.Background(), peer, nodeID, ServiceRequest{Ticket: nodeID, Generation: 1, State: "suspended"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.Service(context.Background(), peer, nodeID, ServiceRequest{Ticket: nodeID, Generation: 1, State: "suspended"}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = client.Capacity(context.Background(), peer); err != nil {
 		t.Fatal(err)
 	}
@@ -128,4 +134,12 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 
 func (r *clientRuntime) Usage(_ context.Context, id string) (Usage, error) {
 	return Usage{InstanceID: id, DataBytes: 1000, BlobBytes: 68, DataFiles: 20, BlobFiles: 1, Accounts: 1, FilesystemBytes: 8 << 30, FilesystemAvailableBytes: 4 << 30, ObservedAtMillis: time.Now().UnixMilli()}, nil
+}
+
+func (r *clientRuntime) Service(_ context.Context, id string, request ServiceRequest) (ServiceResult, error) {
+	return ServiceResult{InstanceID: id, ServiceRequest: request}, nil
+}
+
+func (r *clientRuntime) Account(_ context.Context, id string, request ServiceRequest) (AccountResult, error) {
+	return AccountResult{ServiceResult: ServiceResult{InstanceID: id, ServiceRequest: request}, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"}, nil
 }
