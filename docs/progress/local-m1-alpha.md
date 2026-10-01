@@ -476,3 +476,15 @@ Full smoke passed. Tests traverse 117 records across three pages, including time
 The actual browser loaded Bob's native record. A temporary read-only response fixture exercised 50 synthetic records then one final record with count focus after the pager disappeared. Original fetch was restored and real data reloaded; no source deployment was created. Five widths had no document/status overflow. At 17:40:03Z, feature disablement cleared records, focused the error with a visible outline and cleared busy state. Refresh hid collaboration while ordinary owner controls remained available. Private metadata remains in `.local/shared-instance-pages-browser.json`.
 
 An interrupted local execution stopped dev processes; existing Docker resources remained healthy. Agent, issuer, API, worker, monitor and Vite resumed using existing state/certificates, and a fresh complete smoke gate passed. Source API is on schema 24 with fixture permissions disabled and admission open. Membership/invitation/offer pagination, assistive screen-reader and live milestone gates remain open. No native container, volume or recovery copy was removed.
+
+PR #74 commit `9107763` passed remote CI run 11545. Merged main `99bbc71` through PR #73 passed run 11537.
+
+## Paged owner membership and invitation receipts
+
+Current owners can traverse retained memberships and invitation receipts through separate 50-row pages. Membership ordering uses immutable identity references; invitation ordering preserves timestamp/UUID ties. Read-time expiry creates no mutation. Active viewers/administrators, former owners and CLI credentials remain excluded. Browser loads clear failed reads and focus results/errors; changes still require the existing staged request and fresh review. See [membership and invitation receipts](../local-membership-receipts.md).
+
+Full smoke passed. Tests traverse 117 rows of each kind over three pages and verify scope, current states and no expiry/audit mutation. Actual drill `4532585a-71ce-4bbf-aa4a-4c70c9a511cf` completed at 17:52:58Z: compatible projections/repeats matched and denied-access checks passed without changing audits/jobs/native custody. The qualifier now compares expiry instants after an initial timezone-string mismatch.
+
+Actual browser receipts showed the retained revoked member without action controls and an accepted invitation; keyboard reload focused the count. Temporary read-only 50-to-one fixtures preserved focus for both final pages, then original fetch and real data were restored. Five sizes had no document/receipt overflow. At 17:55:53–54Z, default feature disablement cleared both lists, focused errors and cleared busy state. Refresh hid collaboration while ordinary owner controls stayed available. Metadata remains in `.local/membership-receipts-browser.json`; T3 text snapshot succeeded.
+
+Source API is on schema 24 with fixture permissions disabled and admission open. Incoming-offer pagination, assistive screen-reader and live milestone gates remain open. No native host operation, container/volume deletion or recovery-copy removal occurred.
