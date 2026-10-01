@@ -6,7 +6,9 @@ import https from 'node:https';
 import { localOwnerClient } from './local-owner-client.mjs';
 const deployment = process.argv[2];
 assert.match(deployment ?? '', /^[a-f0-9-]{36}$/);
-const owner = await localOwnerClient('alice'), other = await localOwnerClient('bob');
+const ownerName=process.env.PDS_LOCAL_QUALIFICATION_OWNER ?? 'alice';
+assert.ok(['alice','bob'].includes(ownerName),'Disposable local owner required');
+const owner = await localOwnerClient(ownerName), other = await localOwnerClient(ownerName==='alice'?'bob':'alice');
 const directory = 'http://localhost:2582';
 assert.equal((await (await fetch(directory + '/_health')).json()).localFixture, true);
 const resume = process.argv[3];
@@ -109,6 +111,6 @@ const verified=await wait(operation.id,'verified');assert.ok(!verified.code && v
 const document=await (await fetch(directory+'/'+session.did)).json();
 assert.equal(document.service.find(value=>value.id.endsWith('#atproto_pds')).serviceEndpoint,endpoint);
 assert.equal((await owner.api(`/api/deployments/${deployment}/enrollment`,{idempotencyKey:randomUUID(),recover:true})).status,409,'Completed account reopened enrollment');
-const report={completedAt:new Date().toISOString(),deployment,operationId:operation.id,...checks,firstAccountAdmissionClosed:true,emailConfirmed:true,nativeLogin:true,stableIdentityEndpoint:true,managementState:verified.state,liveFederationQualified:false};
+const report={completedAt:new Date().toISOString(),owner:ownerName,deployment,operationId:operation.id,...checks,firstAccountAdmissionClosed:true,emailConfirmed:true,nativeLogin:true,stableIdentityEndpoint:true,managementState:verified.state,liveFederationQualified:false};
 writeFileSync(root+'/report.json',JSON.stringify(report,null,2),{flag:'wx',mode:0o600});
 console.log(JSON.stringify({...report,report:root+'/report.json'}));

@@ -24,7 +24,10 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 	if _, err := d.call(ctx, "GET", "/info", nil, &info); err != nil {
 		return Capacity{}, err
 	}
-	maximum := 2
+	maximum := d.maximumSlots
+	if maximum == 0 {
+		maximum = 2
+	}
 	memoryPerSlot := int64(896 << 20)
 	cpuUnits, cpuCost := 4, 5
 	if d.localIdentity {
@@ -61,4 +64,13 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		}
 	}
 	return Capacity{MaximumSlots: maximum, CPUs: info.NCPU, MemoryBytes: info.MemTotal, InstanceIDs: ids}, nil
+}
+
+// SetCapacityCeiling applies an operator ceiling before serving requests. Measured resource limits still apply.
+func (d *Docker) SetCapacityCeiling(maximum int) error {
+	if maximum < 1 || maximum > 8 {
+		return errors.New("local capacity ceiling must be between 1 and 8")
+	}
+	d.maximumSlots = maximum
+	return nil
 }

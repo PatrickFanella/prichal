@@ -17,6 +17,6 @@ assert.equal((await alice.api(base+'/handle',{handle:'creator.handle.test',passw
 const checked=await alice.api(base+'/handle/check',{});assert.equal(checked.status,200);
 assert.ok(['pending_dns','unavailable'].includes(checked.value.state),'Unconfigured test DNS must not qualify a domain');
 assert.equal((await alice.api(base+'/handle/check',{})).status,409);
-const after=await alice.api(base);assert.equal(after.status,200);assert.equal(after.value.endpointUrl,before.value.endpointUrl);assert.equal(after.value.state,before.value.state);
+const after=await alice.api(base);assert.equal(after.status,200);assert.equal(typeof before.value.endpoint,'string');assert.equal(after.value.endpoint,before.value.endpoint);assert.equal(after.value.state,before.value.state);
 const report={completedAt:new Date().toISOString(),deployment,exactTXTInstructions:true,ownerScoped:true,idempotentDomainIntent:true,nativeCredentialsRejected:true,boundedRecheck:true,pendingState:checked.value.state,stableDeployment:true,controlledDomainAttached:false};
 const root='.local/handle-proof/'+randomUUID();mkdirSync(root,{recursive:true,mode:0o700});writeFileSync(root+'/report.json',JSON.stringify(report,null,2),{flag:'wx',mode:0o600});console.log(JSON.stringify({...report,report:root+'/report.json'}));
