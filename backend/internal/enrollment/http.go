@@ -35,6 +35,14 @@ func (s *Store) Register(owners *auth.Service, local bool) func(*http.ServeMux) 
 				handler(w, r, session)
 			})
 		}
+		bind("GET /api/deployments/{id}/enrollment/admission", false, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
+			policy, err := s.OwnedAdmission(r.Context(), session.OwnerID, r.PathValue("id"))
+			if err != nil {
+				operationReply(w, Operation{}, err)
+				return
+			}
+			respond(w, 200, policy)
+		})
 		bind("POST /api/deployments/{id}/enrollment", true, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
 			var request Request
 			r.Body = http.MaxBytesReader(w, r.Body, 1024)
@@ -85,6 +93,8 @@ func operationReply(w http.ResponseWriter, operation Operation, err error) {
 		status, message = 404, "Enrollment or deployment not found."
 	case errors.Is(err, ErrInvalid):
 		status, message = 400, "Use a valid enrollment request key. Passwords are entered directly on your PDS."
+	case errors.Is(err, ErrAdmissionClosed):
+		status, message = 503, "New first-account requests are paused. Retained requests and enrollment status remain available. Already-issued invitations remain valid until expiry."
 	case errors.Is(err, ErrConflict):
 		status, message = 409, "Enrollment is active or its recovery limit was reached. Refresh its status or contact support."
 	}

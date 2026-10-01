@@ -1,5 +1,5 @@
 import { HandleSetup } from './HandleSetup';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Enrollment = {
   id: string; deploymentId: string; state: string; message: string; code?: string; expiresAt: string | null;
@@ -21,6 +21,9 @@ function valid(value: unknown, deploymentId: string): value is Enrollment {
 }
 export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string; csrfToken: string }) {
   const storageKey = `pds-enrollment-request:${deploymentId}`;
+  const [admission, setAdmission] = useState<{ open: boolean; updatedAt: string } | null>(null);
+  const [policyChecked, setPolicyChecked] = useState(false);
+  const policyRead = useRef(0);
   const [operation, setOperation] = useState<Enrollment | null>(null);
   const [request, setRequest] = useState<Request | null>(() => {
     try { const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? 'null'); return object(value) && typeof value.idempotencyKey === 'string' && uuid.test(value.idempotencyKey) && typeof value.recover === 'boolean' ? { idempotencyKey: value.idempotencyKey, recover: value.recover } : null; } catch { return null; }
@@ -32,21 +35,37 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const controller = new AbortController();
+    let loading = false;
     const load = async () => {
+      if (loading || controller.signal.aborted) return;
+      loading = true;
+      const sequence = ++policyRead.current;
       try {
-        const response = await fetch(`/api/deployments/${deploymentId}/enrollment`, { signal: controller.signal });
+        const policyResponse = await fetch(`/api/deployments/${deploymentId}/enrollment/admission`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+        const policy: unknown = await policyResponse.json();
+        if (controller.signal.aborted || policyRead.current !== sequence) return;
+        if (!policyResponse.ok || !object(policy) || typeof policy.open !== 'boolean' || typeof policy.updatedAt !== 'string' || !Number.isFinite(Date.parse(policy.updatedAt))) throw new Error('Enrollment policy unavailable');
+        setAdmission({ open: policy.open, updatedAt: policy.updatedAt });
+      } catch { if (!controller.signal.aborted && policyRead.current === sequence) setAdmission(null); }
+      finally { if (!controller.signal.aborted && policyRead.current === sequence) setPolicyChecked(true); }
+      try {
+        const response = await fetch(`/api/deployments/${deploymentId}/enrollment`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+        if (controller.signal.aborted || policyRead.current !== sequence) return;
         if (response.status === 404) { setLoadError(''); return; }
         if (response.status === 401 || response.status === 403) { setOperation(null); setLoadError('Sign in again to view account status.'); return; }
         const value: unknown = await response.json();
+        if (controller.signal.aborted || policyRead.current !== sequence) return;
         if (!response.ok || !valid(value, deploymentId)) throw new Error('Enrollment unavailable');
         setOperation(value); setLoadError('');
-      } catch { if (!controller.signal.aborted) setLoadError('Account status is temporarily unavailable. Refresh to try again.'); }
+      } catch { if (!controller.signal.aborted && policyRead.current === sequence) setLoadError('Account status is temporarily unavailable. Refresh to try again.'); }
+      finally { loading = false; }
     };
     void load();
     const interval = window.setInterval(() => { setNow(Date.now()); void load(); }, 3000);
     return () => { controller.abort(); window.clearInterval(interval); };
   }, [deploymentId]);
   async function prepare(recover: boolean) {
+    if (!request && admission?.open !== true) return;
     setBusy(true); setError(''); setNotice('');
     const pending = request ?? { idempotencyKey: crypto.randomUUID(), recover };
     setRequest(pending);
@@ -75,6 +94,9 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const state = expired ? 'expired' : operation?.state;
   return <section className="first-account" aria-label="First AT account">
     <h4>First account</h4>
+    {admission?.open === false && <p role="status">New first-account requests are paused. Retained requests and account status remain available. Already-issued invitations remain valid until expiry.</p>}
+    {!policyChecked && <p>Checking first-account availability…</p>}
+    {policyChecked && admission === null && <p>New first-account availability could not be confirmed. Retained requests and account status remain available.</p>}
     <p>Create your account directly on your PDS. Your account password stays with the PDS.</p>
     <p>For this local test, use a .test handle with 3–18 characters before the suffix and a .invalid email address. Confirmation mail stays in the test inbox.</p>
     {operation && <p role="status">{state}: {expired ? 'This invitation expired. Request recovery to replace it.' : operation.message}</p>}
@@ -85,7 +107,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your PDS</a></p>
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
-    {(!operation || state === 'expired' || state === 'failed' || state === 'superseded' || request) && <button type="button" disabled={busy} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
+    {(!operation || state === 'expired' || state === 'failed' || state === 'superseded' || request) && <button type="button" disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
     {operation && <button type="button" disabled={busy || state === 'pending' || state === 'superseded' || state === 'failed'} onClick={() => { void refresh(); }}>Check account status</button>}
     {state === 'verified' && <HandleSetup deploymentId={deploymentId} csrfToken={csrfToken} />}
     {notice && <p role="status">{notice}</p>}{(error || loadError) && <p role="alert">{error || loadError}</p>}

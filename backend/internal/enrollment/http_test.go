@@ -70,6 +70,26 @@ func TestHTTPEnforcesOwnerOriginCSRFAndPasswordBoundary(t *testing.T) {
 			t.Fatal("submitted password entered response")
 		}
 	}
+	if _, err = f.store.SetAdmission(ctx, "operator", "local_qualification", false); err != nil {
+		t.Fatal(err)
+	}
+	policyPath := path + "/admission"
+	if w := request(true, "GET", policyPath, aliceToken, "", "", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"open":false`) || strings.Contains(w.Body.String(), "operator") {
+		t.Fatal("owned policy read")
+	}
+	if request(true, "GET", policyPath, bobToken, "", "", "").Code != 404 {
+		t.Fatal("foreign policy read")
+	}
+	if request(true, "POST", path, aliceToken, "http://localhost", "test-csrf", body).Code != 200 {
+		t.Fatal("closed policy retained retry")
+	}
+	newBody := `{"idempotencyKey":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","recover":false}`
+	if request(true, "POST", path, aliceToken, "http://localhost", "test-csrf", newBody).Code != 503 {
+		t.Fatal("closed policy new request")
+	}
+	if request(false, "GET", policyPath, aliceToken, "", "", "").Code != 503 {
+		t.Fatal("production policy route opened")
+	}
 	op, err := f.store.Latest(ctx, f.owner, f.deployment)
 	if err != nil {
 		t.Fatal(err)

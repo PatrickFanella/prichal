@@ -27,11 +27,12 @@ case "${1:-help}" in
   billing-fixture-admin) shift; cd backend; exec go run ./cmd/billing-fixture-admin "$@" ;;
   entitlement-admin) shift; cd backend; exec go run ./cmd/entitlement-admin "$@" ;;
   service-admin) shift; cd backend; exec go run ./cmd/service-admin "$@" ;;
+  enrollment-admin) shift; cd backend; exec go run ./cmd/enrollment-admin "$@" ;;
   deployment-admin) shift; cd backend; exec go run ./cmd/deployment-admin "$@" ;;
   worker) cd backend; exec go run ./cmd/worker ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|deployment-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
 esac

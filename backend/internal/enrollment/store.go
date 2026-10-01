@@ -94,6 +94,9 @@ func (s *Store) Submit(ctx context.Context, owner, deployment string, request Re
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
+	if err = checkAdmission(ctx, tx); err != nil {
+		return Operation{}, err
+	}
 	var latest string
 	err = tx.QueryRow(ctx, `SELECT state FROM enrollment_operations WHERE deployment_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`, deployment).Scan(&latest)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
