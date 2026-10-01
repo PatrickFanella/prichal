@@ -1,6 +1,6 @@
 # Saving a local custom-address choice
 
-Schema 26 adds a reviewed owner intent for a new custom PDS endpoint. The management API can save, read and cancel it. Browser mutation controls are the next slice; the current browser still exposes read-only preflight. Production remains unavailable and the customer CLI has no endpoint-choice authority.
+Schema 26 adds a reviewed owner intent for a new custom PDS endpoint. The management API can save, read and cancel it. Browser controls now expose reviewed save/cancel with retained requests. See [browser endpoint workspace](local-custom-endpoint-workspace.md) for the actual checks and remaining browser gates. Production remains unavailable and the customer CLI has no endpoint-choice authority.
 
 The local routes are:
 
@@ -27,4 +27,4 @@ Actual drill `5f4427be-f0e0-40e7-9955-6cf3314e1c94` completed at 18:56:06Z. Two 
 
 Fresh schema-26 recovery `24489b6d-dbb4-4315-9359-9ba2402428f1` completed at 18:58:36Z and matched all 49 tables/sequences, including four retained choices/eight audits and 79 jobs. Copied authentication was revoked and held worker startup refused. Reconciliation/dedicated replay preserved copied default work, source rows/sequences and native custody. Source API/worker/monitor were paused across capture/replay and resumed afterward. All copies remain retained. An earlier schema-26 copy containing the first two receipts also passed and remains retained.
 
-Browser save/reload/retry/cancel behavior remains unqualified. Domain ownership verification, globally exclusive verified claims, supported routing/TLS/provisioning, existing-account migration and live timing remain open. No native container, volume or recovery copy was removed.
+Actual browser save/reload/cancel and unavailable-response behavior are recorded in the [browser runbook](local-custom-endpoint-workspace.md). Remaining widths, cache denial and disconnected-fixture cleanup are open. Domain ownership verification, globally exclusive verified claims, supported routing/TLS/provisioning, existing-account migration and live timing remain open. No native container, volume or recovery copy was removed.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { EndpointChoice } from './endpoint-choice';
 
 type Result = { hostname: string; applicationHosts: string[]; state: 'planning_only' | 'existing_native_requires_review'; canActivate: false; choiceSaved: false; remainingGates: string[]; message: string };
 const gates: Record<string, string> = { domain_ownership: 'Prove domain ownership', routing_dns: 'Confirm supported DNS routing', certificate: 'Qualify HTTPS certificate', persisted_choice: 'Save the approved address before enrollment', supported_activation: 'Activate through supported host provisioning', existing_native_review: 'Review migration or replacement of existing native hosting' };
@@ -6,7 +7,7 @@ function object(v: unknown): v is Record<string, unknown> { return typeof v === 
 function result(v: unknown): v is Result {
   return object(v) && typeof v.hostname === 'string' && v.hostname.length <= 253 && Array.isArray(v.applicationHosts) && v.applicationHosts.length <= 8 && v.applicationHosts.every(x => typeof x === 'string') && (v.state === 'planning_only' || v.state === 'existing_native_requires_review') && v.canActivate === false && v.choiceSaved === false && Array.isArray(v.remainingGates) && v.remainingGates.length <= 6 && v.remainingGates.every(x => typeof x === 'string' && Object.hasOwn(gates, x)) && typeof v.message === 'string';
 }
-export function EndpointPreflight({ organizationId, csrfToken }: { organizationId: string; csrfToken: string }) {
+export function EndpointPreflight({ organizationId, ownerId, csrfToken }: { organizationId: string; ownerId: string; csrfToken: string }) {
   const [hostname, setHostname] = useState(''), [apps, setApps] = useState(''), [checked, setChecked] = useState<Result | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null), status = useRef<HTMLParagraphElement | null>(null), failure = useRef<HTMLParagraphElement | null>(null);
   useEffect(() => () => { active.current?.abort(); active.current = null; }, []);
@@ -29,5 +30,6 @@ export function EndpointPreflight({ organizationId, csrfToken }: { organizationI
       <label htmlFor={`endpoint-apps-${organizationId}`}>Application/OAuth hostnames, separated by spaces</label><textarea id={`endpoint-apps-${organizationId}`} value={apps} onChange={event => changed(() => setApps(event.target.value))} maxLength={2040} disabled={busy} rows={2}/><button type="submit" disabled={busy || !hostname}>{busy ? 'Checking address plan…' : 'Check address plan'}</button></form>
     {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}
     {checked && <><p role="status" ref={status} tabIndex={-1}>{checked.hostname}: {checked.message}</p><p>Address is not saved or activated. Domain ownership, DNS and TLS are unverified.</p><ul>{checked.remainingGates.map(gate => <li key={gate}>{gates[gate]}</li>)}</ul></>}
+    <EndpointChoice organizationId={organizationId} ownerId={ownerId} csrfToken={csrfToken} plan={checked}/>
   </details>;
 }

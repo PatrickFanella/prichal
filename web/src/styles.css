@@ -36,3 +36,10 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .endpoint-preflight button { min-width: 0; max-width: 100%; white-space: normal; }
 .endpoint-preflight textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 0.6rem; font: inherit; resize: vertical; }
 .endpoint-preflight button:focus, .endpoint-preflight [tabindex="-1"]:focus { outline: 3px solid #347555; outline-offset: 3px; }
+
+.endpoint-choice { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--line, #d6d9d2); min-width: 0; }
+.endpoint-choice button { margin: .35rem 0; }
+.endpoint-choice dd { margin-left: .6rem; overflow-wrap: anywhere; }
+.endpoint-choice-review { border: 1px solid var(--line, #d6d9d2); padding: .8rem; margin-top: 1rem; min-width: 0; }
+.endpoint-choice-review label { display: block; }
+.endpoint-choice-review input[type="checkbox"] { width: auto; }
