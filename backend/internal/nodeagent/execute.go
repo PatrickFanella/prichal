@@ -12,6 +12,14 @@ import (
 
 // executeFixed has no remote command surface. Its callers supply embedded helpers only.
 func (d *Docker) executeFixed(ctx context.Context, name, script string, args []string, result any) error {
+	return d.executeBounded(ctx, name, script, args, result, 16384, 65536, 16384)
+}
+
+func (d *Docker) executePortable(ctx context.Context, name string, args []string, result any) error {
+	return d.executeBounded(ctx, name, exportHelperScript, args, result, 24<<20, 32<<20, 1<<20)
+}
+
+func (d *Docker) executeBounded(ctx context.Context, name, script string, args []string, result any, payloadLimit, totalLimit, frameLimit int) error {
 	command := append([]string{"node", "--no-warnings", "-e", script}, args...)
 	var created struct{ ID string }
 	if _, err := d.call(ctx, "POST", "/containers/"+name+"/exec", map[string]any{"AttachStdout": true, "AttachStderr": true, "Tty": false, "Cmd": command}, &created); err != nil {
@@ -33,7 +41,7 @@ func (d *Docker) executeFixed(ctx context.Context, name, script string, args []s
 	if response.StatusCode != 200 {
 		return errors.New("fixed runtime helper rejected")
 	}
-	stdout, err := decodeHelperOutput(io.LimitReader(response.Body, 65537))
+	stdout, err := decodeBoundedHelperOutput(io.LimitReader(response.Body, int64(totalLimit)+1), payloadLimit, totalLimit, frameLimit)
 	if err != nil {
 		return err
 	}
@@ -53,6 +61,10 @@ func (d *Docker) executeFixed(ctx context.Context, name, script string, args []s
 }
 
 func decodeHelperOutput(reader io.Reader) ([]byte, error) {
+	return decodeBoundedHelperOutput(reader, 16384, 65536, 16384)
+}
+
+func decodeBoundedHelperOutput(reader io.Reader, payloadLimit, totalLimit, frameLimit int) ([]byte, error) {
 	var output bytes.Buffer
 	total := 0
 	for {
@@ -66,7 +78,7 @@ func decodeHelperOutput(reader io.Reader) ([]byte, error) {
 		}
 		length := binary.BigEndian.Uint32(header[4:])
 		total += 8 + int(length)
-		if length > 16384 || total > 65536 || output.Len()+int(length) > 16384 {
+		if int(length) > frameLimit || total > totalLimit || output.Len()+int(length) > payloadLimit {
 			return nil, errors.New("fixed runtime helper output limit exceeded")
 		}
 		if _, err = io.CopyN(&output, reader, int64(length)); err != nil {

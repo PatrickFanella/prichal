@@ -1,6 +1,6 @@
 # Local service suspension and resume
 
-Service operations are local operator actions. They record the OS operator, deployment, fixed reason, prior state, monotonic generation and result in management PostgreSQL. The intent, audit event and River job commit together. The public API has no operator mutation route or host credentials.
+Service operations are local operator actions. They record the OS operator, deployment, fixed reason, prior state, monotonic generation and result in management PostgreSQL. The intent, audit event and River job commit together. Customer routes cannot mutate lifecycle state. The API has no host credentials. The explicit local operator policy now permits fixed browser actions through the [support workspace](local-operator-workspace.md).
 
 ```sh
 ./scripts/dev.sh service-admin request --deployment INSTANCE_UUID --key REQUEST_UUID --state suspended --reason maintenance
@@ -18,4 +18,4 @@ The actual two-tenant local drill completed at 2026-10-01T09:36:24Z. Bob's three
 
 Managed recovery now captures an existing private service lease. A subsequent encrypted cold restore of resumed Bob completed at 2026-10-01T09:37:55Z, including 16 files, five SQLite databases and the running lease. Its four signed records and referenced blob survived; fresh writes and recovered PLC signing passed. Source and restored writers remained fenced. Report: `.local/managed-recovery/f3c0b25d-a048-445d-9aad-2a80110658c8/report.json`. This restoration drill refuses a suspended or pending lease and does not qualify restoration or export while held.
 
-Issue #17 remains open for native account takedown, retained backup/export eligibility while held, broader operator authorization, customer notifications and live qualification. Public DNS, TLS, mail and federation remain unqualified. The local browser automation host was unavailable; new lifecycle UI behavior has build and API evidence only.
+Native account takedown and held-account restoration now have [separate local evidence](local-held-recovery.md). Issue #17 remains open for service-held restoration, independent export/backup custody, customer notifications, dedicated operator policy and live qualification. Public DNS, TLS, mail and federation remain unqualified. The local browser automation host was unavailable; new lifecycle UI behavior has build and API evidence only.
