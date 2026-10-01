@@ -428,3 +428,9 @@ Default restart hid collaboration controls while the ordinary owner workspace st
 Post-browser recovery `b3a05f17-fa9f-4599-85af-4b5d39dab6de` matched all 43 schema-23 tables and sequences, including three invitations, three retained membership rows, two transfers, 16 access audits and 79 River jobs. Copied authentication was revoked and held worker startup refused. Reconciliation/dedicated-queue replay preserved copied ordinary jobs, source management rows/sequences and native custody. Recovery copies remain retained.
 
 Source API, worker and monitor resumed after this checkpoint with collaboration, exit scheduling, fixture billing and operator authority disabled. Native services remain running.
+
+## Browser history focus and layouts
+
+Actual native T3 DOM and keyboard checks traversed Bob's hosting history with 50 latest events and 19 older events. Loading the final page exposed a focus loss when the pager disappeared. The hosting and service/account history components now focus their announced page count after a successful load. The activity panel displayed 26 actions. Keyboard checks confirmed focus remained in the history workflow and the pager had a visible focus outline.
+
+Expanded histories had no document overflow or offscreen history elements at 320×568, 375×812, 812×375, 768×1024 and 1440×900. The page had no duplicate IDs or unlabeled visible inputs. Private evidence remains in `.local/history-browser-widths.json`. Full smoke passed. These read-only browser checks create no management or host operation. Snapshot appearance and assistive screen-reader testing remain unqualified. See [owner hosting history](../local-owner-journey.md).

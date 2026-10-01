@@ -11,6 +11,8 @@ function page(value: unknown): value is Page {
 export function OwnerJourney({ deploymentId }: { deploymentId: string }) {
   const [history, setHistory] = useState<Page | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const active = useRef<AbortController | null>(null);
+  const pageStatus = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => { if (history) pageStatus.current?.focus(); }, [history]);
   useEffect(() => { setHistory(null); setError(''); setBusy(false); return () => { active.current?.abort(); active.current = null; }; }, [deploymentId]);
   async function load(before?: string) {
     active.current?.abort();
@@ -28,7 +30,7 @@ export function OwnerJourney({ deploymentId }: { deploymentId: string }) {
     <p>This is recorded history. Open the current controls to check availability, dates and independent holds before acting.</p>
     <button type="button" disabled={busy} onClick={() => { void load(); }}>Load latest hosting history</button>
     {error && <p role="alert">{error}</p>}
-    {history && <><p role="status">{history.items.length} recorded events shown.</p><ol>{history.items.map(item => <li key={item.key}>
+    {history && <><p role="status" ref={pageStatus} tabIndex={-1}>{history.items.length} recorded events shown.</p><ol>{history.items.map(item => <li key={item.key}>
       <p><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>: {item.message}</p><p>{item.nextStep}</p>
     </li>)}</ol>{history.items.length === 0 && <p>No hosting events recorded.</p>}{history.hasMore && history.nextBefore && <button type="button" disabled={busy} onClick={() => { void load(history.nextBefore!); }}>Load older hosting history</button>}</>}
   </details>;
