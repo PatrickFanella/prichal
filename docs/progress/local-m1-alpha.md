@@ -536,3 +536,17 @@ Actual drill `5f4427be-f0e0-40e7-9955-6cf3314e1c94` completed at 18:56:06Z with 
 Fresh recovery `24489b6d-dbb4-4315-9359-9ba2402428f1` completed at 18:58:36Z, matched all 49 schema-26 tables/sequences, revoked copied authentication and refused held worker startup. Reconciliation/dedicated replay preserved default jobs, source rows/sequences and native data/custody. Source writers stayed paused through capture/replay and resumed afterward with fixture permissions disabled and both admission policies open. Earlier copies remain retained.
 
 PR #78 commit `2e0dfeb` passed remote CI 11557. Browser choice review/retry/cancel, ownership verification, globally exclusive verified claims, routing/TLS/activation and migration remain open. No native container, volume or recovery-copy deletion occurred.
+
+## Browser review of custom-address intent
+
+Owners can read pending choice/TXT instructions, stage save/cancellation after preflight, and review exact requests retained in owner/organization-scoped session storage. Reload or failure keeps acknowledgement unchecked and sends no mutation. Current-state refresh clears cached instructions/notice and fresh review is required before retry. See [browser endpoint workspace](../local-custom-endpoint-workspace.md).
+
+Actual staging/reload at 19:05:19Z/19:05:44Z focused review and sent no mutation. Save at 19:06:58Z showed TXT instructions and hosting/handover pause, then survived reload. Separately reviewed keyboard cancellation completed at 19:09:14Z and retained the receipt. Five cancelled choices/ten audits and zero pending choices remain. Jobs, deployments/endpoints, enrollment, admission policies and native data/custody matched the baseline.
+
+A read-only unavailable-response fixture at 19:10:32Z intercepted one attempt, preserved the exact request, cleared cached state and focused error/reset acknowledgement with zero source mutations. Original fetch was restored. Reload at 19:11:02Z retained its hash and sent no mutation; actual-state read and keyboard clearing passed at 19:12:18Z. Some preview mouse attempts failed; readiness/keyboard repeats passed. DOM opening recovered cancellation review after collapsed-panel clicks failed.
+
+A long-address/TXT/synthetic-review fixture passed the 320×568 overflow/bounds check. T3 disconnected before the other widths and cache-denial check, and snapshot capture failed. The disconnect also prevented restoration of that last scoped read-only fixture and synthetic browser intent. It blocks endpoint mutations and cannot auto-submit; source checks afterward still showed zero pending choices and unchanged management/native work. Cleanup instructions and remaining checks are in the runbook. This is an open browser gate, not a completed five-width or screen-reader qualification.
+
+Schema remains 26 with the retained 49-table checkpoint; the new browser receipt follows its snapshot. Source API/worker/monitor retain fixture permissions disabled and both admission policies open. No native container, volume or recovery-copy deletion occurred.
+
+The final browser smoke gate passed. PR #79 commit `85879a8` passed remote CI run 11560. Remaining browser checks and cleanup stay open after the connection loss.
