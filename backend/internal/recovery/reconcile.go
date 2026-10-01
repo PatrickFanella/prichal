@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,7 +16,7 @@ type Observer interface {
 }
 
 // Reconcile releases the hold only when every registered host inventory matches
-// retained placements, and every placed instance has a verified healthy runtime.
+// retained placements, and every placed instance matches its confirmed service intent.
 // Unknown namespaces or missing hosts require operator investigation. Nothing is deleted.
 func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error {
 	if observer == nil {
@@ -87,9 +88,49 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 			if !inventory[id] {
 				return errors.New("placed namespace missing from host inventory")
 			}
+			var generation int64
+			var phase, desired, ticket string
+			if err = tx.QueryRow(ctx, `SELECT coalesce(c.generation,0),coalesce(c.state,'applied'),coalesce(c.desired_state,'running'),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,generation,state,desired_state FROM service_operations WHERE deployment_id=d.id AND kind='service' ORDER BY generation DESC LIMIT 1) c ON true WHERE d.id=$1`, id).Scan(&generation, &phase, &desired, &ticket); err != nil {
+				return err
+			}
+			if phase != "applied" {
+				return errors.New("uncertain service lifecycle prevents recovery release")
+			}
 			result, err := observer.Status(ctx, peer, id)
-			if err != nil || result.ID != id || result.Endpoint != nodeagent.LocalEndpoint(id) || result.State != "running" || !result.Healthy {
-				return errors.New("placed runtime could not be verified healthy")
+			expected := result.State == "running" && result.Healthy
+			if desired == "suspended" {
+				expected = result.State == "suspended" && !result.Healthy
+			}
+			metadata := result.ServiceGeneration == generation && result.ServiceTicket == ticket
+			if generation > 0 {
+				metadata = metadata && result.ServicePhase == "applied"
+			} else {
+				metadata = metadata && result.ServicePhase == ""
+			}
+			if err != nil || result.ID != id || result.Endpoint != nodeagent.LocalEndpoint(id) || !expected || !metadata {
+				return errors.New("placed runtime does not match confirmed service intent")
+			}
+
+			var accountGeneration int64
+			var accountPhase, accountDesired, accountTicket, expectedAccountDID string
+			accountErr := tx.QueryRow(ctx, `SELECT generation,state,desired_state,id::text,coalesce((SELECT account_did FROM enrollment_operations WHERE deployment_id=$1 AND state='verified' ORDER BY created_at DESC LIMIT 1),'') FROM service_operations WHERE deployment_id=$1 AND kind='account' ORDER BY generation DESC LIMIT 1`, id).Scan(&accountGeneration, &accountPhase, &accountDesired, &accountTicket, &expectedAccountDID)
+			if accountErr != nil && !errors.Is(accountErr, pgx.ErrNoRows) {
+				return accountErr
+			}
+			if accountErr == nil {
+				if accountPhase != "applied" || desired == "suspended" {
+					return errors.New("native account state requires inspection before recovery release")
+				}
+				inspector, ok := observer.(interface {
+					AccountStatus(context.Context, nodeagent.Peer, string) (nodeagent.AccountStatus, error)
+				})
+				if !ok {
+					return errors.New("authenticated native moderation observer required")
+				}
+				account, err := inspector.AccountStatus(ctx, peer, id)
+				if err != nil || account.InstanceID != id || expectedAccountDID == "" || account.DID != expectedAccountDID || account.State != accountDesired || account.Generation != accountGeneration || account.Ticket != accountTicket || account.Phase != "applied" {
+					return errors.New("native account state differs from recovery intent")
+				}
 			}
 			delete(inventory, id)
 			verified++
