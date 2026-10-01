@@ -34,3 +34,7 @@ Real-account migration requires its owner's authorization; complex/adversarial r
 
 Phase: M5 - Additional access and portability. Priority: P2.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+## Local implementation evidence
+
+[Retained-export inventory preflight](../local-migration-preflight.md) authenticates existing owned unexpired archives and reports bounded historical inventory without target access or identity mutation. Both archive versions passed independent offline signature/media checks on the four retained local artifacts. Current source authority, designated migration targets, resumable import and identity switching remain unqualified; acceptance criteria remain open.
