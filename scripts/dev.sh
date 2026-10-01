@@ -8,11 +8,18 @@ fi
 set -a
 source .local/local.env
 set +a
+# Local-only defaults. Direct production startup has no fixture fallback.
+unset PDS_OIDC_CLIENT_SECRET
+export PDS_MODE=local
+export PDS_OIDC_ISSUER=http://localhost:5556
+export PDS_OIDC_CLIENT_ID=pds-local
+export PDS_PUBLIC_ORIGIN=http://localhost:5173
 case "${1:-help}" in
   db) docker compose up -d --wait db ;;
+  issuer) cd backend; exec go run ./cmd/test-issuer ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|api|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|web|smoke|down}\n'; exit 2 ;;
 esac
