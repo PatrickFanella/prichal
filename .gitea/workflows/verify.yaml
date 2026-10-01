@@ -26,6 +26,13 @@ jobs:
         run: ./scripts/ci-db.sh start
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
+      - name: Prepare customer CLI platform builds and verify Linux entry point
+        run: |
+          ./scripts/build-customer-cli.sh
+          .local/cli-build/pds-ass-linux-amd64 --version
+          .local/cli-build/pds-ass-linux-amd64 deploy --help
+          .local/cli-build/pds-ass-linux-amd64 completion bash
+          (cd .local/cli-build && sha256sum --check SHA256SUMS)
       - name: Stop disposable PostgreSQL
         if: always()
         run: ./scripts/ci-db.sh stop

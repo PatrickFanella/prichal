@@ -24,11 +24,20 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 	if _, err := d.call(ctx, "GET", "/info", nil, &info); err != nil {
 		return Capacity{}, err
 	}
-	maximum := 2
-	if memorySlots := int((info.MemTotal - (2 << 30)) / (896 << 20)); memorySlots < maximum {
+	maximum := d.maximumSlots
+	if maximum == 0 {
+		maximum = 2
+	}
+	memoryPerSlot := int64(896 << 20)
+	cpuUnits, cpuCost := 4, 5
+	if d.localIdentity {
+		memoryPerSlot = 960 << 20
+		cpuUnits, cpuCost = 8, 11
+	}
+	if memorySlots := int((info.MemTotal - (2 << 30)) / memoryPerSlot); memorySlots < maximum {
 		maximum = memorySlots
 	}
-	if cpuSlots := (info.NCPU - 1) * 4 / 5; cpuSlots < maximum {
+	if cpuSlots := (info.NCPU - 1) * cpuUnits / cpuCost; cpuSlots < maximum {
 		maximum = cpuSlots
 	}
 	if maximum < 0 {
@@ -42,7 +51,7 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 	ids := []string{}
 	seen := map[string]bool{}
 	for _, container := range containers {
-		if container.Labels[roleLabel] == "ingress" {
+		if container.Labels[roleLabel] == "ingress" || container.Labels[roleLabel] == "enrollment-guard" {
 			continue
 		}
 		if id := container.Labels[label]; instanceID.MatchString(id) {
@@ -55,4 +64,13 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		}
 	}
 	return Capacity{MaximumSlots: maximum, CPUs: info.NCPU, MemoryBytes: info.MemTotal, InstanceIDs: ids}, nil
+}
+
+// SetCapacityCeiling applies an operator ceiling before serving requests. Measured resource limits still apply.
+func (d *Docker) SetCapacityCeiling(maximum int) error {
+	if maximum < 1 || maximum > 8 {
+		return errors.New("local capacity ceiling must be between 1 and 8")
+	}
+	d.maximumSlots = maximum
+	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -112,7 +113,7 @@ func (c *Client) instance(ctx context.Context, peer Peer, id, method string) (In
 	var result Instance
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 2048))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting") {
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting" && result.State != "suspended") || !validServiceMetadata(result) {
 		return Instance{}, errors.New("invalid node reconciliation response")
 	}
 	return result, nil
@@ -149,6 +150,95 @@ func (c *Client) Capacity(ctx context.Context, peer Peer) (Capacity, error) {
 			return Capacity{}, errors.New("invalid node namespace inventory")
 		}
 		seen[id] = true
+	}
+	return result, nil
+}
+
+// Enroll requests a fixed tenant-scoped invitation from the authenticated node.
+func (c *Client) Enroll(ctx context.Context, peer Peer, id, ticket string) (Enrollment, error) {
+	if !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+		return Enrollment{}, errors.New("invalid enrollment request")
+	}
+	client, err := c.httpClient(peer)
+	if err != nil {
+		return Enrollment{}, err
+	}
+	defer client.CloseIdleConnections()
+	body, _ := json.Marshal(struct {
+		Ticket string `json:"ticket"`
+	}{ticket})
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/enrollment", bytes.NewReader(body))
+	if err != nil {
+		return Enrollment{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return Enrollment{}, errors.New("registered enrollment node unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return Enrollment{}, errors.New("registered node could not confirm enrollment")
+	}
+	var result Enrollment
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 4096))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.InstanceID != id || result.Ticket != ticket {
+		return Enrollment{}, errors.New("invalid node enrollment response")
+	}
+	switch result.State {
+	case "invitation_ready":
+		if !validInvitationCode(result.Code) || result.ExpiresAt <= time.Now().UnixMilli() || result.ExpiresAt > time.Now().Add(15*time.Minute+5*time.Second).UnixMilli() || result.DID != "" {
+			return Enrollment{}, errors.New("invalid expiring invitation")
+		}
+	case "account_created", "verified":
+		if !strings.HasPrefix(result.DID, "did:plc:") || len(result.DID) != 32 || result.Code != "" || result.Handle == "" || (result.State == "verified" && !result.EmailConfirmed) {
+			return Enrollment{}, errors.New("invalid account status")
+		}
+	case "expired":
+		if result.Code != "" || result.DID != "" {
+			return Enrollment{}, errors.New("invalid expired enrollment")
+		}
+	default:
+		return Enrollment{}, errors.New("unsupported enrollment state")
+	}
+	return result, nil
+}
+
+// Export authenticates the registered node before requesting the expected sole native actor.
+func (c *Client) Export(ctx context.Context, peer Peer, id, did string) (PortableExport, error) {
+	if !instanceID.MatchString(id) || !accountDID.MatchString(did) {
+		return PortableExport{}, errors.New("invalid portable export reference")
+	}
+	client, err := c.httpClient(peer)
+	if err != nil {
+		return PortableExport{}, err
+	}
+	defer client.CloseIdleConnections()
+	body, marshalErr := json.Marshal(struct {
+		DID string `json:"did"`
+	}{did})
+	if marshalErr != nil {
+		return PortableExport{}, marshalErr
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/export", bytes.NewReader(body))
+	if err != nil {
+		return PortableExport{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return PortableExport{}, errors.New("registered node export unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return PortableExport{}, errors.New("registered node export could not be confirmed")
+	}
+	var result PortableExport
+	decoder := json.NewDecoder(io.LimitReader(response.Body, (24<<20)+1))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || !result.ValidFor(did) {
+		return PortableExport{}, errors.New("registered node portable export invalid")
 	}
 	return result, nil
 }

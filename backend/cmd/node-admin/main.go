@@ -10,9 +10,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"os/user"
 	"syscall"
 	"time"
 
@@ -32,13 +34,17 @@ func run() error {
 		return errors.New("node administration requires explicit local mode")
 	}
 	if len(os.Args) < 2 {
-		return errors.New("usage: node-admin {issue --endpoint URL --slots N --out FILE|serve}")
+		return errors.New("usage: node-admin {issue --endpoint URL --slots N --out FILE|capacity --node UUID --slots N --reason REASON|serve}")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(startup, os.Getenv("PDS_DATABASE_URL"))
+	configuration, err := pgxpool.ParseConfig(os.Getenv("PDS_DATABASE_URL"))
+	if err != nil || !net.ParseIP(configuration.ConnConfig.Host).IsLoopback() {
+		return errors.New("local node administration requires a loopback database")
+	}
+	pool, err := pgxpool.NewWithConfig(startup, configuration)
 	if err != nil {
 		return errors.New("management database configuration unavailable")
 	}
@@ -55,6 +61,26 @@ func run() error {
 	}
 	store := fleet.Store{Pool: pool}
 	switch os.Args[1] {
+	case "capacity":
+		flags := flag.NewFlagSet("capacity", flag.ContinueOnError)
+		node := flags.String("node", "", "registered node UUID")
+		slots := flags.Int("slots", 0, "operator capacity ceiling")
+		reason := flags.String("reason", "", "fixed operator reason")
+		if err = flags.Parse(os.Args[2:]); err != nil {
+			return err
+		}
+		if flags.NArg() != 0 {
+			return errors.New("unexpected capacity argument")
+		}
+		actor, lookupErr := user.Current()
+		if lookupErr != nil {
+			return errors.New("operator identity unavailable")
+		}
+		if err = store.SetCapacityCeiling(startup, *node, actor.Username, *reason, *slots); err != nil {
+			return err
+		}
+		fmt.Println("Local capacity policy recorded; authenticated measurement required before placement.")
+		return nil
 	case "issue":
 		flags := flag.NewFlagSet("issue", flag.ContinueOnError)
 		endpoint := flags.String("endpoint", "https://127.0.0.1:9091", "private local agent endpoint")

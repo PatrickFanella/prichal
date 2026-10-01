@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -52,6 +53,18 @@ func run() error {
 	runtime, err := nodeagent.NewDocker(os.Getenv("PDS_AGENT_DOCKER_SOCKET"), os.Getenv("PDS_AGENT_STATE_DIRECTORY"))
 	if err != nil {
 		return err
+	}
+	if value := os.Getenv("PDS_AGENT_MAXIMUM_SLOTS"); value != "" {
+		ceiling, parseErr := strconv.Atoi(value)
+		if parseErr != nil {
+			return errors.New("invalid agent capacity ceiling")
+		}
+		if err = runtime.SetCapacityCeiling(ceiling); err != nil {
+			return err
+		}
+	}
+	if os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") == "true" {
+		runtime.EnableLocalIdentityFixtures()
 	}
 	server := &http.Server{Addr: address, Handler: nodeagent.Authenticate(nodeagent.Handler(runtime)), TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{certificate}}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, ErrorLog: log.New(os.Stderr, "agent TLS: ", 0)}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
