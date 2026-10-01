@@ -41,7 +41,7 @@ export function Workspace() {
         <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'The service or database is unreachable. This page will check again automatically.'}</p>
         <dl><div><dt>Environment</dt><dd>Local development</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unavailable'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
       </section>
-      <aside className="next"><span>UP NEXT</span><p>Server creation is the next step. Public hosting is not available yet.</p></aside>
+      <aside className="next"><span>UP NEXT</span><p>Real PDS provisioning is the next step. Public hosting is not available yet.</p></aside>
     </main>
     <footer>Standalone PDS hosting<span>Local foundation · Private alpha in progress</span></footer>
   </div>;

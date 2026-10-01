@@ -17,9 +17,10 @@ export PDS_PUBLIC_ORIGIN=http://localhost:5173
 case "${1:-help}" in
   db) docker compose up -d --wait db ;;
   issuer) cd backend; exec go run ./cmd/test-issuer ;;
+  worker) cd backend; exec go run ./cmd/worker ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|web|smoke|down}\n'; exit 2 ;;
 esac

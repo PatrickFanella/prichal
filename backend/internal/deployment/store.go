@@ -1,0 +1,158 @@
+// Package deployment persists customer operations separately from host execution.
+package deployment
+
+import (
+	"context"
+	"errors"
+	"regexp"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
+)
+
+var ErrConflict = errors.New("request conflicts with an existing deployment")
+var ErrNotFound = errors.New("deployment or organization not found")
+var ErrInvalid = errors.New("invalid deployment request")
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,61}[a-z0-9]$|^[a-z]$`)
+var keyPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
+
+type Request struct {
+	Name   string `json:"name"`
+	Region string `json:"region"`
+	Key    string `json:"idempotencyKey"`
+}
+type Event struct {
+	State     string    `json:"state"`
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+type Operation struct {
+	ID             string  `json:"id"`
+	OrganizationID string  `json:"organizationId"`
+	Name           string  `json:"name"`
+	Region         string  `json:"region"`
+	State          string  `json:"state"`
+	Message        string  `json:"message"`
+	Events         []Event `json:"events"`
+}
+type Args struct {
+	DeploymentID string `json:"deploymentId"`
+}
+
+func (Args) Kind() string { return "deploy" }
+
+type Store struct {
+	Pool  *pgxpool.Pool
+	Queue *river.Client[pgx.Tx]
+}
+
+func New(pool *pgxpool.Pool) (*Store, error) {
+	queue, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	if err != nil {
+		return nil, err
+	}
+	return &Store{pool, queue}, nil
+}
+func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	// Keep a session lock across River's independently committed migrations.
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(73647302)`); err != nil {
+		return err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := conn.Exec(cleanup, `SELECT pg_advisory_unlock(73647302)`); err != nil {
+			_ = conn.Conn().Close(cleanup)
+		}
+	}()
+	migrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
+	if err != nil {
+		return err
+	}
+	_, err = migrator.Migrate(ctx, rivermigrate.DirectionUp, nil)
+	return err
+}
+func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Operation, error) {
+	if !namePattern.MatchString(r.Name) || r.Region != "local" || !keyPattern.MatchString(r.Key) {
+		return Operation{}, ErrInvalid
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return Operation{}, err
+	}
+	defer tx.Rollback(ctx)
+	var authorized string
+	// Serialize organization submissions to make name and key conflicts deterministic.
+	if err = tx.QueryRow(ctx, `SELECT id FROM organizations WHERE id=$1 AND owner_id=$2 FOR UPDATE`, org, owner).Scan(&authorized); errors.Is(err, pgx.ErrNoRows) {
+		return Operation{}, ErrNotFound
+	} else if err != nil {
+		return Operation{}, err
+	}
+	var id, name, region string
+	err = tx.QueryRow(ctx, `SELECT id,name,region FROM deployments WHERE organization_id=$1 AND idempotency_key=$2`, org, r.Key).Scan(&id, &name, &region)
+	if err == nil {
+		if name != r.Name || region != r.Region {
+			return Operation{}, ErrConflict
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return Operation{}, err
+		}
+		return s.Get(ctx, owner, id)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Operation{}, err
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key) VALUES($1,$2,$3,$4) RETURNING id`, org, r.Name, r.Region, r.Key).Scan(&id)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return Operation{}, ErrConflict
+	}
+	if err != nil {
+		return Operation{}, err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'queued','Waiting for a worker.')`, id); err != nil {
+		return Operation{}, err
+	}
+	if _, err = s.Queue.InsertTx(ctx, tx, Args{id}, &river.InsertOpts{MaxAttempts: 3}); err != nil {
+		return Operation{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Operation{}, err
+	}
+	return s.Get(ctx, owner, id)
+}
+func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
+	var op Operation
+	err := s.Pool.QueryRow(ctx, `SELECT d.id,d.organization_id,d.name,d.region,d.state,d.message FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.OrganizationID, &op.Name, &op.Region, &op.State, &op.Message)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return op, ErrNotFound
+	}
+	if err != nil {
+		return op, err
+	}
+	op.Events = []Event{}
+	rows, err := s.Pool.Query(ctx, `SELECT state,message,created_at FROM deployment_events WHERE deployment_id=$1 ORDER BY id`, id)
+	if err != nil {
+		return op, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var event Event
+		if err = rows.Scan(&event.State, &event.Message, &event.CreatedAt); err != nil {
+			return op, err
+		}
+		op.Events = append(op.Events, event)
+	}
+	return op, rows.Err()
+}
