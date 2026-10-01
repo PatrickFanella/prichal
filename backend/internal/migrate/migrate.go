@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const Version = 16
+const Version = 17
 
 //go:embed sql/*.sql
 var migrations embed.FS
@@ -35,7 +35,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("incompatible management schema: database version %d exceeds supported version %d", version, Version)
 	}
 	for next := version + 1; next <= Version; next++ {
-		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql", 9: "sql/009_retained_recovery_namespaces.sql", 10: "sql/010_service_observations.sql", 11: "sql/011_owner_enrollment.sql", 12: "sql/012_handle_proof.sql", 13: "sql/013_node_capacity_policy.sql", 14: "sql/014_native_usage.sql", 15: "sql/015_service_lifecycle.sql", 16: "sql/016_account_lifecycle.sql"}[next]
+		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql", 9: "sql/009_retained_recovery_namespaces.sql", 10: "sql/010_service_observations.sql", 11: "sql/011_owner_enrollment.sql", 12: "sql/012_handle_proof.sql", 13: "sql/013_node_capacity_policy.sql", 14: "sql/014_native_usage.sql", 15: "sql/015_service_lifecycle.sql", 16: "sql/016_account_lifecycle.sql", 17: "sql/017_cli_authorization.sql"}[next]
 		sql, err := migrations.ReadFile(file)
 		if err != nil {
 			return err

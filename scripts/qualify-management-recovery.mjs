@@ -31,7 +31,7 @@ function sql(target, query) { return docker('exec', 'pds-ass-local-db-1', 'psql'
 assert.equal(process.env.PDS_LOCAL_MANAGEMENT_QUIESCED,'true','Stop only this project management API, worker and monitor before stable inventory qualification');
 const allTables=sql('pds_local',"SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").split('\n');allTables.forEach(table=>assert.match(table,/^[a-z][a-z0-9_]{0,62}$/));assert.ok(allTables.includes('service_operations')&&allTables.includes('enrollment_operations')&&allTables.includes('instance_usage'));
 const tables=allTables.filter(table=>!['management_recovery','recovery_retained_namespaces'].includes(table));
-const durableTables=tables.filter(table=>!['management_sessions','login_attempts'].includes(table));
+const durableTables=tables.filter(table=>!['management_sessions','login_attempts','cli_credentials','cli_device_grants'].includes(table));
 
 const inventoryQuery=managementInventorySQL(tables),durableInventoryQuery=managementInventorySQL(durableTables);
 
@@ -61,7 +61,7 @@ source.pathname = `/${database}`;
 const environment = { ...process.env, PDS_MODE: 'local', PDS_DATABASE_URL: source.toString(), PDS_RECOVERY_SNAPSHOT_SHA256: digest };
 command('go', ['run', './cmd/management-recovery', 'hold'], { cwd: resolve('backend'), env: environment });
 assert.deepEqual(JSON.parse(sql(database,durableInventoryQuery)),Object.fromEntries(durableTables.map(table=>[table,before[table]])));
-assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)'),'0');
+assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)+(SELECT count(*) FROM cli_credentials)+(SELECT count(*) FROM cli_device_grants)'),'0');
 assert.equal(sql(database, `SELECT state FROM management_recovery`), 'held');
 const check = spawnSync('go', ['run', './cmd/management-recovery', 'check'], { cwd: resolve('backend'), env: environment, encoding: 'utf8', timeout: 60000 });
 assert.notEqual(check.status, 0, 'Restored database must refuse execution before reconciliation');
@@ -69,7 +69,7 @@ const worker = spawnSync('go', ['run', './cmd/worker'], { cwd: resolve('backend'
 assert.notEqual(worker.status, 0, 'Restored worker started before reconciliation');
 assert.ok(worker.stderr.includes('management recovery requires host reconciliation'), 'Worker must stop for the recovery hold');
 assert.deepEqual(JSON.parse(sql(database,durableInventoryQuery)),Object.fromEntries(durableTables.map(table=>[table,before[table]])));
-assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)'),'0');
+assert.equal(sql(database,'SELECT (SELECT count(*) FROM management_sessions)+(SELECT count(*) FROM login_attempts)+(SELECT count(*) FROM cli_credentials)+(SELECT count(*) FROM cli_device_grants)'),'0');
 assert.deepEqual(JSON.parse(sql('pds_local', inventoryQuery)), before);
 assert.deepEqual(JSON.parse(sql('pds_local',managementSequenceSQL)),sequences,'Source sequence positions changed');
 unlinkSync(authenticated);

@@ -55,11 +55,18 @@ func TestRestoredHoldRevokesCopiedAuthenticationAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if _, err := pool.Exec(ctx, `INSERT INTO cli_credentials(token_hash,owner_id) VALUES($1,$2)`, make([]byte, 32), owner); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO cli_device_grants(device_hash,user_hash,requester_hash,owner_id,state) VALUES($1,$1,$1,$2,'approved')`, make([]byte, 32), owner); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := Hold(ctx, pool, make([]byte, 32)); err != nil {
 		t.Fatal(err)
 	}
-	var sessions, attempts, owners int
-	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM management_sessions),(SELECT count(*) FROM login_attempts),(SELECT count(*) FROM owners)`).Scan(&sessions, &attempts, &owners); err != nil || sessions != 0 || attempts != 0 || owners != 1 {
+	var sessions, attempts, owners, credentials, grants int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM management_sessions),(SELECT count(*) FROM login_attempts),(SELECT count(*) FROM owners),(SELECT count(*) FROM cli_credentials),(SELECT count(*) FROM cli_device_grants)`).Scan(&sessions, &attempts, &owners, &credentials, &grants); err != nil || sessions != 0 || attempts != 0 || owners != 1 || credentials != 0 || grants != 0 {
 		t.Fatal("hold did not revoke transient authentication while preserving ownership")
 	}
 	if err := Check(ctx, pool); !errors.Is(err, ErrHeld) {

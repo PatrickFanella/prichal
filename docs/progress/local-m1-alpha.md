@@ -280,3 +280,13 @@ Host reconciliation matched both managed tenants and their exact lifecycle fence
 The full local smoke gate passed. Actual recovery/replay and script syntax checks passed. Independent backup storage, key/certificate-loss recovery, retention, scheduled capture and live qualification remain open for #13. See [local recovery](../local-recovery.md).
 
 Native account lifecycle [PR #55](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/55) passed [CI run 11413](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11413) at `174f45d`.
+
+### Scoped browser-approved customer CLI
+
+Schema 17 adds ten-minute device grants, browser approval with code/permission review, and revocable 24-hour CLI credentials. The Go client provides login, organization listing, deploy/list/status, logout, offline help/version and bash/zsh/fish completions. Deployment requests are persisted before submission, and Ctrl+C leaves server work running. Credential files are private; tokens never appear in URLs, command arguments or terminal output. The fixed scope excludes browser sessions, organization mutation, native invitations and host administration.
+
+Actual CLI qualification `afc742d3-fc37-40ce-b1e9-96888cc15c6d` completed at 2026-10-01T10:33:50Z. Alice/Bob ownership and revocation fences passed; interrupt/retry preserved one simulated deployment, which completed after the worker resumed. Existing Bob native status was readable only by its owner. This was a simulated new deployment because all three local native slots remain occupied.
+
+Schema 17 recovery `236cbd45-e887-401d-b10a-9709f92279a1` matched all 29 management/River tables and sequence positions. The restored hold revoked one copied CLI credential, six grants and 47 browser sessions. Lost-checkpoint replay preserved all source rows/sequences, native signed data/media, container identities and protected files. The source credential stayed valid during recovery, and final all-device revocation rejected both it and an approved unconsumed grant. Source API/worker/monitor resumed.
+
+Full smoke passed, including Go vet, race-enabled clean-database integration tests and frontend build. Five platform binaries/checksums were prepared locally. Actual macOS ARM64 authorization and Linux ARM64 offline runtime checks passed; other platforms are cross-compile evidence only. The first macOS launch exceeded the cold-start target; warmed median was about 6 ms. Browser snapshots failed, so responsive approval/revocation UI verification remains open. Nothing was published. [Detailed evidence and remaining gates](../local-customer-cli.md). Issue #27 and live qualification remain open.
