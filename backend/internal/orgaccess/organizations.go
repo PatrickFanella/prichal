@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -49,21 +48,7 @@ func organizationAfter(actor, cursor string) (*organizationCursor, error) {
 	}
 	return &value, nil
 }
-func organizationQuery(raw string) (string, error) {
-	if len(raw) > 384 {
-		return "", ErrCursor
-	}
-	values, err := url.ParseQuery(raw)
-	if err != nil || len(values) > 1 {
-		return "", ErrCursor
-	}
-	for key, value := range values {
-		if key != "after" || len(value) != 1 || value[0] == "" || len(value[0]) > 256 {
-			return "", ErrCursor
-		}
-	}
-	return values.Get("after"), nil
-}
+func organizationQuery(raw string) (string, error) { return listQuery(raw, "after", 256) }
 
 // MinePage rechecks current ownership/membership on every keyset page.
 // Revoked organizations disappear without granting access through an old cursor.
