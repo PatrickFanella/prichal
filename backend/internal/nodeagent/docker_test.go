@@ -46,7 +46,13 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	configurations := map[string]map[string]any{}
 	running := map[string]bool{}
 	creates := map[string]int{}
+	readOnly := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if readOnly && r.Method != "GET" {
+			t.Error("inspection mutated Docker")
+			w.WriteHeader(500)
+			return
+		}
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
 		case path == "/info":
@@ -126,9 +132,42 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
 	}
+	readOnly = true
+	docker.healthProbe = func(context.Context, string) bool { return true }
+	result, err := docker.Status(context.Background(), id)
+	if err != nil || !result.Healthy {
+		t.Fatalf("inspection: %+v %v", result, err)
+	}
+	running["pds-ass-tenant-"+id] = false
+	result, err = docker.Status(context.Background(), id)
+	if err != nil || result.Healthy || result.State != "starting" {
+		t.Fatalf("stopped inspection: %+v %v", result, err)
+	}
+	running["pds-ass-tenant-"+id] = true
+	credentialPath := filepath.Join(directory, id+".json")
+	credential, err := os.ReadFile(credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(credentialPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = docker.Status(context.Background(), id); err == nil {
+		t.Fatal("inspection accepted missing credentials")
+	}
+	if _, err = os.Stat(credentialPath); !os.IsNotExist(err) {
+		t.Fatal("inspection recreated credentials")
+	}
+	if err = os.WriteFile(credentialPath, credential, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = docker.Status(context.Background(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"); err == nil {
+		t.Fatal("inspection created missing runtime")
+	}
+	readOnly = false
 	// A healthy process with a different advertised endpoint cannot qualify as this PDS.
 	configurations["pds-ass-tenant-"+id]["Env"] = []string{"PDS_HOSTNAME=foreign.localhost"}
-	if _, err := docker.Ensure(context.Background(), id); err == nil {
+	if _, err := docker.Status(context.Background(), id); err == nil {
 		t.Fatal("accepted mismatched runtime identity")
 	}
 }

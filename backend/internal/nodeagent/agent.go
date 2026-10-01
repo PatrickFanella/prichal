@@ -49,6 +49,25 @@ func Handler(runtime Runtime) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		_ = json.NewEncoder(w).Encode(capacity)
 	})
+	mux.HandleFunc("GET /v1/instances/{id}", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			Status(context.Context, string) (Instance, error)
+		})
+		if !ok {
+			http.Error(w, "instance inspection unavailable", 503)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		result, err := provider.Status(ctx, r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "instance inspection unavailable", 503)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("PUT /v1/instances/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
@@ -78,7 +97,7 @@ func Handler(runtime Runtime) http.Handler {
 			mux.ServeHTTP(w, r)
 			return
 		}
-		if r.Method != "PUT" || !strings.HasPrefix(r.URL.Path, "/v1/instances/") || !instanceID.MatchString(strings.TrimPrefix(r.URL.Path, "/v1/instances/")) {
+		if (r.Method != "PUT" && r.Method != "GET") || !strings.HasPrefix(r.URL.Path, "/v1/instances/") || !instanceID.MatchString(strings.TrimPrefix(r.URL.Path, "/v1/instances/")) {
 			http.NotFound(w, r)
 			return
 		}

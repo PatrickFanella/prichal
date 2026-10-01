@@ -66,7 +66,7 @@ func TestLocalTLSDataUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Version 7 changes data only. Reconstruct the preceding version's URL and marker.
-	if _, err := pool.Exec(ctx, `UPDATE schema_version SET version=6`); err != nil {
+	if _, err := pool.Exec(ctx, `DROP TABLE management_recovery; UPDATE schema_version SET version=6`); err != nil {
 		t.Fatal(err)
 	}
 	if err := Apply(ctx, pool); err != nil {

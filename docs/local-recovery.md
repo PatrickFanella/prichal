@@ -36,3 +36,9 @@ The final local drill captured 38 files, 13 SQLite databases, 9 repositories, 15
 The current local envelope is limited to 512 MiB and inventory to 256 MiB, 64 MiB per file, 32 repositories and 10,000 records/files. Production backup needs a streaming storage design and workload qualification. Modern blob references are covered here; legacy account/migration fixtures remain later work.
 
 The key and bundle directories are separate on the same workstation. Independent recovery storage, separate access roles, retention schedules, encryption/KMS custody, automatic recovery alerts and recovery on a fresh hosting node remain live qualification gates. Management PostgreSQL, enrolled-node private keys, the agent CA and managed TLS identities need their own protected recovery inventories. This PDS drill does not close those gates or prove public DNS/TLS, external mail delivery or downstream federation.
+
+## Management hold groundwork
+
+`backend/cmd/management-recovery` requires explicit local mode and a loopback disposable restore database named `pds_recovery_` followed by 32 hexadecimal characters. The `hold` action records `PDS_RECOVERY_SNAPSHOT_SHA256`, the digest of the authenticated management snapshot. Run it before connecting an API or worker to the restored database. `check` fails while held. `reconcile` uses the worker's private agent CA and client certificate files to inspect registered hosts and release the hold only after placement inventory and healthy runtimes agree.
+
+An unknown namespace, missing runtime or unavailable node leaves the database held for operator investigation. The command has no container creation, start or delete operation. It does not yet create the PostgreSQL snapshot or perform the complete management restore drill. Do not treat this command alone as recovery qualification.

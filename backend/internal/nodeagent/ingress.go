@@ -114,11 +114,8 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	if len(current.NetworkSettings.Networks) != 2 || current.NetworkSettings.Networks[network] == nil || current.NetworkSettings.Networks["pds-ass-agent-ingress"] == nil {
-		return errors.New("ingress networks differ from policy")
-	}
-	if current.Config.Image != CaddyImage || current.Config.Labels[label] != id || current.Config.Labels[roleLabel] != "ingress" || current.HostConfig.Privileged || current.HostConfig.Memory != 128<<20 || current.HostConfig.NanoCpus != 250000000 || current.HostConfig.PidsLimit != 64 || current.HostConfig.NetworkMode != network || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.CapAdd) != 1 || current.HostConfig.CapAdd[0] != "NET_BIND_SERVICE" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" || len(current.HostConfig.Binds) != 2 || !slices.Contains(current.HostConfig.Binds, configPath+":/etc/caddy/Caddyfile:ro") || !slices.Contains(current.HostConfig.Binds, tlsPath+":/etc/pds-tls.pem:ro") || !validIngressMounts(current, configPath, tlsPath) {
-		return errors.New("ingress runtime differs from policy")
+	if err := d.validateIngress(id, current); err != nil {
+		return err
 	}
 	if !current.State.Running {
 		if _, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil); err != nil {
@@ -141,7 +138,7 @@ func (d *Docker) localIngressHealthy(ctx context.Context, id string) bool {
 	if _, err := os.Lstat(filepath.Join(d.directory, id+"-tls.pem")); err != nil {
 		return false
 	}
-	certificate, err := d.localCertificate(id)
+	certificate, err := d.readLocalCertificate(id)
 	if err != nil {
 		return false
 	}
@@ -172,4 +169,17 @@ func validIngressMounts(current inspected, configPath, tlsPath string) bool {
 		delete(expected, mount.Destination)
 	}
 	return len(expected) == 0
+}
+
+func (d *Docker) validateIngress(id string, current inspected) error {
+	network := "pds-ass-tenant-" + id + "-network"
+	configPath := filepath.Join(d.directory, id+"-edge", "Caddyfile")
+	tlsPath := filepath.Join(d.directory, id+"-tls.pem")
+	if len(current.NetworkSettings.Networks) != 2 || current.NetworkSettings.Networks[network] == nil || current.NetworkSettings.Networks["pds-ass-agent-ingress"] == nil {
+		return errors.New("ingress networks differ from policy")
+	}
+	if current.Config.Image != CaddyImage || current.Config.Labels[label] != id || current.Config.Labels[roleLabel] != "ingress" || current.HostConfig.Privileged || current.HostConfig.Memory != 128<<20 || current.HostConfig.NanoCpus != 250000000 || current.HostConfig.PidsLimit != 64 || current.HostConfig.NetworkMode != network || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.CapAdd) != 1 || current.HostConfig.CapAdd[0] != "NET_BIND_SERVICE" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" || len(current.HostConfig.Binds) != 2 || !slices.Contains(current.HostConfig.Binds, configPath+":/etc/caddy/Caddyfile:ro") || !slices.Contains(current.HostConfig.Binds, tlsPath+":/etc/pds-tls.pem:ro") || !validIngressMounts(current, configPath, tlsPath) {
+		return errors.New("ingress runtime differs from policy")
+	}
+	return nil
 }

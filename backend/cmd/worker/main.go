@@ -12,6 +12,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -40,6 +41,9 @@ func run() error {
 	}
 	defer pool.Close()
 	if err = migrate.Apply(startup, pool); err != nil {
+		return err
+	}
+	if err = recovery.Check(startup, pool); err != nil {
 		return err
 	}
 	if err = deployment.Migrate(startup, pool); err != nil {

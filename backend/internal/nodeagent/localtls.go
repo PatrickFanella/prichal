@@ -22,32 +22,7 @@ func (d *Docker) localCertificate(id string) ([]byte, error) {
 		return nil, errors.New("invalid TLS instance")
 	}
 	path := filepath.Join(d.directory, id+"-tls.pem")
-	read := func() ([]byte, error) {
-		info, err := os.Lstat(path)
-		if err != nil {
-			return nil, err
-		}
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 16384 {
-			return nil, errors.New("unsafe local TLS identity")
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-		pair, err := tls.X509KeyPair(data, data)
-		if err != nil {
-			return nil, errors.New("invalid local TLS identity")
-		}
-		cert, err := x509.ParseCertificate(pair.Certificate[0])
-		if err != nil {
-			return nil, err
-		}
-		now := time.Now()
-		if cert.VerifyHostname(id+".localhost") != nil || now.Before(cert.NotBefore) || !now.Before(cert.NotAfter) || cert.NotAfter.Sub(cert.NotBefore) > 8*24*time.Hour {
-			return nil, errors.New("local TLS identity expired or mismatched")
-		}
-		return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), nil
-	}
+	read := func() ([]byte, error) { return d.readLocalCertificate(id) }
 	if cert, err := read(); err == nil {
 		return cert, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -101,4 +76,32 @@ func (d *Docker) localCertificate(id string) ([]byte, error) {
 		return nil, err
 	}
 	return read()
+}
+
+func (d *Docker) readLocalCertificate(id string) ([]byte, error) {
+	path := filepath.Join(d.directory, id+"-tls.pem")
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 16384 {
+		return nil, errors.New("unsafe local TLS identity")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	pair, err := tls.X509KeyPair(data, data)
+	if err != nil {
+		return nil, errors.New("invalid local TLS identity")
+	}
+	cert, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	if cert.VerifyHostname(id+".localhost") != nil || now.Before(cert.NotBefore) || !now.Before(cert.NotAfter) || cert.NotAfter.Sub(cert.NotBefore) > 8*24*time.Hour {
+		return nil, errors.New("local TLS identity expired or mismatched")
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), nil
 }

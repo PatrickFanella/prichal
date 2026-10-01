@@ -14,6 +14,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,6 +38,9 @@ func run() error {
 	}
 	defer pool.Close()
 	if err = migrate.Apply(startup, pool); err != nil {
+		return err
+	}
+	if err = recovery.Check(startup, pool); err != nil {
 		return err
 	}
 	if err = deployment.Migrate(startup, pool); err != nil {
