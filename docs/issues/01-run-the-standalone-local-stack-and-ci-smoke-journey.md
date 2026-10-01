@@ -1,5 +1,7 @@
 # PDS-01: Run the standalone local stack and CI smoke journey
 
+[Gitea issue #1](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1)
+
 <!-- pds-ass-roadmap:01 -->
 
 ## What to build

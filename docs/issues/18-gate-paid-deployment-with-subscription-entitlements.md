@@ -1,5 +1,7 @@
 # PDS-18: Gate paid deployment with subscription entitlements
 
+[Gitea issue #18](https://git.subcult.tv/PatrickFanella/pds-ass/issues/18)
+
 <!-- pds-ass-roadmap:18 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Exercise checkout, webhook replay, failed/late payment, plan change and direct A
 
 ## Blocked by
 
-- PDS-02: Sign in and create an owner-scoped organization
-- PDS-05: Submit and resume a durable deployment request
+- #2: Sign in and create an owner-scoped organization
+- #5: Submit and resume a durable deployment request
 
 ## Boundaries
 

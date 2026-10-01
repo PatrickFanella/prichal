@@ -1,5 +1,7 @@
 # PDS-28: Deploy on a verified customer-owned PDS endpoint
 
+[Gitea issue #28](https://git.subcult.tv/PatrickFanella/pds-ass/issues/28)
+
 <!-- pds-ass-roadmap:28 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Deploy with a controlled custom domain, test DNS delay/conflict and certificate 
 
 ## Blocked by
 
-- PDS-07: Expose stable managed PDS hostnames with HTTPS
-- PDS-11: Protect credentials and prove identity-key recovery
+- #7: Expose stable managed PDS hostnames with HTTPS
+- #11: Protect credentials and prove identity-key recovery
 
 ## Boundaries
 

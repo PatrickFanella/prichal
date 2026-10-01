@@ -1,5 +1,7 @@
 # PDS-08: Guide the owner through first-account enrollment
 
+[Gitea issue #8](https://git.subcult.tv/PatrickFanella/pds-ass/issues/8)
+
 <!-- pds-ass-roadmap:08 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Complete enrollment and login on a designated staging identity; test wrong tenan
 
 ## Blocked by
 
-- PDS-02: Sign in and create an owner-scoped organization
-- PDS-07: Expose stable managed PDS hostnames with HTTPS
+- #2: Sign in and create an owner-scoped organization
+- #7: Expose stable managed PDS hostnames with HTTPS
 
 ## Boundaries
 

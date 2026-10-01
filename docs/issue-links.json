@@ -1,0 +1,356 @@
+{
+  "repository": "PatrickFanella/pds-ass",
+  "verified": true,
+  "milestones": {
+    "0": 74,
+    "1": 75,
+    "2": 76,
+    "3": 77,
+    "4": 78,
+    "5": 79
+  },
+  "issues": [
+    {
+      "plan_id": 1,
+      "issue_number": 1,
+      "title": "Run the standalone local stack and CI smoke journey",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/1",
+      "milestone_id": 74,
+      "blocked_by": []
+    },
+    {
+      "plan_id": 2,
+      "issue_number": 2,
+      "title": "Sign in and create an owner-scoped organization",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/2",
+      "milestone_id": 74,
+      "blocked_by": [
+        1
+      ]
+    },
+    {
+      "plan_id": 3,
+      "issue_number": 3,
+      "title": "Bootstrap and register a staging hosting node",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/3",
+      "milestone_id": 74,
+      "blocked_by": [
+        1
+      ]
+    },
+    {
+      "plan_id": 4,
+      "issue_number": 4,
+      "title": "Qualify a disposable official PDS runtime",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/4",
+      "milestone_id": 74,
+      "blocked_by": [
+        1
+      ]
+    },
+    {
+      "plan_id": 5,
+      "issue_number": 5,
+      "title": "Submit and resume a durable deployment request",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/5",
+      "milestone_id": 74,
+      "blocked_by": [
+        2
+      ]
+    },
+    {
+      "plan_id": 6,
+      "issue_number": 6,
+      "title": "Provision a real PDS through the restricted host agent",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/6",
+      "milestone_id": 75,
+      "blocked_by": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "plan_id": 7,
+      "issue_number": 7,
+      "title": "Expose stable managed PDS hostnames with HTTPS",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/7",
+      "milestone_id": 75,
+      "blocked_by": [
+        6
+      ]
+    },
+    {
+      "plan_id": 8,
+      "issue_number": 8,
+      "title": "Guide the owner through first-account enrollment",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/8",
+      "milestone_id": 75,
+      "blocked_by": [
+        2,
+        7
+      ]
+    },
+    {
+      "plan_id": 9,
+      "issue_number": 9,
+      "title": "Prove signed records, media and downstream federation",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/9",
+      "milestone_id": 75,
+      "blocked_by": [
+        8
+      ]
+    },
+    {
+      "plan_id": 10,
+      "issue_number": 10,
+      "title": "Attach and verify a customer-owned domain handle",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/10",
+      "milestone_id": 75,
+      "blocked_by": [
+        8
+      ]
+    },
+    {
+      "plan_id": 11,
+      "issue_number": 11,
+      "title": "Protect credentials and prove identity-key recovery",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/11",
+      "milestone_id": 76,
+      "blocked_by": [
+        3,
+        4
+      ]
+    },
+    {
+      "plan_id": 12,
+      "issue_number": 12,
+      "title": "Back up and restore a complete customer PDS",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/12",
+      "milestone_id": 76,
+      "blocked_by": [
+        6,
+        11
+      ]
+    },
+    {
+      "plan_id": 13,
+      "issue_number": 13,
+      "title": "Restore management state and reconcile recovered jobs",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/13",
+      "milestone_id": 76,
+      "blocked_by": [
+        5,
+        11
+      ]
+    },
+    {
+      "plan_id": 14,
+      "issue_number": 14,
+      "title": "Detect outages, failed backups and exhausted capacity",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/14",
+      "milestone_id": 76,
+      "blocked_by": [
+        7,
+        12,
+        13
+      ]
+    },
+    {
+      "plan_id": 15,
+      "issue_number": 15,
+      "title": "Upgrade a PDS with staged rollout and safe recovery",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/15",
+      "milestone_id": 76,
+      "blocked_by": [
+        9,
+        12
+      ]
+    },
+    {
+      "plan_id": 16,
+      "issue_number": 16,
+      "title": "Enforce tenant isolation and runtime resource boundaries",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/16",
+      "milestone_id": 76,
+      "blocked_by": [
+        6,
+        7,
+        11
+      ]
+    },
+    {
+      "plan_id": 17,
+      "issue_number": 17,
+      "title": "Suspend and resume service through audited operator actions",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/17",
+      "milestone_id": 76,
+      "blocked_by": [
+        14,
+        16
+      ]
+    },
+    {
+      "plan_id": 18,
+      "issue_number": 18,
+      "title": "Gate paid deployment with subscription entitlements",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/18",
+      "milestone_id": 77,
+      "blocked_by": [
+        2,
+        5
+      ]
+    },
+    {
+      "plan_id": 19,
+      "issue_number": 19,
+      "title": "Show usage and enforce plan limits without surprise loss",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/19",
+      "milestone_id": 77,
+      "blocked_by": [
+        16,
+        18
+      ]
+    },
+    {
+      "plan_id": 20,
+      "issue_number": 20,
+      "title": "Add capacity and drain a hosting node safely",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/20",
+      "milestone_id": 77,
+      "blocked_by": [
+        6,
+        12,
+        19
+      ]
+    },
+    {
+      "plan_id": 21,
+      "issue_number": 21,
+      "title": "Export data and cancel hosting with a safe exit window",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/21",
+      "milestone_id": 77,
+      "blocked_by": [
+        12,
+        17,
+        18
+      ]
+    },
+    {
+      "plan_id": 22,
+      "issue_number": 22,
+      "title": "Give operators a tenant support and audit workspace",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/22",
+      "milestone_id": 77,
+      "blocked_by": [
+        17,
+        18
+      ]
+    },
+    {
+      "plan_id": 23,
+      "issue_number": 23,
+      "title": "Run an invited pilot and measure the deployment target",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/23",
+      "milestone_id": 77,
+      "blocked_by": [
+        9,
+        10,
+        14,
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22
+      ]
+    },
+    {
+      "plan_id": 24,
+      "issue_number": 24,
+      "title": "Finish accessible browser onboarding and lifecycle guidance",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/24",
+      "milestone_id": 78,
+      "blocked_by": [
+        10,
+        19,
+        21
+      ]
+    },
+    {
+      "plan_id": 25,
+      "issue_number": 25,
+      "title": "Qualify independent production deployment and incident recovery",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/25",
+      "milestone_id": 78,
+      "blocked_by": [
+        3,
+        11,
+        13,
+        14,
+        15,
+        18
+      ]
+    },
+    {
+      "plan_id": 26,
+      "issue_number": 26,
+      "title": "Pass the public-launch gate and open bounded signup",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/26",
+      "milestone_id": 78,
+      "blocked_by": [
+        23,
+        24,
+        25
+      ]
+    },
+    {
+      "plan_id": 27,
+      "issue_number": 27,
+      "title": "Deploy through a downloadable Go CLI",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/27",
+      "milestone_id": 79,
+      "blocked_by": [
+        2,
+        5,
+        9
+      ]
+    },
+    {
+      "plan_id": 28,
+      "issue_number": 28,
+      "title": "Deploy on a verified customer-owned PDS endpoint",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/28",
+      "milestone_id": 79,
+      "blocked_by": [
+        7,
+        11
+      ]
+    },
+    {
+      "plan_id": 29,
+      "issue_number": 29,
+      "title": "Migrate an existing AT account with resumable verification",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/29",
+      "milestone_id": 79,
+      "blocked_by": [
+        9,
+        12,
+        21
+      ]
+    },
+    {
+      "plan_id": 30,
+      "issue_number": 30,
+      "title": "Invite organization members with scoped management roles",
+      "url": "https://git.subcult.tv/PatrickFanella/pds-ass/issues/30",
+      "milestone_id": 79,
+      "blocked_by": [
+        2,
+        22
+      ]
+    }
+  ],
+  "dependency_edges": 72
+}

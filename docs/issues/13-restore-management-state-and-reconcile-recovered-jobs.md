@@ -1,5 +1,7 @@
 # PDS-13: Restore management state and reconcile recovered jobs
 
+[Gitea issue #13](https://git.subcult.tv/PatrickFanella/pds-ass/issues/13)
+
 <!-- pds-ass-roadmap:13 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Restore a disposable management database while a host runtime exists and a job h
 
 ## Blocked by
 
-- PDS-05: Submit and resume a durable deployment request
-- PDS-11: Protect credentials and prove identity-key recovery
+- #5: Submit and resume a durable deployment request
+- #11: Protect credentials and prove identity-key recovery
 
 ## Boundaries
 

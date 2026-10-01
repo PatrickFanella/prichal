@@ -1,5 +1,7 @@
 # PDS-04: Qualify a disposable official PDS runtime
 
+[Gitea issue #4](https://git.subcult.tv/PatrickFanella/pds-ass/issues/4)
+
 <!-- pds-ass-roadmap:04 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Run a disposable runtime, restart it, test storage and WebSockets, and prove exp
 
 ## Blocked by
 
-- PDS-01: Run the standalone local stack and CI smoke journey
+- #1: Run the standalone local stack and CI smoke journey
 
 ## Boundaries
 

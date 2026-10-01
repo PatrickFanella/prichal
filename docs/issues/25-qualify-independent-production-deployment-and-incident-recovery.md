@@ -1,5 +1,7 @@
 # PDS-25: Qualify independent production deployment and incident recovery
 
+[Gitea issue #25](https://git.subcult.tv/PatrickFanella/pds-ass/issues/25)
+
 <!-- pds-ass-roadmap:25 -->
 
 ## What to build
@@ -20,12 +22,12 @@ Recreate the production-design environment from versioned configuration, verify 
 
 ## Blocked by
 
-- PDS-03: Bootstrap and register a staging hosting node
-- PDS-11: Protect credentials and prove identity-key recovery
-- PDS-13: Restore management state and reconcile recovered jobs
-- PDS-14: Detect outages, failed backups and exhausted capacity
-- PDS-15: Upgrade a PDS with staged rollout and safe recovery
-- PDS-18: Gate paid deployment with subscription entitlements
+- #3: Bootstrap and register a staging hosting node
+- #11: Protect credentials and prove identity-key recovery
+- #13: Restore management state and reconcile recovered jobs
+- #14: Detect outages, failed backups and exhausted capacity
+- #15: Upgrade a PDS with staged rollout and safe recovery
+- #18: Gate paid deployment with subscription entitlements
 
 ## Boundaries
 

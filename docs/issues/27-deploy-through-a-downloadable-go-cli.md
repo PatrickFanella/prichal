@@ -1,5 +1,7 @@
 # PDS-27: Deploy through a downloadable Go CLI
 
+[Gitea issue #27](https://git.subcult.tv/PatrickFanella/pds-ass/issues/27)
+
 <!-- pds-ass-roadmap:27 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Install a release binary on supported systems, authorize, deploy and reconnect a
 
 ## Blocked by
 
-- PDS-02: Sign in and create an owner-scoped organization
-- PDS-05: Submit and resume a durable deployment request
-- PDS-09: Prove signed records, media and downstream federation
+- #2: Sign in and create an owner-scoped organization
+- #5: Submit and resume a durable deployment request
+- #9: Prove signed records, media and downstream federation
 
 ## Boundaries
 

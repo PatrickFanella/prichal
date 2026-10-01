@@ -1,5 +1,7 @@
 # PDS-09: Prove signed records, media and downstream federation
 
+[Gitea issue #9](https://git.subcult.tv/PatrickFanella/pds-ass/issues/9)
+
 <!-- pds-ass-roadmap:09 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Run a staged account/read/write/blob/WebSocket journey and verify a downstream c
 
 ## Blocked by
 
-- PDS-08: Guide the owner through first-account enrollment
+- #8: Guide the owner through first-account enrollment
 
 ## Boundaries
 

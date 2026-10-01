@@ -1,5 +1,7 @@
 # PDS-03: Bootstrap and register a staging hosting node
 
+[Gitea issue #3](https://git.subcult.tv/PatrickFanella/pds-ass/issues/3)
+
 <!-- pds-ass-roadmap:03 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Review the infrastructure plan, bootstrap an authorized staging node, register i
 
 ## Blocked by
 
-- PDS-01: Run the standalone local stack and CI smoke journey
+- #1: Run the standalone local stack and CI smoke journey
 
 ## Boundaries
 

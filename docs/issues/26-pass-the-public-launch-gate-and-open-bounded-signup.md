@@ -1,5 +1,7 @@
 # PDS-26: Pass the public-launch gate and open bounded signup
 
+[Gitea issue #26](https://git.subcult.tv/PatrickFanella/pds-ass/issues/26)
+
 <!-- pds-ass-roadmap:26 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Rehearse signup opening/closing, a normal new deployment, capacity exhaustion an
 
 ## Blocked by
 
-- PDS-23: Run an invited pilot and measure the deployment target
-- PDS-24: Finish accessible browser onboarding and lifecycle guidance
-- PDS-25: Qualify independent production deployment and incident recovery
+- #23: Run an invited pilot and measure the deployment target
+- #24: Finish accessible browser onboarding and lifecycle guidance
+- #25: Qualify independent production deployment and incident recovery
 
 ## Boundaries
 

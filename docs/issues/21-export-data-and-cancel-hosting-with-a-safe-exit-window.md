@@ -1,5 +1,7 @@
 # PDS-21: Export data and cancel hosting with a safe exit window
 
+[Gitea issue #21](https://git.subcult.tv/PatrickFanella/pds-ass/issues/21)
+
 <!-- pds-ass-roadmap:21 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Export populated test data, cancel in test billing, recover during the retention
 
 ## Blocked by
 
-- PDS-12: Back up and restore a complete customer PDS
-- PDS-17: Suspend and resume service through audited operator actions
-- PDS-18: Gate paid deployment with subscription entitlements
+- #12: Back up and restore a complete customer PDS
+- #17: Suspend and resume service through audited operator actions
+- #18: Gate paid deployment with subscription entitlements
 
 ## Boundaries
 

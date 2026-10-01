@@ -1,5 +1,7 @@
 # PDS-10: Attach and verify a customer-owned domain handle
 
+[Gitea issue #10](https://git.subcult.tv/PatrickFanella/pds-ass/issues/10)
+
 <!-- pds-ass-roadmap:10 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Use a controlled domain to attach a handle; test unverified account control, con
 
 ## Blocked by
 
-- PDS-08: Guide the owner through first-account enrollment
+- #8: Guide the owner through first-account enrollment
 
 ## Boundaries
 

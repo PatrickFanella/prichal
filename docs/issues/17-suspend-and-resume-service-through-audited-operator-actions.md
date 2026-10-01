@@ -1,5 +1,7 @@
 # PDS-17: Suspend and resume service through audited operator actions
 
+[Gitea issue #17](https://git.subcult.tv/PatrickFanella/pds-ass/issues/17)
+
 <!-- pds-ass-roadmap:17 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Suspend a disposable tenant/account, prove the intended access restrictions and 
 
 ## Blocked by
 
-- PDS-14: Detect outages, failed backups and exhausted capacity
-- PDS-16: Enforce tenant isolation and runtime resource boundaries
+- #14: Detect outages, failed backups and exhausted capacity
+- #16: Enforce tenant isolation and runtime resource boundaries
 
 ## Boundaries
 

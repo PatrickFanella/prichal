@@ -1,6 +1,6 @@
 # Roadmap for standalone managed PDS hosting
 
-Status: planned. Updated September 30, 2026.
+Status: planned; 30 implementation issues published across six Gitea milestones. Updated September 30, 2026.
 
 The product is a standalone service with browser onboarding and an optional later CLI. Earlier application-suite research does not define this roadmap. No calendar promises are assigned before the first runnable slice establishes delivery speed.
 
@@ -12,65 +12,65 @@ Each issue is a bounded demonstrable behavior with its own acceptance and verifi
 
 Local browser/API/database and PDS fixtures run reproducibly; staging infrastructure and resumable deployment intent are ready.
 
-- [PDS-01: Run the standalone local stack and CI smoke journey](issues/01-run-the-standalone-local-stack-and-ci-smoke-journey.md)
-- [PDS-02: Sign in and create an owner-scoped organization](issues/02-sign-in-and-create-an-owner-scoped-organization.md)
-- [PDS-03: Bootstrap and register a staging hosting node](issues/03-bootstrap-and-register-a-staging-hosting-node.md)
-- [PDS-04: Qualify a disposable official PDS runtime](issues/04-qualify-a-disposable-official-pds-runtime.md)
-- [PDS-05: Submit and resume a durable deployment request](issues/05-submit-and-resume-a-durable-deployment-request.md)
+- [#1: Run the standalone local stack and CI smoke journey](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1)
+- [#2: Sign in and create an owner-scoped organization](https://git.subcult.tv/PatrickFanella/pds-ass/issues/2)
+- [#3: Bootstrap and register a staging hosting node](https://git.subcult.tv/PatrickFanella/pds-ass/issues/3)
+- [#4: Qualify a disposable official PDS runtime](https://git.subcult.tv/PatrickFanella/pds-ass/issues/4)
+- [#5: Submit and resume a durable deployment request](https://git.subcult.tv/PatrickFanella/pds-ass/issues/5)
 
 ### M1 - Private deployment alpha
 
 An invited owner deploys a real managed-domain PDS, creates an account, verifies federation and configures a BYO handle.
 
-- [PDS-06: Provision a real PDS through the restricted host agent](issues/06-provision-a-real-pds-through-the-restricted-host-agent.md)
-- [PDS-07: Expose stable managed PDS hostnames with HTTPS](issues/07-expose-stable-managed-pds-hostnames-with-https.md)
-- [PDS-08: Guide the owner through first-account enrollment](issues/08-guide-the-owner-through-first-account-enrollment.md)
-- [PDS-09: Prove signed records, media and downstream federation](issues/09-prove-signed-records-media-and-downstream-federation.md)
-- [PDS-10: Attach and verify a customer-owned domain handle](issues/10-attach-and-verify-a-customer-owned-domain-handle.md)
+- [#6: Provision a real PDS through the restricted host agent](https://git.subcult.tv/PatrickFanella/pds-ass/issues/6)
+- [#7: Expose stable managed PDS hostnames with HTTPS](https://git.subcult.tv/PatrickFanella/pds-ass/issues/7)
+- [#8: Guide the owner through first-account enrollment](https://git.subcult.tv/PatrickFanella/pds-ass/issues/8)
+- [#9: Prove signed records, media and downstream federation](https://git.subcult.tv/PatrickFanella/pds-ass/issues/9)
+- [#10: Attach and verify a customer-owned domain handle](https://git.subcult.tv/PatrickFanella/pds-ass/issues/10)
 
 ### M2 - Recoverable managed service
 
 Identity custody, full restores, monitoring, safe upgrades, tenant isolation and operator suspension are demonstrated.
 
-- [PDS-11: Protect credentials and prove identity-key recovery](issues/11-protect-credentials-and-prove-identity-key-recovery.md)
-- [PDS-12: Back up and restore a complete customer PDS](issues/12-back-up-and-restore-a-complete-customer-pds.md)
-- [PDS-13: Restore management state and reconcile recovered jobs](issues/13-restore-management-state-and-reconcile-recovered-jobs.md)
-- [PDS-14: Detect outages, failed backups and exhausted capacity](issues/14-detect-outages-failed-backups-and-exhausted-capacity.md)
-- [PDS-15: Upgrade a PDS with staged rollout and safe recovery](issues/15-upgrade-a-pds-with-staged-rollout-and-safe-recovery.md)
-- [PDS-16: Enforce tenant isolation and runtime resource boundaries](issues/16-enforce-tenant-isolation-and-runtime-resource-boundaries.md)
-- [PDS-17: Suspend and resume service through audited operator actions](issues/17-suspend-and-resume-service-through-audited-operator-actions.md)
+- [#11: Protect credentials and prove identity-key recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/11)
+- [#12: Back up and restore a complete customer PDS](https://git.subcult.tv/PatrickFanella/pds-ass/issues/12)
+- [#13: Restore management state and reconcile recovered jobs](https://git.subcult.tv/PatrickFanella/pds-ass/issues/13)
+- [#14: Detect outages, failed backups and exhausted capacity](https://git.subcult.tv/PatrickFanella/pds-ass/issues/14)
+- [#15: Upgrade a PDS with staged rollout and safe recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/15)
+- [#16: Enforce tenant isolation and runtime resource boundaries](https://git.subcult.tv/PatrickFanella/pds-ass/issues/16)
+- [#17: Suspend and resume service through audited operator actions](https://git.subcult.tv/PatrickFanella/pds-ass/issues/17)
 
 ### M3 - Paid pilot
 
 Subscription entitlements, usage limits, fleet capacity, exports and support workflows operate through a measured invited pilot.
 
-- [PDS-18: Gate paid deployment with subscription entitlements](issues/18-gate-paid-deployment-with-subscription-entitlements.md)
-- [PDS-19: Show usage and enforce plan limits without surprise loss](issues/19-show-usage-and-enforce-plan-limits-without-surprise-loss.md)
-- [PDS-20: Add capacity and drain a hosting node safely](issues/20-add-capacity-and-drain-a-hosting-node-safely.md)
-- [PDS-21: Export data and cancel hosting with a safe exit window](issues/21-export-data-and-cancel-hosting-with-a-safe-exit-window.md)
-- [PDS-22: Give operators a tenant support and audit workspace](issues/22-give-operators-a-tenant-support-and-audit-workspace.md)
-- [PDS-23: Run an invited pilot and measure the deployment target](issues/23-run-an-invited-pilot-and-measure-the-deployment-target.md)
+- [#18: Gate paid deployment with subscription entitlements](https://git.subcult.tv/PatrickFanella/pds-ass/issues/18)
+- [#19: Show usage and enforce plan limits without surprise loss](https://git.subcult.tv/PatrickFanella/pds-ass/issues/19)
+- [#20: Add capacity and drain a hosting node safely](https://git.subcult.tv/PatrickFanella/pds-ass/issues/20)
+- [#21: Export data and cancel hosting with a safe exit window](https://git.subcult.tv/PatrickFanella/pds-ass/issues/21)
+- [#22: Give operators a tenant support and audit workspace](https://git.subcult.tv/PatrickFanella/pds-ass/issues/22)
+- [#23: Run an invited pilot and measure the deployment target](https://git.subcult.tv/PatrickFanella/pds-ass/issues/23)
 
 ### M4 - Public launch
 
 Browser onboarding and independent production infrastructure pass the documented release gate before public signup opens.
 
-- [PDS-24: Finish accessible browser onboarding and lifecycle guidance](issues/24-finish-accessible-browser-onboarding-and-lifecycle-guidance.md)
-- [PDS-25: Qualify independent production deployment and incident recovery](issues/25-qualify-independent-production-deployment-and-incident-recovery.md)
-- [PDS-26: Pass the public-launch gate and open bounded signup](issues/26-pass-the-public-launch-gate-and-open-bounded-signup.md)
+- [#24: Finish accessible browser onboarding and lifecycle guidance](https://git.subcult.tv/PatrickFanella/pds-ass/issues/24)
+- [#25: Qualify independent production deployment and incident recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/25)
+- [#26: Pass the public-launch gate and open bounded signup](https://git.subcult.tv/PatrickFanella/pds-ass/issues/26)
 
 ### M5 - Additional access and portability
 
 Optional CLI, custom PDS endpoints, account migration and organization collaboration extend the qualified API.
 
-- [PDS-27: Deploy through a downloadable Go CLI](issues/27-deploy-through-a-downloadable-go-cli.md)
-- [PDS-28: Deploy on a verified customer-owned PDS endpoint](issues/28-deploy-on-a-verified-customer-owned-pds-endpoint.md)
-- [PDS-29: Migrate an existing AT account with resumable verification](issues/29-migrate-an-existing-at-account-with-resumable-verification.md)
-- [PDS-30: Invite organization members with scoped management roles](issues/30-invite-organization-members-with-scoped-management-roles.md)
+- [#27: Deploy through a downloadable Go CLI](https://git.subcult.tv/PatrickFanella/pds-ass/issues/27)
+- [#28: Deploy on a verified customer-owned PDS endpoint](https://git.subcult.tv/PatrickFanella/pds-ass/issues/28)
+- [#29: Migrate an existing AT account with resumable verification](https://git.subcult.tv/PatrickFanella/pds-ass/issues/29)
+- [#30: Invite organization members with scoped management roles](https://git.subcult.tv/PatrickFanella/pds-ass/issues/30)
 
 ## First work and dependency order
 
-Start PDS-01. Its completion unblocks local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 then establishes durable deployment intent. PDS-06 connects those pieces into real provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
+Start [PDS-01 / Gitea #1](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1). Its completion unblocks local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 then establishes durable deployment intent. PDS-06 connects those pieces into real provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
 
 M0 proves runnable foundations. M1 proves new-account deployment and BYO handles with invited testing. M2 must pass before hosting customer identities commercially. M3 proves paid service operation and a recoverable exit. M4 is the public-signup gate. M5 features are optional extensions, and none gates the first public launch.
 

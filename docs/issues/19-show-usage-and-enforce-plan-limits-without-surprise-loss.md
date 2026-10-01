@@ -1,5 +1,7 @@
 # PDS-19: Show usage and enforce plan limits without surprise loss
 
+[Gitea issue #19](https://git.subcult.tv/PatrickFanella/pds-ass/issues/19)
+
 <!-- pds-ass-roadmap:19 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Drive concurrent allocations and controlled storage growth across two plans, the
 
 ## Blocked by
 
-- PDS-16: Enforce tenant isolation and runtime resource boundaries
-- PDS-18: Gate paid deployment with subscription entitlements
+- #16: Enforce tenant isolation and runtime resource boundaries
+- #18: Gate paid deployment with subscription entitlements
 
 ## Boundaries
 

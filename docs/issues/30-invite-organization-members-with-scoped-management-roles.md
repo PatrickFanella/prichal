@@ -1,5 +1,7 @@
 # PDS-30: Invite organization members with scoped management roles
 
+[Gitea issue #30](https://git.subcult.tv/PatrickFanella/pds-ass/issues/30)
+
 <!-- pds-ass-roadmap:30 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Invite and revoke several identities, attempt role escalation and cross-organiza
 
 ## Blocked by
 
-- PDS-02: Sign in and create an owner-scoped organization
-- PDS-22: Give operators a tenant support and audit workspace
+- #2: Sign in and create an owner-scoped organization
+- #22: Give operators a tenant support and audit workspace
 
 ## Boundaries
 

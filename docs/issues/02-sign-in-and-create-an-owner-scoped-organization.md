@@ -1,5 +1,7 @@
 # PDS-02: Sign in and create an owner-scoped organization
 
+[Gitea issue #2](https://git.subcult.tv/PatrickFanella/pds-ass/issues/2)
+
 <!-- pds-ass-roadmap:02 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Exercise successful login, rejected callback replay, wrong issuer/audience, logo
 
 ## Blocked by
 
-- PDS-01: Run the standalone local stack and CI smoke journey
+- #1: Run the standalone local stack and CI smoke journey
 
 ## Boundaries
 

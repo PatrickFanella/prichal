@@ -1,5 +1,7 @@
 # PDS-14: Detect outages, failed backups and exhausted capacity
 
+[Gitea issue #14](https://git.subcult.tv/PatrickFanella/pds-ass/issues/14)
+
 <!-- pds-ass-roadmap:14 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Inject endpoint, disk, queue and backup failures and verify the intended alert a
 
 ## Blocked by
 
-- PDS-07: Expose stable managed PDS hostnames with HTTPS
-- PDS-12: Back up and restore a complete customer PDS
-- PDS-13: Restore management state and reconcile recovered jobs
+- #7: Expose stable managed PDS hostnames with HTTPS
+- #12: Back up and restore a complete customer PDS
+- #13: Restore management state and reconcile recovered jobs
 
 ## Boundaries
 

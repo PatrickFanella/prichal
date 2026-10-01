@@ -1,5 +1,7 @@
 # PDS-22: Give operators a tenant support and audit workspace
 
+[Gitea issue #22](https://git.subcult.tv/PatrickFanella/pds-ass/issues/22)
+
 <!-- pds-ass-roadmap:22 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Use restricted operator and owner sessions to inspect a failed deployment and au
 
 ## Blocked by
 
-- PDS-17: Suspend and resume service through audited operator actions
-- PDS-18: Gate paid deployment with subscription entitlements
+- #17: Suspend and resume service through audited operator actions
+- #18: Gate paid deployment with subscription entitlements
 
 ## Boundaries
 

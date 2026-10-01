@@ -1,5 +1,7 @@
 # PDS-05: Submit and resume a durable deployment request
 
+[Gitea issue #5](https://git.subcult.tv/PatrickFanella/pds-ass/issues/5)
+
 <!-- pds-ass-roadmap:05 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Replay an identical request, conflict on different parameters, crash the test wo
 
 ## Blocked by
 
-- PDS-02: Sign in and create an owner-scoped organization
+- #2: Sign in and create an owner-scoped organization
 
 ## Boundaries
 

@@ -1,5 +1,7 @@
 # PDS-24: Finish accessible browser onboarding and lifecycle guidance
 
+[Gitea issue #24](https://git.subcult.tv/PatrickFanella/pds-ass/issues/24)
+
 <!-- pds-ass-roadmap:24 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Run the supported end-to-end browser journeys at representative widths and with 
 
 ## Blocked by
 
-- PDS-10: Attach and verify a customer-owned domain handle
-- PDS-19: Show usage and enforce plan limits without surprise loss
-- PDS-21: Export data and cancel hosting with a safe exit window
+- #10: Attach and verify a customer-owned domain handle
+- #19: Show usage and enforce plan limits without surprise loss
+- #21: Export data and cancel hosting with a safe exit window
 
 ## Boundaries
 

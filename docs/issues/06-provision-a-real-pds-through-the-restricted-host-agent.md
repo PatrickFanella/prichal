@@ -1,5 +1,7 @@
 # PDS-06: Provision a real PDS through the restricted host agent
 
+[Gitea issue #6](https://git.subcult.tv/PatrickFanella/pds-ass/issues/6)
+
 <!-- pds-ass-roadmap:06 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Deploy to staging, interrupt the worker after host success, retry and verify exa
 
 ## Blocked by
 
-- PDS-03: Bootstrap and register a staging hosting node
-- PDS-04: Qualify a disposable official PDS runtime
-- PDS-05: Submit and resume a durable deployment request
+- #3: Bootstrap and register a staging hosting node
+- #4: Qualify a disposable official PDS runtime
+- #5: Submit and resume a durable deployment request
 
 ## Boundaries
 

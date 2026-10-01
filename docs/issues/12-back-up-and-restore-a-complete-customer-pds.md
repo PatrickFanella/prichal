@@ -1,5 +1,7 @@
 # PDS-12: Back up and restore a complete customer PDS
 
+[Gitea issue #12](https://git.subcult.tv/PatrickFanella/pds-ass/issues/12)
+
 <!-- pds-ass-roadmap:12 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Populate a disposable PDS, simulate node loss, restore it, compare inventories a
 
 ## Blocked by
 
-- PDS-06: Provision a real PDS through the restricted host agent
-- PDS-11: Protect credentials and prove identity-key recovery
+- #6: Provision a real PDS through the restricted host agent
+- #11: Protect credentials and prove identity-key recovery
 
 ## Boundaries
 

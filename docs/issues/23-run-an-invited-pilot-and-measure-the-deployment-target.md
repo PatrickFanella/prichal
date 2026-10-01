@@ -1,5 +1,7 @@
 # PDS-23: Run an invited pilot and measure the deployment target
 
+[Gitea issue #23](https://git.subcult.tv/PatrickFanella/pds-ass/issues/23)
+
 <!-- pds-ass-roadmap:23 -->
 
 ## What to build
@@ -20,16 +22,16 @@ Publish a secret-free pilot evidence report with raw attempt identifiers/timesta
 
 ## Blocked by
 
-- PDS-09: Prove signed records, media and downstream federation
-- PDS-10: Attach and verify a customer-owned domain handle
-- PDS-14: Detect outages, failed backups and exhausted capacity
-- PDS-15: Upgrade a PDS with staged rollout and safe recovery
-- PDS-16: Enforce tenant isolation and runtime resource boundaries
-- PDS-18: Gate paid deployment with subscription entitlements
-- PDS-19: Show usage and enforce plan limits without surprise loss
-- PDS-20: Add capacity and drain a hosting node safely
-- PDS-21: Export data and cancel hosting with a safe exit window
-- PDS-22: Give operators a tenant support and audit workspace
+- #9: Prove signed records, media and downstream federation
+- #10: Attach and verify a customer-owned domain handle
+- #14: Detect outages, failed backups and exhausted capacity
+- #15: Upgrade a PDS with staged rollout and safe recovery
+- #16: Enforce tenant isolation and runtime resource boundaries
+- #18: Gate paid deployment with subscription entitlements
+- #19: Show usage and enforce plan limits without surprise loss
+- #20: Add capacity and drain a hosting node safely
+- #21: Export data and cancel hosting with a safe exit window
+- #22: Give operators a tenant support and audit workspace
 
 ## Boundaries
 

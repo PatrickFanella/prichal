@@ -1,5 +1,7 @@
 # PDS-16: Enforce tenant isolation and runtime resource boundaries
 
+[Gitea issue #16](https://git.subcult.tv/PatrickFanella/pds-ass/issues/16)
+
 <!-- pds-ass-roadmap:16 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Run two populated tenants and attempt cross-tenant API, storage and network acce
 
 ## Blocked by
 
-- PDS-06: Provision a real PDS through the restricted host agent
-- PDS-07: Expose stable managed PDS hostnames with HTTPS
-- PDS-11: Protect credentials and prove identity-key recovery
+- #6: Provision a real PDS through the restricted host agent
+- #7: Expose stable managed PDS hostnames with HTTPS
+- #11: Protect credentials and prove identity-key recovery
 
 ## Boundaries
 

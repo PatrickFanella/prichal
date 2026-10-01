@@ -1,5 +1,7 @@
 # PDS-15: Upgrade a PDS with staged rollout and safe recovery
 
+[Gitea issue #15](https://git.subcult.tv/PatrickFanella/pds-ass/issues/15)
+
 <!-- pds-ass-roadmap:15 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Rehearse one successful and one failed upgrade using populated disposable data; 
 
 ## Blocked by
 
-- PDS-09: Prove signed records, media and downstream federation
-- PDS-12: Back up and restore a complete customer PDS
+- #9: Prove signed records, media and downstream federation
+- #12: Back up and restore a complete customer PDS
 
 ## Boundaries
 

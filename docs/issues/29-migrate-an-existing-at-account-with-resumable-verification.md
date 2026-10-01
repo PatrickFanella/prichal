@@ -1,5 +1,7 @@
 # PDS-29: Migrate an existing AT account with resumable verification
 
+[Gitea issue #29](https://git.subcult.tv/PatrickFanella/pds-ass/issues/29)
+
 <!-- pds-ass-roadmap:29 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Rehearse inbound and outbound migration between designated populated test hosts;
 
 ## Blocked by
 
-- PDS-09: Prove signed records, media and downstream federation
-- PDS-12: Back up and restore a complete customer PDS
-- PDS-21: Export data and cancel hosting with a safe exit window
+- #9: Prove signed records, media and downstream federation
+- #12: Back up and restore a complete customer PDS
+- #21: Export data and cancel hosting with a safe exit window
 
 ## Boundaries
 

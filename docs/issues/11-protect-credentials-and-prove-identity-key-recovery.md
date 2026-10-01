@@ -1,5 +1,7 @@
 # PDS-11: Protect credentials and prove identity-key recovery
 
+[Gitea issue #11](https://git.subcult.tv/PatrickFanella/pds-ass/issues/11)
+
 <!-- pds-ass-roadmap:11 -->
 
 ## What to build
@@ -20,8 +22,8 @@ Scan artifacts and logs for leaked values, rotate designated staging credentials
 
 ## Blocked by
 
-- PDS-03: Bootstrap and register a staging hosting node
-- PDS-04: Qualify a disposable official PDS runtime
+- #3: Bootstrap and register a staging hosting node
+- #4: Qualify a disposable official PDS runtime
 
 ## Boundaries
 

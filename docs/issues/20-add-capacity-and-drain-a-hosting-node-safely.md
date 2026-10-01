@@ -1,5 +1,7 @@
 # PDS-20: Add capacity and drain a hosting node safely
 
+[Gitea issue #20](https://git.subcult.tv/PatrickFanella/pds-ass/issues/20)
+
 <!-- pds-ass-roadmap:20 -->
 
 ## What to build
@@ -20,9 +22,9 @@ Fill a staging capacity budget, add a node, resume placement and drain one popul
 
 ## Blocked by
 
-- PDS-06: Provision a real PDS through the restricted host agent
-- PDS-12: Back up and restore a complete customer PDS
-- PDS-19: Show usage and enforce plan limits without surprise loss
+- #6: Provision a real PDS through the restricted host agent
+- #12: Back up and restore a complete customer PDS
+- #19: Show usage and enforce plan limits without surprise loss
 
 ## Boundaries
 

@@ -1,5 +1,7 @@
 # PDS-07: Expose stable managed PDS hostnames with HTTPS
 
+[Gitea issue #7](https://git.subcult.tv/PatrickFanella/pds-ass/issues/7)
+
 <!-- pds-ass-roadmap:07 -->
 
 ## What to build
@@ -20,7 +22,7 @@ Reach a staging PDS through its public URL, validate TLS and WebSockets, reject 
 
 ## Blocked by
 
-- PDS-06: Provision a real PDS through the restricted host agent
+- #6: Provision a real PDS through the restricted host agent
 
 ## Boundaries
 
