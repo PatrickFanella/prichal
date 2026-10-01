@@ -32,8 +32,9 @@ func run() error {
 		return errors.New("unknown command; use service-admin --help")
 	}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
-	var deployment, key, state, reason, operation *string
+	var deployment, key, state, reason, operation, kind *string
 	if command == "request" {
+		kind = flags.String("kind", "service", "service or account")
 		deployment = flags.String("deployment", "", "managed instance UUID")
 		key = flags.String("key", "", "stable request UUID; reuse it for retries")
 		state = flags.String("state", "", "running or suspended")
@@ -94,7 +95,7 @@ func run() error {
 		if actorErr != nil {
 			return errors.New("operator identity unavailable")
 		}
-		result, err = store.Submit(ctx, actor.Username, *deployment, lifecycle.Request{Key: *key, State: *state, Reason: *reason})
+		result, err = store.Submit(ctx, actor.Username, *deployment, lifecycle.Request{Key: *key, State: *state, Reason: *reason, Kind: *kind})
 	}
 	if err != nil {
 		return errors.New("service intent unavailable or conflicts with retained state; inspect the operation and retry with the same key")
