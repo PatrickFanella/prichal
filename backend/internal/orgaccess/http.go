@@ -28,6 +28,9 @@ func failure(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrConflict) {
 		status, message = 409, "Review current membership, invitation expiry and handover eligibility before retrying."
 	}
+	if errors.Is(err, ErrCursor) {
+		status, message = 400, "Reload the latest organization access history before paging again."
+	}
 	reply(w, status, map[string]string{"error": message})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -89,6 +92,19 @@ func (s *Store) Register(sessions Sessions) func(*http.ServeMux) {
 		})
 		bind("GET /api/team/organizations/{id}/members", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
 			v, err := s.Manage(r.Context(), a.OwnerID, r.PathValue("id"))
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			reply(w, 200, v)
+		})
+		bind("GET /api/team/organizations/{id}/audit", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
+			before, err := auditQuery(r.URL.RawQuery)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			v, err := s.Audit(r.Context(), a.OwnerID, r.PathValue("id"), before)
 			if err != nil {
 				failure(w, err)
 				return
