@@ -562,3 +562,17 @@ Actual drill `72c2f4bb-7acc-4fdc-be2f-98362ee0ef3d` completed at 19:24:00Z. Loca
 Expiry and the reported check time now share one PostgreSQL statement timestamp. The final smoke/coverage gates passed, and the updated API reread the cancelled receipt at 19:26:27Z without authority. Schema remains 26; the earlier 49-table checkpoint predates later browser/DNS receipts. Source services retain fixture permissions disabled and both admission policies open. No native resource or recovery copy was removed.
 
 PR #80 commit `397abfb` passed remote CI run 11561. Disconnected browser-fixture cleanup/remaining viewports/cache denial, observation UI, controlled public DNS, exclusive verified claims, routing/TLS/activation and migration remain open.
+
+## Browser TXT checks and completed local address layout checks
+
+Pending choices now offer a separate typed read-only DNS observation. Scope/choice changes or review abort reads and clear results; review immediately hides stale content. Denied access removes cached choice/TXT instructions, resets acknowledgement and focuses the parent error. Phone organization content uses the full row, and TXT fields stack. See [observation controls](../local-endpoint-observation-controls.md).
+
+T3 keyboard fixture at 19:34:18Z focused a non-authoritative result. Unavailable response/review clearing passed at 19:35:08Z. Resize repeatedly disconnected T3, and its open tool explicitly reported no automation host. The fallback used pinned Playwright 1.63.0, existing Chrome and a fresh ignored profile. No browser download or app toolchain change occurred.
+
+The first headless check exposed asynchronous result clearing during review; rendering now hides it immediately. A passing phone screenshot then showed cramped content despite no overflow. Moving content below the icon/badge and stacking TXT fields fixed it. Final drill `465060fb-8c65-49a5-ba59-b3617fcb8d6c` completed at 19:45:15Z on Chrome 154.0.8037.92. Keyboard/failure/review/reload and DNS/current-choice denial checks passed at all five representative widths without overflow or out-of-panel controls. Phone panels are 230/285 pixels wide. The 375-pixel screenshot was inspected. Four DNS response fixtures ran with zero source mutation attempts; routes were removed, actual null choice reloaded and context closed.
+
+T3 reconnected and shared original fetch/actual null state were restored before clearing the synthetic request at 19:46:38Z. Shared fixture cleanup is complete. An earlier readiness check ran before refreshed state rendered; the actual-null/readiness repeat passed before clearing. Private T3 metadata and isolated browser reports remain under `.local/`.
+
+Source checks preserved six cancelled choices/twelve audits, zero pending choices, jobs/endpoints/admission policy and native data/custody. Schema remains 26, fixture permissions disabled and admission open. No native container, volume or recovery-copy deletion occurred. PR #81 commit `5efbba6` passed remote CI 11562. Controlled public DNS, exclusive verified claims, routing/TLS/activation, assistive screen-reader behavior and migration remain open.
+
+The final full smoke gate passed after the phone/grid style change. All local address viewport/cache-denial checks and shared-fixture cleanup are now qualified; controlled public DNS and activation remain open.

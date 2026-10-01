@@ -43,3 +43,12 @@ button,input{font:inherit}button,.button{border:0;background:#244b3b;color:#fff;
 .endpoint-choice-review { border: 1px solid var(--line, #d6d9d2); padding: .8rem; margin-top: 1rem; min-width: 0; }
 .endpoint-choice-review label { display: block; }
 .endpoint-choice-review input[type="checkbox"] { width: auto; }
+.endpoint-choice dl { display: block; }
+.endpoint-choice dt { margin-top: .75rem; margin-bottom: .25rem; font-size: 12px; }
+.endpoint-preflight p { font-size: 13px; }
+@media (max-width: 600px) {
+  .organizations > li { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 10px; }
+  .organizations > li > .org-symbol { grid-column: 1; grid-row: 1; }
+  .organizations > li > div { grid-column: 1 / -1; grid-row: 2; }
+  .organizations > li > .owner-badge { grid-column: 2; grid-row: 1; justify-self: end; margin-left: 0; }
+}
