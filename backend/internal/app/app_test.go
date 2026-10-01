@@ -44,3 +44,5 @@ func TestReadinessRejectsMutation(t *testing.T) {
 		t.Fatalf("got %d", w.Code)
 	}
 }
+
+func (p probeStub) Version() int { return 2 }

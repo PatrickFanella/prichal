@@ -1,6 +1,6 @@
 # Local M1 implementation progress
 
-The user chose local build and verification first on 2026-09-30. No staging host, provider, public PDS domain or cloud budget has been selected. Work is on `feat/local-m1-alpha`.
+The user chose local build and verification first on 2026-09-30. No staging host, provider, public PDS domain or cloud budget has been selected. The foundation was merged in PR #31. Owner authentication work continues on `feat/owner-auth`.
 
 M1 depends on the M0 foundation. This branch begins with issue #1, then qualifies the disposable official PDS runtime from issue #4. Live infrastructure work remains pending. Neither local readiness nor a healthy PDS proves public federation or completes M1.
 
@@ -21,9 +21,20 @@ M1 depends on the M0 foundation. This branch begins with issue #1, then qualifie
 - The PDS has isolated networking, separate persistent SQLite/blob volumes, generated secrets, CPU/memory/PID caps and no Docker socket. Caddy publishes only a loopback port.
 - Actual account/record/upload fixtures, disk/account enforcement and database/storage fault injection remain pending under #4. A volume canary is not a repository blob test.
 
+## Owner authentication implementation
+
+- Added management schema version 2 with owners keyed by issuer and subject, hashed session tokens, expiring login attempts and owner-scoped organizations.
+- Configured OIDC authorization code flow with PKCE, signed ID-token validation, browser binding, nonce comparison and atomic callback consumption. Production requires HTTPS and host-only Secure/HttpOnly cookies; HTTP is restricted to explicit local mode on loopback.
+- Local/CI tests use an isolated signed test issuer with Alice and Bob. Neither test creates a live identity. Their matching email does not merge owners; the same subject at a different issuer also remains separate.
+- `./scripts/dev.sh smoke` passed the authentication, organization isolation, expiry/revocation, API reconstruction and migration upgrade/rollback tests with the race detector.
+- Browser verification signed in Alice, created Alice test studio, signed out, signed in Bob, proved Alice's organization absent, and created Bob test collective. Bob's session and organization survived an API restart.
+- Signed-in layouts had no horizontal overflow at 375×812, 768×1024, 812×375 and 1440×900.
+- Production provider baseline is a dedicated ZITADEL project using authorization code with PKCE. Live registration and provider qualification remain deferred alongside staging selection. This implementation does not use the existing Subcult applications or their identity databases.
+- Authentication PR and remote CI links will be recorded in the PR after publication. Durable deployment intent is the next local slice under #5.
+
 ## Remaining local implementation
 
-- Owner OIDC authentication, organization authorization and sessions (#2).
+- Live production OIDC application configuration and provider qualification. Local owner identity, authorization and management sessions are implemented under #2.
 - Restricted node enrollment and execution (#3, #6).
 - Transactional durable deployment jobs and resumable status (#5).
 - Managed hostname, enrollment, records/media and BYO handle flow (#7–#10).
