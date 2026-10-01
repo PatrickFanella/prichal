@@ -30,9 +30,10 @@ func replay(ctx context.Context, pool *pgxpool.Pool, agent *nodeagent.Client, id
 	if err = deployment.Migrate(ctx, pool); err != nil {
 		return err
 	}
+	const qualificationQueue = "recovery_qualification"
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
-	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 1}}})
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{qualificationQueue: {MaxWorkers: 1}}})
 	if err != nil {
 		return err
 	}
@@ -47,7 +48,7 @@ func replay(ctx context.Context, pool *pgxpool.Pool, agent *nodeagent.Client, id
 	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'checking','Disposable recovery lost-checkpoint replay.')`, id); err != nil {
 		return err
 	}
-	inserted, err := client.InsertTx(ctx, tx, deployment.Args{DeploymentID: id}, &river.InsertOpts{MaxAttempts: 3})
+	inserted, err := client.InsertTx(ctx, tx, deployment.Args{DeploymentID: id}, &river.InsertOpts{MaxAttempts: 3, Queue: qualificationQueue})
 	if err != nil {
 		return err
 	}

@@ -196,6 +196,13 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	held, holdErr := d.serviceHeld(id)
+	if holdErr != nil {
+		return Instance{}, holdErr
+	}
+	if held {
+		return d.status(ctx, id)
+	}
 	name := "pds-ass-tenant-" + id
 	var current inspected
 	status, err := d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current)
