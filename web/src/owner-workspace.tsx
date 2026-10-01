@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { EndpointPreflight } from './endpoint-preflight';
 import { Deployments } from './deployments';
 import { SupportWorkspace } from './support-workspace';
 import { CLIAccess } from './cli-access';
@@ -71,7 +72,7 @@ export function OwnerWorkspace() {
   return <section className="owner-card" aria-labelledby="owner-title">
     <div className="owner-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id="owner-title">Welcome, {workspace.session.displayName}</h2></div><button className="text-button" disabled={busy} onClick={() => { void signOut(false); }}>Sign out</button></div>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {workspace.organizations.length > 0 ? <ul className="organizations">{workspace.organizations.map(organization => <li key={organization.id}><span className="org-symbol" aria-hidden="true">o.</span><div><h3>{organization.name}</h3><p>You own this organization</p><Deployments organizationId={organization.id} csrfToken={workspace.session.csrfToken}/></div><span className="owner-badge">Owner</span></li>)}</ul> : <p>Create your first organization to begin. Only you can access its workspace.</p>}
+    {workspace.organizations.length > 0 ? <ul className="organizations">{workspace.organizations.map(organization => <li key={organization.id}><span className="org-symbol" aria-hidden="true">o.</span><div><h3>{organization.name}</h3><p>You own this organization</p><Deployments organizationId={organization.id} csrfToken={workspace.session.csrfToken}/><EndpointPreflight organizationId={organization.id} csrfToken={workspace.session.csrfToken}/></div><span className="owner-badge">Owner</span></li>)}</ul> : <p>Create your first organization to begin. Only you can access its workspace.</p>}
     <form onSubmit={event => { void createOrganization(event); }}>
       <label htmlFor="organization-name">Organization name</label>
       <div className="form-row"><input id="organization-name" name="organizationName" value={name} onChange={event => setName(event.target.value)} maxLength={100} required disabled={busy} placeholder="Your studio or community"/><button type="submit" disabled={busy || !name.trim()}>{busy ? 'Working…' : 'Create organization'}</button></div>

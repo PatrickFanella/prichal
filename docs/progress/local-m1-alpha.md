@@ -512,3 +512,15 @@ A separate actual browser pause at 18:14:38Z retained the verified account and e
 Fresh recovery `693e74a0-5b6a-4518-9fb2-d71507cd82cf` matched all 47 schema-25 tables and sequences, including the enrollment policy/four audits and retained work. Copied authentication was revoked, held worker startup refused, and reconciliation/dedicated replay preserved copied default jobs, source rows/sequences and native custody. All recovery copies remain retained.
 
 Source API, worker and monitor resumed on schema 25 with both admission policies open and fixture permissions disabled. Public signup limits, issued-invitation revocation, assistive screen-reader, independent infrastructure and release signoff remain open. No host operation or native container/volume/recovery-copy deletion occurred. PR #76's CI run 11553 is queued; it is not yet verified remotely.
+
+## Local custom-address preflight
+
+Owners can check DNS hostname syntax and registrable-domain separation from declared app/OAuth hosts and the management origin. The local route requires browser ownership/Origin/CSRF and rejects CLI authority. It saves no choice, reserves no domain and runs no DNS/certificate/host operation. Retained native hosting gets a migration/replacement warning with its original endpoint preserved. See [custom endpoint preflight](../local-custom-endpoint-preflight.md).
+
+Full smoke passed. Actual read-only drill `9b6f6eca-5b11-4f31-ad25-c2ad0902ebfa` completed at 18:34:59Z. Both native organizations received warnings; an empty organization received planning-only guidance. Repeats, hostname/domain-conflict/body validation and denied-scope checks passed without changing management work, deployment endpoints or native custody.
+
+Actual keyboard submission normalized an empty-org address and focused the result at 18:35:42Z. A sibling app-domain edit cleared the result and focused its rejection at 18:36:39Z. Existing native warning/link checks passed at 18:36:44Z. A temporary read-only unavailable response cleared the result, retained inputs and focused the error at 18:40:59Z. Original fetch and actual data were restored after the fixture. A repeat used the observed API path after the first attempt found no new ResourceTiming entry.
+
+Phone checks exposed form overflow inside an otherwise bounded document. The grid/input minimum-width fix passed a fresh frontend build. Final checks at five representative widths found no document/plan overflow or out-of-panel controls. Metadata remains in `.local/endpoint-preflight-browser.json`; snapshot capture failed and assistive screen-reader work remains open.
+
+Schema remains 25, with no preflight writes and the existing 47-table recovery checkpoint retained. Default fixture permissions stay disabled and both admission policies stay open. Persisted endpoint choice, ownership proof, routing/TLS, supported activation and migration remain open. No native container, volume or recovery copy was removed. PR #76 commit `06f1fd3` passed CI 11553; PR #77 commit `c0d0ed5` passed CI 11554.

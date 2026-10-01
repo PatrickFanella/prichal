@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +17,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/billing"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/endpointplan"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/exports"
@@ -113,8 +116,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	managementOrigin, err := url.Parse(cfg.Auth.Origin)
+	if err != nil {
+		return errors.New("management origin is unavailable for endpoint planning")
+	}
+	endpointPlans := &endpointplan.Store{Pool: pool, Local: cfg.Auth.Mode == "local", ManagementHost: managementOrigin.Hostname()}
 	handles := &handleproof.Store{Pool: pool, Checker: handleproof.Checker{DNS: net.DefaultResolver, Directory: handleproof.NewDirectory(cfg.Auth.Mode == "local"), Local: cfg.Auth.Mode == "local"}}
-	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(migrate.Probe{Pool: pool}, owners.Register, collaboration.Register(owners), portableExports.Register(owners), hostingExits.Register(owners), supportWorkspace.Register(owners, supportActions), billingEvents.Register(billingSettings), (entitlement.Store{Pool: pool}).Register(owners), deployments.Register(owners, cfg.Auth.Mode == "local"), enrollments.Register(owners, cfg.Auth.Mode == "local"), handles.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(migrate.Probe{Pool: pool}, owners.Register, endpointPlans.Register(owners), collaboration.Register(owners), portableExports.Register(owners), hostingExits.Register(owners), supportWorkspace.Register(owners, supportActions), billingEvents.Register(billingSettings), (entitlement.Store{Pool: pool}).Register(owners), deployments.Register(owners, cfg.Auth.Mode == "local"), enrollments.Register(owners, cfg.Auth.Mode == "local"), handles.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
 	done := make(chan error, 1)
 	go func() {
 		log.Printf("management API listening on %s", cfg.ListenAddress)
