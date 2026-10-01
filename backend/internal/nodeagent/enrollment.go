@@ -140,6 +140,9 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 	if err != nil {
 		return result, errors.New("guarded local PDS policy could not be confirmed")
 	}
+	if current.State == "suspended" {
+		return result, errors.New("service is suspended")
+	}
 	if !current.Healthy {
 		if lease.Ticket != ticket || lease.State != "preparing" {
 			return result, errors.New("healthy guarded local PDS required")

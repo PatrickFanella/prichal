@@ -16,6 +16,33 @@ func (d *Docker) Status(ctx context.Context, id string) (Instance, error) {
 }
 
 func (d *Docker) status(ctx context.Context, id string) (Instance, error) {
+	held, err := d.serviceHeld(id)
+	if err != nil {
+		return Instance{}, err
+	}
+	result, err := d.runtimeStatus(ctx, id)
+	if err != nil {
+		return result, err
+	}
+	if held {
+		result.State = "suspended"
+		result.Healthy = false
+	}
+	lease, leaseErr := d.readServiceLease(id)
+	if leaseErr == nil {
+		result.ServiceGeneration = lease.Generation
+		result.ServiceTicket = lease.Ticket
+		result.ServicePhase = lease.Phase
+		if lease.State == "suspended" && lease.Phase == "applied" {
+			if err := d.serviceStopped(ctx, id); err != nil {
+				return Instance{}, err
+			}
+		}
+	}
+	return result, nil
+}
+
+func (d *Docker) runtimeStatus(ctx context.Context, id string) (Instance, error) {
 	var current, edge inspected
 	if _, err := d.call(ctx, "GET", "/containers/pds-ass-tenant-"+id+"/json", nil, &current); err != nil {
 		return Instance{}, err
