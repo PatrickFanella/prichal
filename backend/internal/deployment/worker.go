@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,6 +61,9 @@ type Worker struct {
 
 func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 	for i := 0; i < 3; i++ {
+		if err := recovery.Check(ctx, w.Pool); err != nil {
+			return river.JobSnooze(time.Minute)
+		}
 		if err := w.Provisioner.Step(ctx, job.Args.DeploymentID); err != nil {
 			if errors.Is(err, ErrHealthPending) {
 				return river.JobSnooze(time.Second)
