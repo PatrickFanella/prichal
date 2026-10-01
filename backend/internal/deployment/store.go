@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/observability"
 	"github.com/jackc/pgx/v5"
@@ -36,17 +37,18 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
-	Service         observability.Status `json:"service"`
-	ManagedHostname string               `json:"managedHostname"`
-	Endpoint        string               `json:"endpoint"`
-	Kind            string               `json:"kind"`
-	ID              string               `json:"id"`
-	OrganizationID  string               `json:"organizationId"`
-	Name            string               `json:"name"`
-	Region          string               `json:"region"`
-	State           string               `json:"state"`
-	Message         string               `json:"message"`
-	Events          []Event              `json:"events"`
+	Service         observability.Status      `json:"service"`
+	Usage           observability.UsageStatus `json:"usage"`
+	ManagedHostname string                    `json:"managedHostname"`
+	Endpoint        string                    `json:"endpoint"`
+	Kind            string                    `json:"kind"`
+	ID              string                    `json:"id"`
+	OrganizationID  string                    `json:"organizationId"`
+	Name            string                    `json:"name"`
+	Region          string                    `json:"region"`
+	State           string                    `json:"state"`
+	Message         string                    `json:"message"`
+	Events          []Event                   `json:"events"`
 }
 type Args struct {
 	DeploymentID string `json:"deploymentId"`
@@ -123,6 +125,11 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
+	if r.Kind == "agent" {
+		if err = entitlement.CheckAllocation(ctx, tx, org); err != nil {
+			return Operation{}, err
+		}
+	}
 	err = tx.QueryRow(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,managed_hostname) SELECT id,$1,$2,$3,$4,$5,id::text||'.localhost' FROM (SELECT gen_random_uuid() AS id) identity RETURNING id`, org, r.Name, r.Region, r.Key, r.Kind).Scan(&id)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -157,6 +164,10 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 		return op, err
 	}
 	op.Service, err = observability.DeploymentStatus(ctx, s.Pool, id)
+	if err != nil {
+		return op, err
+	}
+	op.Usage, err = observability.DeploymentUsage(ctx, s.Pool, id)
 	if err != nil {
 		return op, err
 	}

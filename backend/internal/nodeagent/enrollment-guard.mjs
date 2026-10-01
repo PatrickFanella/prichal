@@ -15,12 +15,22 @@ export function enrollmentAdmission(instance, directory) {
     return info.isFile() && !(info.mode & 0o077) && info.size <= 4096 && validEnrollmentLease(JSON.parse(readFileSync(path, 'utf8')), instance);
   } catch { return false; }
 }
+export function emptyFirstAccountInventory(value) {
+  return value !== null && typeof value === 'object' && Array.isArray(value.repos) && value.repos.length === 0;
+}
 if (process.env.PDS_GUARD_INSTANCE) {
   const instance = process.env.PDS_GUARD_INSTANCE;
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(instance)) process.exit(1);
-  createServer((request, response) => {
+  createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
-    response.statusCode = request.method === 'GET' && request.url === '/registration' && enrollmentAdmission(instance, '/enrollment') ? 204 : 403;
+    let allowed = request.method === 'GET' && request.url === '/registration' && enrollmentAdmission(instance, '/enrollment');
+    if (allowed) {
+      try {
+        const native = await fetch(`http://pds-ass-tenant-${instance}:2583/xrpc/com.atproto.sync.listRepos?limit=1`, { signal: AbortSignal.timeout(2000) });
+        allowed = native.ok && emptyFirstAccountInventory(await native.json());
+      } catch { allowed = false; }
+    }
+    response.statusCode = allowed ? 204 : 403;
     response.end();
   }).listen(2727, '0.0.0.0');
 }

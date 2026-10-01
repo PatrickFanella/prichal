@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, chmodSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validEnrollmentLease, enrollmentAdmission } from '../backend/internal/nodeagent/enrollment-guard.mjs';
+import { validEnrollmentLease, enrollmentAdmission, emptyFirstAccountInventory } from '../backend/internal/nodeagent/enrollment-guard.mjs';
 const id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ticket='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 test('Enrollment admission is tenant-bound and fails closed without private, current policy',()=>{
@@ -19,4 +19,9 @@ test('Enrollment admission is tenant-bound and fails closed without private, cur
   chmodSync(path,0o644); assert.equal(enrollmentAdmission(id,directory),false);
   rmSync(path); symlinkSync('/missing',path); assert.equal(enrollmentAdmission(id,directory),false);
  } finally { rmSync(directory,{recursive:true,force:true}); }
+});
+
+test('First-account inventory denies populated and unavailable native state',()=>{
+ assert.equal(emptyFirstAccountInventory({repos:[]}),true);
+ for(const value of [null,{}, {repos:null},{repos:[{did:'did:plc:fixture'}]},{repos:'invalid'}]) assert.equal(emptyFirstAccountInventory(value),false);
 });

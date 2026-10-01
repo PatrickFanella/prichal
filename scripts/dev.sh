@@ -10,6 +10,11 @@ source .local/local.env
 set +a
 # Local-only defaults. Direct production startup has no fixture fallback.
 unset PDS_OIDC_CLIENT_SECRET
+node scripts/init-enrollment-key.mjs
+node scripts/init-export-store.mjs
+export PDS_LOCAL_EXPORT_DIRECTORY="$PWD/.local/exports"
+export PDS_LOCAL_EXPORT_KEY_FILE="$PWD/.local/export.key"
+export PDS_ENROLLMENT_KEY_FILE="$PWD/.local/enrollment.key"
 export PDS_MODE=local
 export PDS_OIDC_ISSUER=http://localhost:5556
 export PDS_OIDC_CLIENT_ID=pds-local
@@ -19,10 +24,13 @@ case "${1:-help}" in
   issuer) cd backend; exec go run ./cmd/test-issuer ;;
   node-enroll) shift; cd backend; exec go run ./cmd/node-enroll "$@" ;;
   node-admin) shift; cd backend; exec go run ./cmd/node-admin "$@" ;;
+  billing-fixture-admin) shift; cd backend; exec go run ./cmd/billing-fixture-admin "$@" ;;
+  entitlement-admin) shift; cd backend; exec go run ./cmd/entitlement-admin "$@" ;;
+  service-admin) shift; cd backend; exec go run ./cmd/service-admin "$@" ;;
   worker) cd backend; exec go run ./cmd/worker ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
 esac
