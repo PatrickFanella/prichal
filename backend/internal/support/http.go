@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -93,6 +94,23 @@ func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http
 				return
 			}
 			reply(w, 200, view)
+		})
+		bind("GET /api/deployments/{id}/journey", false, false, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
+			query, queryErr := url.ParseQuery(r.URL.RawQuery)
+			if queryErr != nil || len(query) > 1 || (len(query) == 1 && len(query["before"]) != 1) {
+				reply(w, 400, map[string]string{"error": "Use one valid history cursor."})
+				return
+			}
+			page, err := s.Journey(r.Context(), session.OwnerID, r.PathValue("id"), query.Get("before"))
+			if errors.Is(err, ErrCursor) {
+				reply(w, 400, map[string]string{"error": "Use a valid history cursor for this instance."})
+				return
+			}
+			if err != nil {
+				unavailable(w, err)
+				return
+			}
+			reply(w, 200, page)
 		})
 		activity := func(operator bool) func(http.ResponseWriter, *http.Request, auth.Session, string) {
 			return func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
