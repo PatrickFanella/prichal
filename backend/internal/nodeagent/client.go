@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -156,6 +155,15 @@ func (c *Client) Capacity(ctx context.Context, peer Peer) (Capacity, error) {
 
 // Enroll requests a fixed tenant-scoped invitation from the authenticated node.
 func (c *Client) Enroll(ctx context.Context, peer Peer, id, ticket string) (Enrollment, error) {
+	return c.enrollment(ctx, peer, id, ticket, false)
+}
+
+// WithdrawEnrollment authenticates the registered node before closing a retained ticket.
+func (c *Client) WithdrawEnrollment(ctx context.Context, peer Peer, id, ticket string) (Enrollment, error) {
+	return c.enrollment(ctx, peer, id, ticket, true)
+}
+
+func (c *Client) enrollment(ctx context.Context, peer Peer, id, ticket string, withdraw bool) (Enrollment, error) {
 	if !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
 		return Enrollment{}, errors.New("invalid enrollment request")
 	}
@@ -167,7 +175,11 @@ func (c *Client) Enroll(ctx context.Context, peer Peer, id, ticket string) (Enro
 	body, _ := json.Marshal(struct {
 		Ticket string `json:"ticket"`
 	}{ticket})
-	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/enrollment", bytes.NewReader(body))
+	path := "/v1/instances/" + id + "/enrollment"
+	if withdraw {
+		path += "/withdraw"
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+path, bytes.NewReader(body))
 	if err != nil {
 		return Enrollment{}, err
 	}
@@ -188,16 +200,20 @@ func (c *Client) Enroll(ctx context.Context, peer Peer, id, ticket string) (Enro
 	}
 	switch result.State {
 	case "invitation_ready":
-		if !validInvitationCode(result.Code) || result.ExpiresAt <= time.Now().UnixMilli() || result.ExpiresAt > time.Now().Add(15*time.Minute+5*time.Second).UnixMilli() || result.DID != "" {
+		if withdraw || !validInvitationCode(result.Code) || result.ExpiresAt <= time.Now().UnixMilli() || result.ExpiresAt > time.Now().Add(15*time.Minute+5*time.Second).UnixMilli() || result.DID != "" {
 			return Enrollment{}, errors.New("invalid expiring invitation")
 		}
 	case "account_created", "verified":
-		if !strings.HasPrefix(result.DID, "did:plc:") || len(result.DID) != 32 || result.Code != "" || result.Handle == "" || (result.State == "verified" && !result.EmailConfirmed) {
+		if !accountDID.MatchString(result.DID) || result.Code != "" || result.Handle == "" || len(result.Handle) > 253 || result.ExpiresAt != 0 || (result.State == "verified" && !result.EmailConfirmed) {
 			return Enrollment{}, errors.New("invalid account status")
 		}
 	case "expired":
-		if result.Code != "" || result.DID != "" {
+		if withdraw || result.Code != "" || result.DID != "" {
 			return Enrollment{}, errors.New("invalid expired enrollment")
+		}
+	case "withdrawn":
+		if !withdraw || result.Code != "" || result.DID != "" || result.Handle != "" || result.EmailConfirmed || result.ExpiresAt != 0 {
+			return Enrollment{}, errors.New("invalid withdrawn enrollment")
 		}
 	default:
 		return Enrollment{}, errors.New("unsupported enrollment state")

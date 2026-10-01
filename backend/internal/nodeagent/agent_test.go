@@ -43,3 +43,34 @@ func TestUnknownPeerRejected(t *testing.T) {
 		t.Fatalf("plaintext accepted: %d", w.Code)
 	}
 }
+
+func TestWithdrawalContractRejectsAdditionalAuthority(t *testing.T) {
+	runtime := &clientRuntime{}
+	id := "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+	path := "/v1/instances/" + id + "/enrollment/withdraw"
+	for _, test := range []struct {
+		path, body string
+		status     int
+	}{
+		{path, `{"ticket":"` + id + `"}`, 200},
+		{path, `{"ticket":"` + id + `","did":"did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"}`, 400},
+		{path, `{"ticket":"` + id + `","action":"delete"}`, 400},
+		{path, `{"ticket":"` + id + `"} {}`, 400},
+		{path, `{"ticket":"../../host"}`, 400},
+		{"/v1/instances/invalid/enrollment/withdraw", `{"ticket":"` + id + `"}`, 404},
+	} {
+		w := httptest.NewRecorder()
+		Handler(runtime).ServeHTTP(w, httptest.NewRequest("POST", test.path, strings.NewReader(test.body)))
+		if w.Code != test.status {
+			t.Fatalf("withdrawal contract: %d want %d", w.Code, test.status)
+		}
+	}
+	if runtime.withdrawals != 1 {
+		t.Fatal("invalid authority reached withdrawal")
+	}
+	w := httptest.NewRecorder()
+	Authenticate(Handler(runtime)).ServeHTTP(w, httptest.NewRequest("POST", path, strings.NewReader(`{"ticket":"`+id+`"}`)))
+	if w.Code != 401 || runtime.withdrawals != 1 {
+		t.Fatal("unauthenticated withdrawal reached runtime")
+	}
+}

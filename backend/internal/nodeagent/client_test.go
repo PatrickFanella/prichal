@@ -19,7 +19,18 @@ import (
 	"time"
 )
 
-type clientRuntime struct{ calls int }
+type clientRuntime struct {
+	calls, withdrawals int
+	withdrawalResult   *Enrollment
+}
+
+func (r *clientRuntime) WithdrawEnrollment(_ context.Context, id, ticket string) (Enrollment, error) {
+	r.withdrawals++
+	if r.withdrawalResult != nil {
+		return *r.withdrawalResult, nil
+	}
+	return Enrollment{InstanceID: id, Ticket: ticket, State: "withdrawn"}, nil
+}
 
 func (r *clientRuntime) Ensure(_ context.Context, id string) (Instance, error) {
 	r.calls++
@@ -102,6 +113,25 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	}
 	pin := sha256.Sum256(public)
 	peer := Peer{NodeID: nodeID, Endpoint: server.URL, PublicKeyHash: pin[:]}
+	withdrawn, err := client.WithdrawEnrollment(context.Background(), peer, nodeID, nodeID)
+	if err != nil || withdrawn.State != "withdrawn" {
+		t.Fatalf("authenticated withdrawal: %+v %v", withdrawn, err)
+	}
+	for _, invalid := range []Enrollment{
+		{InstanceID: nodeID, Ticket: nodeID, State: "invitation_ready", Code: "fixture", ExpiresAt: time.Now().Add(time.Minute).UnixMilli()},
+		{InstanceID: nodeID, Ticket: nodeID, State: "withdrawn", Code: "fixture"},
+		{InstanceID: nodeID, Ticket: nodeID, State: "withdrawn", ExpiresAt: 1},
+		{InstanceID: nodeID, Ticket: nodeID, State: "withdrawn", DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"},
+		{InstanceID: nodeID, Ticket: nodeID, State: "verified", DID: "did:plc:AAAAAAAAAAAAAAAAAAAAAAAA", Handle: "fixture.test", EmailConfirmed: true},
+		{InstanceID: nodeID, Ticket: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", State: "withdrawn"},
+	} {
+		runtime.withdrawalResult = &invalid
+		if _, err = client.WithdrawEnrollment(context.Background(), peer, nodeID, nodeID); err == nil {
+			t.Fatal("invalid withdrawal response accepted")
+		}
+	}
+	runtime.withdrawalResult = nil
+	withdrawalCalls := runtime.withdrawals
 	if _, err = client.Ensure(context.Background(), peer, nodeID); err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +152,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 		peer Peer
 	}{{"wrong key", Peer{NodeID: nodeID, Endpoint: server.URL, PublicKeyHash: make([]byte, 32)}}, {"wrong node", Peer{NodeID: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", Endpoint: server.URL, PublicKeyHash: pin[:]}}} {
 		t.Run(entry.name, func(t *testing.T) {
+			if _, err := client.WithdrawEnrollment(context.Background(), entry.peer, nodeID, nodeID); err == nil {
+				t.Fatal("unregistered withdrawal peer accepted")
+			}
 			if _, err := client.Ensure(context.Background(), entry.peer, nodeID); err == nil {
 				t.Fatal("unregistered peer accepted")
 			}
@@ -129,6 +162,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	}
 	if runtime.calls != 1 {
 		t.Fatalf("invalid peer reached runtime: %d", runtime.calls)
+	}
+	if runtime.withdrawals != withdrawalCalls {
+		t.Fatal("unregistered peer reached withdrawal runtime")
 	}
 }
 
