@@ -46,7 +46,14 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	configurations := map[string]map[string]any{}
 	running := map[string]bool{}
 	creates := map[string]int{}
+	readOnly := false
+	failStop := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if readOnly && r.Method != "GET" {
+			t.Error("inspection mutated Docker")
+			w.WriteHeader(500)
+			return
+		}
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
 		case path == "/info":
@@ -80,7 +87,7 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 					return config["EndpointsConfig"].(map[string]any)
 				}
 				return map[string]any{host["NetworkMode"].(string): map[string]any{}}
-			}(), "Ports": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "12345"}}}}})
+			}(), "Ports": map[string]any{}}})
 		case r.Method == "GET":
 			w.WriteHeader(404)
 		case path == "/containers/create":
@@ -107,6 +114,14 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/start")
 			running[name] = true
 			w.WriteHeader(204)
+		case strings.HasSuffix(path, "/stop"):
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/stop")
+			if failStop && strings.HasPrefix(name, "pds-ass-tenant-") {
+				w.WriteHeader(500)
+				return
+			}
+			running[name] = false
+			w.WriteHeader(204)
 		default:
 			w.WriteHeader(201)
 		}
@@ -126,9 +141,89 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
 	}
+	readOnly = true
+	docker.healthProbe = func(context.Context, string) bool { return true }
+	result, err := docker.Status(context.Background(), id)
+	if err != nil || !result.Healthy {
+		t.Fatalf("inspection: %+v %v", result, err)
+	}
+	running["pds-ass-tenant-"+id] = false
+	result, err = docker.Status(context.Background(), id)
+	if err != nil || result.Healthy || result.State != "starting" {
+		t.Fatalf("stopped inspection: %+v %v", result, err)
+	}
+	running["pds-ass-tenant-"+id] = true
+	readOnly = false
+	// An interrupted stop retains its private hold. Ensure cannot restart ingress.
+	suspend := ServiceRequest{Ticket: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", Generation: 1, State: "suspended"}
+	failStop = true
+	if _, err = docker.Service(context.Background(), id, suspend); err == nil {
+		t.Fatal("failed stop reported success")
+	}
+	if running["pds-ass-edge-"+id] {
+		t.Fatal("ingress remained active after partial stop")
+	}
+	readOnly = true
+	result, err = docker.Ensure(context.Background(), id)
+	if err != nil || result.State != "suspended" || result.Healthy {
+		t.Fatal("reconciliation undid interrupted suspension")
+	}
+	lease, err := docker.readServiceLease(id)
+	if err != nil || lease.Phase != "pending" {
+		t.Fatal("failed stop lost durable hold")
+	}
+	readOnly = false
+	failStop = false
+	if _, err = docker.Service(context.Background(), id, suspend); err != nil {
+		t.Fatal(err)
+	}
+	if running["pds-ass-tenant-"+id] || running["pds-ass-edge-"+id] {
+		t.Fatal("suspension left a writer running")
+	}
+	resume := ServiceRequest{Ticket: "cccccccc-cccc-4ccc-cccc-cccccccccccc", Generation: 2, State: "running"}
+	if _, err = docker.Service(context.Background(), id, resume); err != nil {
+		t.Fatal(err)
+	}
+	readOnly = true
+	if _, err = docker.Service(context.Background(), id, suspend); err == nil {
+		t.Fatal("stale suspension overwrote resume")
+	}
+	conflict := resume
+	conflict.State = "suspended"
+	if _, err = docker.Service(context.Background(), id, conflict); err == nil {
+		t.Fatal("same generation accepted a different action")
+	}
+	result, err = docker.Status(context.Background(), id)
+	if err != nil || !result.Healthy {
+		t.Fatal("resume did not restore healthy retained runtime")
+	}
+	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
+		t.Fatal("lifecycle recreated retained resources")
+	}
+	credentialPath := filepath.Join(directory, id+".json")
+	credential, err := os.ReadFile(credentialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(credentialPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = docker.Status(context.Background(), id); err == nil {
+		t.Fatal("inspection accepted missing credentials")
+	}
+	if _, err = os.Stat(credentialPath); !os.IsNotExist(err) {
+		t.Fatal("inspection recreated credentials")
+	}
+	if err = os.WriteFile(credentialPath, credential, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = docker.Status(context.Background(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"); err == nil {
+		t.Fatal("inspection created missing runtime")
+	}
+	readOnly = false
 	// A healthy process with a different advertised endpoint cannot qualify as this PDS.
 	configurations["pds-ass-tenant-"+id]["Env"] = []string{"PDS_HOSTNAME=foreign.localhost"}
-	if _, err := docker.Ensure(context.Background(), id); err == nil {
+	if _, err := docker.Status(context.Background(), id); err == nil {
 		t.Fatal("accepted mismatched runtime identity")
 	}
 }
@@ -167,5 +262,39 @@ func TestMeasuredCapacityBounds(t *testing.T) {
 				t.Fatalf("capacity: %+v %v", capacity, err)
 			}
 		})
+	}
+}
+
+func TestOperatorCapacityStillReservesMeasuredResources(t *testing.T) {
+	for _, entry := range []struct {
+		name              string
+		cpus              int
+		memory            int64
+		ceiling, expected int
+	}{{"three measured tenants", 8, 8 << 30, 3, 3}, {"CPU remains bounded", 3, 8 << 30, 8, 1}, {"memory remains bounded", 8, 2<<30 + 960<<20, 8, 1}, {"operator reduction", 8, 8 << 30, 1, 1}} {
+		t.Run(entry.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/info") {
+					_ = json.NewEncoder(w).Encode(map[string]any{"NCPU": entry.cpus, "MemTotal": entry.memory})
+				} else {
+					_ = json.NewEncoder(w).Encode([]any{})
+				}
+			}))
+			defer server.Close()
+			docker := &Docker{client: &http.Client{Transport: &rewriteTransport{base: server.URL, transport: http.DefaultTransport}}}
+			docker.EnableLocalIdentityFixtures()
+			if err := docker.SetCapacityCeiling(entry.ceiling); err != nil {
+				t.Fatal(err)
+			}
+			capacity, err := docker.Capacity(context.Background())
+			if err != nil || capacity.MaximumSlots != entry.expected {
+				t.Fatal("operator ceiling bypassed measured resource policy")
+			}
+		})
+	}
+	for _, maximum := range []int{-1, 0, 9, 1000} {
+		if err := (&Docker{}).SetCapacityCeiling(maximum); err == nil {
+			t.Fatal("unbounded ceiling accepted")
+		}
 	}
 }

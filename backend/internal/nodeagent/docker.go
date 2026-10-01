@@ -27,10 +27,12 @@ const label = "tv.subcult.pds-ass.instance"
 
 // Docker reconciles isolated local qualification runtimes through a Unix socket.
 type Docker struct {
-	client      *http.Client
-	directory   string
-	mutex       sync.Mutex
-	healthProbe func(context.Context, string) bool
+	client        *http.Client
+	directory     string
+	mutex         sync.Mutex
+	healthProbe   func(context.Context, string) bool
+	localIdentity bool
+	maximumSlots  int
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -88,25 +90,7 @@ type secrets struct {
 
 func (d *Docker) credentials(id string) (secrets, error) {
 	path := filepath.Join(d.directory, id+".json")
-	read := func() (secrets, error) {
-		var value secrets
-		info, err := os.Lstat(path)
-		if err != nil {
-			return value, err
-		}
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-			return value, errors.New("unsafe credential file")
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return value, err
-		}
-		err = json.Unmarshal(data, &value)
-		if err == nil && (len(value.JWT) != 64 || len(value.Admin) != 64 || len(value.Rotation) != 64) {
-			err = errors.New("invalid credential file")
-		}
-		return value, err
-	}
+	read := func() (secrets, error) { return d.readCredentials(id) }
 	if value, err := read(); err == nil {
 		return value, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -170,15 +154,16 @@ func (d *Docker) credentials(id string) (secrets, error) {
 
 type inspected struct {
 	HostConfig struct {
-		Memory      int64
-		NanoCpus    int64
-		PidsLimit   int64
-		NetworkMode string
-		Privileged  bool
-		CapDrop     []string
-		CapAdd      []string
-		SecurityOpt []string
-		Binds       []string
+		Memory         int64
+		NanoCpus       int64
+		PidsLimit      int64
+		NetworkMode    string
+		Privileged     bool
+		ReadonlyRootfs bool
+		CapDrop        []string
+		CapAdd         []string
+		SecurityOpt    []string
+		Binds          []string
 	}
 	Mounts []struct {
 		Type        string
@@ -192,6 +177,7 @@ type inspected struct {
 		Image  string
 		Labels map[string]string
 		Env    []string
+		Cmd    []string
 	}
 	State struct {
 		Running bool
@@ -210,6 +196,13 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	held, holdErr := d.serviceHeld(id)
+	if holdErr != nil {
+		return Instance{}, holdErr
+	}
+	if held {
+		return d.status(ctx, id)
+	}
 	name := "pds-ass-tenant-" + id
 	var current inspected
 	status, err := d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current)
@@ -264,7 +257,15 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 				return Instance{}, err
 			}
 		}
-		payload := map[string]any{"Healthcheck": map[string]any{"Test": []string{"CMD", "node", "-e", "fetch('http://127.0.0.1:2583/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"}, "Interval": int64(1e9), "Timeout": int64(2e9), "StartPeriod": int64(10e9), "Retries": 3}, "Image": PDSImage, "Labels": map[string]string{label: id}, "Env": runtimeEnvironment(id, secret), "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "0"}}}, "RestartPolicy": map[string]string{"Name": "no"}}}
+		if d.localIdentity {
+			if err := d.connectLocalIdentity(ctx, id); err != nil {
+				return Instance{}, err
+			}
+			if err := d.enrollmentGuard(ctx, id); err != nil {
+				return Instance{}, err
+			}
+		}
+		payload := map[string]any{"Healthcheck": map[string]any{"Test": []string{"CMD", "node", "-e", "fetch('http://127.0.0.1:2583/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"}, "Interval": int64(1e9), "Timeout": int64(2e9), "StartPeriod": int64(10e9), "Retries": 3}, "Image": PDSImage, "Labels": map[string]string{label: id}, "Env": d.runtimeEnvironment(id, secret), "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "RestartPolicy": map[string]string{"Name": "no"}}}
 		status, err = d.call(ctx, "POST", "/containers/create?name="+url.QueryEscape(name), payload, nil)
 		if err != nil && status != 409 {
 			return Instance{}, err
@@ -273,48 +274,8 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 			return Instance{}, err
 		}
 	}
-	if current.Config.Labels[label] != id || current.Config.Image != PDSImage {
-		return Instance{}, errors.New("foreign runtime name conflict")
-	}
-	secret, err := d.credentials(id)
-	if err != nil {
+	if err := d.validateRuntime(id, current); err != nil {
 		return Instance{}, err
-	}
-	environment := map[string]string{}
-	for _, entry := range current.Config.Env {
-		key, value, ok := strings.Cut(entry, "=")
-		if ok {
-			environment[key] = value
-		}
-	}
-	for _, entry := range runtimeEnvironment(id, secret) {
-		key, value, _ := strings.Cut(entry, "=")
-		if environment[key] != value {
-			return Instance{}, errors.New("runtime environment differs from policy")
-		}
-	}
-	if current.HostConfig.Privileged || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != name+"-network" || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
-		return Instance{}, errors.New("runtime security configuration differs from policy")
-	}
-	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[name+"-network"] == nil {
-		return Instance{}, errors.New("runtime network configuration differs from policy")
-	}
-	if len(current.Mounts) != 2 {
-		return Instance{}, errors.New("runtime storage configuration differs from policy")
-	}
-	for _, mount := range current.Mounts {
-		suffix := ""
-		switch mount.Destination {
-		case "/pds":
-			suffix = "data"
-		case "/blobs":
-			suffix = "blobs"
-		default:
-			return Instance{}, errors.New("unexpected runtime mount")
-		}
-		if mount.Type != "volume" || mount.Name != name+"-"+suffix || !mount.RW {
-			return Instance{}, errors.New("runtime storage configuration differs from policy")
-		}
 	}
 	if !current.State.Running {
 		if _, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil); err != nil {
@@ -323,6 +284,14 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	}
 	if _, err = d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current); err != nil {
 		return Instance{}, err
+	}
+	if d.localIdentity {
+		if err := d.connectLocalIdentity(ctx, id); err != nil {
+			return Instance{}, err
+		}
+		if err := d.enrollmentGuard(ctx, id); err != nil {
+			return Instance{}, err
+		}
 	}
 	if err = d.ingress(ctx, id); err != nil {
 		return Instance{}, err
@@ -339,6 +308,94 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	return result, nil
 }
 
-func runtimeEnvironment(id string, secret secrets) []string {
-	return []string{"PDS_HOSTNAME=" + strings.TrimPrefix(LocalEndpoint(id), "https://"), "PDS_SERVICE_DID=did:web:" + id + ".localhost%3A" + strings.Split(LocalEndpoint(id), ":")[2], "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}
+func (d *Docker) runtimeEnvironment(id string, secret secrets) []string {
+	environment := []string{"PDS_HOSTNAME=" + strings.TrimPrefix(LocalEndpoint(id), "https://"), "PDS_SERVICE_DID=did:web:" + id + ".localhost%3A" + strings.Split(LocalEndpoint(id), ":")[2], "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}
+	if d.localIdentity {
+		for i, entry := range environment {
+			if strings.HasPrefix(entry, "PDS_DID_PLC_URL=") {
+				environment[i] = "PDS_DID_PLC_URL=http://pds-ass-protocol-fixtures:2582"
+			}
+		}
+		environment = append(environment, "PDS_EMAIL_FROM_ADDRESS=noreply@fixture.invalid", "PDS_EMAIL_SMTP_URL=smtp://pds-ass-protocol-fixtures:2525")
+	}
+	return environment
+}
+
+func (d *Docker) readCredentials(id string) (secrets, error) {
+	path := filepath.Join(d.directory, id+".json")
+	var value secrets
+	info, err := os.Lstat(path)
+	if err != nil {
+		return value, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+		return value, errors.New("unsafe credential file")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return value, err
+	}
+	err = json.Unmarshal(data, &value)
+	if err == nil && (len(value.JWT) != 64 || len(value.Admin) != 64 || len(value.Rotation) != 64) {
+		err = errors.New("invalid credential file")
+	}
+	return value, err
+}
+
+func (d *Docker) validateRuntime(id string, current inspected) error {
+	name := "pds-ass-tenant-" + id
+	if current.Config.Labels[label] != id || current.Config.Image != PDSImage {
+		return errors.New("foreign runtime name conflict")
+	}
+	secret, err := d.readCredentials(id)
+	if err != nil {
+		return err
+	}
+	environment := map[string]string{}
+	for _, entry := range current.Config.Env {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			environment[key] = value
+		}
+	}
+	for _, entry := range d.runtimeEnvironment(id, secret) {
+		key, value, _ := strings.Cut(entry, "=")
+		if environment[key] != value {
+			return errors.New("runtime environment differs from policy")
+		}
+	}
+	for _, bindings := range current.NetworkSettings.Ports {
+		if len(bindings) != 0 {
+			return errors.New("PDS bypasses managed ingress")
+		}
+	}
+	if current.HostConfig.Privileged || len(current.HostConfig.CapAdd) != 0 || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != name+"-network" || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
+		return errors.New("runtime security configuration differs from policy")
+	}
+	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[name+"-network"] == nil {
+		return errors.New("runtime network configuration differs from policy")
+	}
+	if len(current.Mounts) != 2 {
+		return errors.New("runtime storage configuration differs from policy")
+	}
+	seen := map[string]bool{}
+	for _, mount := range current.Mounts {
+		suffix := ""
+		switch mount.Destination {
+		case "/pds":
+			suffix = "data"
+		case "/blobs":
+			suffix = "blobs"
+		default:
+			return errors.New("unexpected runtime mount")
+		}
+		if seen[suffix] {
+			return errors.New("duplicate runtime mount")
+		}
+		seen[suffix] = true
+		if mount.Type != "volume" || mount.Name != name+"-"+suffix || !mount.RW {
+			return errors.New("runtime storage configuration differs from policy")
+		}
+	}
+	return nil
 }
