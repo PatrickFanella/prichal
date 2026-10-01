@@ -82,3 +82,26 @@ func TestServiceCustodyFailClosed(t *testing.T) {
 		t.Fatal("malformed custody permitted runtime access")
 	}
 }
+
+func (s *serviceRuntime) Account(_ context.Context, id string, r ServiceRequest) (AccountResult, error) {
+	s.calls++
+	return AccountResult{ServiceResult: ServiceResult{InstanceID: id, ServiceRequest: r}, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"}, nil
+}
+func TestAccountBoundaryRejectsSubjectAndHostOverrides(t *testing.T) {
+	const path = "/v1/instances/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa/account"
+	const good = `{"ticket":"bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb","generation":1,"state":"suspended"}`
+	for _, extra := range []string{`"did":"did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"`, `"password":"PRIVATE"`, `"command":"native-delete"`} {
+		runtime := &serviceRuntime{}
+		w := httptest.NewRecorder()
+		Handler(runtime).ServeHTTP(w, httptest.NewRequest("POST", path, strings.NewReader(strings.TrimSuffix(good, "}")+","+extra+"}")))
+		if w.Code != 400 || runtime.calls != 0 {
+			t.Fatal("unsupported moderation target reached runtime")
+		}
+	}
+	runtime := &serviceRuntime{}
+	w := httptest.NewRecorder()
+	Handler(runtime).ServeHTTP(w, httptest.NewRequest("POST", path, strings.NewReader(good)))
+	if w.Code != 200 || runtime.calls != 1 {
+		t.Fatal("fixed account contract unavailable")
+	}
+}

@@ -11,17 +11,19 @@ import (
 
 // Status is safe to expose only after authorizing the deployment's owner.
 type Status struct {
-	State     string     `json:"state"`
-	Lifecycle string     `json:"lifecycle"`
-	Reason    string     `json:"reason"`
-	CheckedAt *time.Time `json:"checkedAt"`
-	Backup    string     `json:"backup"`
+	State         string     `json:"state"`
+	Lifecycle     string     `json:"lifecycle"`
+	Account       string     `json:"account"`
+	AccountReason string     `json:"accountReason"`
+	Reason        string     `json:"reason"`
+	CheckedAt     *time.Time `json:"checkedAt"`
+	Backup        string     `json:"backup"`
 }
 
 func DeploymentStatus(ctx context.Context, pool *pgxpool.Pool, id string) (Status, error) {
-	result := Status{State: "unknown", Backup: "unconfigured", Lifecycle: "running"}
+	result := Status{State: "unknown", Backup: "unconfigured", Lifecycle: "running", Account: "running"}
 	var desired, state string
-	err := pool.QueryRow(ctx, `SELECT desired_state,state,reason FROM service_operations WHERE deployment_id=$1 ORDER BY generation DESC LIMIT 1`, id).Scan(&desired, &state, &result.Reason)
+	err := pool.QueryRow(ctx, `SELECT desired_state,state,reason FROM service_operations WHERE deployment_id=$1 AND kind='service' ORDER BY generation DESC LIMIT 1`, id).Scan(&desired, &state, &result.Reason)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return result, err
 	}
@@ -29,6 +31,18 @@ func DeploymentStatus(ctx context.Context, pool *pgxpool.Pool, id string) (Statu
 		result.Lifecycle = state
 		if state == "applied" {
 			result.Lifecycle = desired
+		}
+	}
+
+	var accountDesired, accountState string
+	err = pool.QueryRow(ctx, `SELECT desired_state,state,reason FROM service_operations WHERE deployment_id=$1 AND kind='account' ORDER BY generation DESC LIMIT 1`, id).Scan(&accountDesired, &accountState, &result.AccountReason)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return result, err
+	}
+	if err == nil {
+		result.Account = accountState
+		if accountState == "applied" {
+			result.Account = accountDesired
 		}
 	}
 	var bad *bool

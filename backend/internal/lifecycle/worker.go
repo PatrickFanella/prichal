@@ -13,6 +13,7 @@ import (
 
 type Agent interface {
 	Service(context.Context, nodeagent.Peer, string, nodeagent.ServiceRequest) (nodeagent.ServiceResult, error)
+	Account(context.Context, nodeagent.Peer, string, nodeagent.ServiceRequest) (nodeagent.AccountResult, error)
 }
 type Worker struct {
 	river.WorkerDefaults[Args]
@@ -70,9 +71,9 @@ func (w *Worker) perform(ctx context.Context, id string) error {
 	if err = tx.QueryRow(ctx, `SELECT state FROM deployments WHERE id=$1 AND kind='agent' FOR UPDATE`, deployment).Scan(&runtimeState); err != nil {
 		return err
 	}
-	var state, desired string
+	var state, desired, kind string
 	var generation int64
-	if err = tx.QueryRow(ctx, `SELECT state,desired_state,generation FROM service_operations WHERE id=$1 FOR UPDATE`, id).Scan(&state, &desired, &generation); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT state,desired_state,generation,kind FROM service_operations WHERE id=$1 FOR UPDATE`, id).Scan(&state, &desired, &generation, &kind); err != nil {
 		return err
 	}
 	if state != "pending" {
@@ -93,7 +94,21 @@ func (w *Worker) perform(ctx context.Context, id string) error {
 		return err
 	}
 	request := nodeagent.ServiceRequest{Ticket: id, Generation: generation, State: desired}
-	result, err := w.Agent.Service(ctx, peer, deployment, request)
+	var result nodeagent.ServiceResult
+	if kind == "account" {
+		var expectedDID string
+		if err = tx.QueryRow(ctx, `SELECT account_did FROM enrollment_operations WHERE deployment_id=$1 AND state='verified' ORDER BY created_at DESC LIMIT 1`, deployment).Scan(&expectedDID); err != nil {
+			return errors.New("verified native account required")
+		}
+		account, accountErr := w.Agent.Account(ctx, peer, deployment, request)
+		err = accountErr
+		if account.DID != expectedDID {
+			return errors.New("native account identity could not be confirmed")
+		}
+		result = account.ServiceResult
+	} else {
+		result, err = w.Agent.Service(ctx, peer, deployment, request)
+	}
 	if err != nil || result.InstanceID != deployment || result.ServiceRequest != request {
 		return errors.New("native service transition could not be confirmed")
 	}

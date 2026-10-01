@@ -15,6 +15,7 @@ type observerFixture struct {
 	healthy     bool
 	unavailable bool
 	service     *nodeagent.Instance
+	account     *nodeagent.AccountStatus
 }
 
 func (o observerFixture) Capacity(context.Context, nodeagent.Peer) (nodeagent.Capacity, error) {
@@ -28,6 +29,13 @@ func (o observerFixture) Status(_ context.Context, _ nodeagent.Peer, id string) 
 		return *o.service, nil
 	}
 	return nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "running", Healthy: o.healthy}, nil
+}
+
+func (o observerFixture) AccountStatus(context.Context, nodeagent.Peer, string) (nodeagent.AccountStatus, error) {
+	if o.account == nil {
+		return nodeagent.AccountStatus{}, errors.New("unavailable")
+	}
+	return *o.account, nil
 }
 func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
 	pool := testdb.NewRecovery(t)
@@ -132,5 +140,33 @@ func TestReconciliationPreservesHoldOnAmbiguity(t *testing.T) {
 	}
 	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &held}); err == nil {
 		t.Fatal("uncertain lifecycle released recovery hold")
+	}
+	if _, err := pool.Exec(ctx, `UPDATE service_operations SET state='applied',desired_state='running' WHERE id=$1`, operation); err != nil {
+		t.Fatal(err)
+	}
+	running := held
+	running.State = "running"
+	running.Healthy = true
+	var accountOp string
+	if err := pool.QueryRow(ctx, `INSERT INTO service_operations(deployment_id,idempotency_key,generation,desired_state,prior_state,reason,actor,state,kind) VALUES($1,gen_random_uuid(),2,'suspended','running','safety_review','local-test','pending','account') RETURNING id::text`, id).Scan(&accountOp); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &running}); err == nil {
+		t.Fatal("pending moderation released hold")
+	}
+	if _, err := pool.Exec(ctx, `UPDATE service_operations SET state='applied' WHERE id=$1`, accountOp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO enrollment_operations(deployment_id,owner_id,idempotency_key,state,account_did,account_handle,email_confirmed) VALUES($1,$2,gen_random_uuid(),'verified','did:plc:aaaaaaaaaaaaaaaaaaaaaaaa','first.test',true)`, id, owner); err != nil {
+		t.Fatal(err)
+	}
+	account := nodeagent.AccountStatus{AccountResult: nodeagent.AccountResult{ServiceResult: nodeagent.ServiceResult{InstanceID: id, ServiceRequest: nodeagent.ServiceRequest{Ticket: accountOp, Generation: 2, State: "suspended"}}, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"}, Phase: "applied"}
+	wrongAccount := account
+	wrongAccount.Generation = 3
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &running, account: &wrongAccount}); err == nil {
+		t.Fatal("moderation generation mismatch released hold")
+	}
+	if err := Reconcile(ctx, pool, observerFixture{ids: []string{id}, service: &running, account: &account}); err != nil {
+		t.Fatal(err)
 	}
 }

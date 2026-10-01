@@ -194,7 +194,43 @@ func TestDurableOperatorServiceLifecycle(t *testing.T) {
 	if agent.status.ServiceGeneration != 3 || agent.status.State != "running" {
 		t.Fatal("old work undid recovered state")
 	}
+
+	if _, err = pool.Exec(ctx, `INSERT INTO enrollment_operations(deployment_id,owner_id,idempotency_key,state,account_did,account_handle,email_confirmed) VALUES($1,$2,gen_random_uuid(),'verified','did:plc:aaaaaaaaaaaaaaaaaaaaaaaa','first.test',true)`, id, owner); err != nil {
+		t.Fatal(err)
+	}
+	accountRequest := Request{Key: "dddddddd-dddd-4ddd-dddd-dddddddddddd", Kind: "account", State: "suspended", Reason: "safety_review"}
+	account, err := store.Submit(ctx, "local-operator", id, accountRequest)
+	if err != nil || account.Kind != "account" || account.Generation != 4 || account.PriorState != "running" {
+		t.Fatal("account intent lost independent prior state")
+	}
+	sameKey := accountRequest
+	sameKey.Kind = "service"
+	if _, err = store.Submit(ctx, "local-operator", id, sameKey); !errors.Is(err, ErrConflict) {
+		t.Fatal("request key accepted changed lifecycle kind")
+	}
+	if err = worker.Work(ctx, lifecycleJob(account.ID, 1)); err != nil {
+		t.Fatal(err)
+	}
+	serviceRequest := Request{Key: "eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee", State: "suspended", Reason: "maintenance"}
+	service, err := store.Submit(ctx, "local-operator", id, serviceRequest)
+	if err != nil || service.Generation != 5 || service.PriorState != "running" {
+		t.Fatal("service inherited account suspension state")
+	}
+	if err = worker.Work(ctx, lifecycleJob(service.ID, 1)); err != nil {
+		t.Fatal(err)
+	}
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM service_operation_events WHERE operation_id=$1`, op.ID).Scan(&count); err != nil || count != 2 {
 		t.Fatal("audit duplicated during checkpoint replay")
 	}
+}
+
+func (a *fakeAgent) Account(ctx context.Context, peer nodeagent.Peer, id string, r nodeagent.ServiceRequest) (nodeagent.AccountResult, error) {
+	a.calls++
+	a.requests = append(a.requests, r)
+	result := nodeagent.ServiceResult{InstanceID: id, ServiceRequest: r}
+	var err error
+	if a.fail {
+		err = errors.New("PRIVATE HOST CREDENTIAL")
+	}
+	return nodeagent.AccountResult{ServiceResult: result, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"}, err
 }

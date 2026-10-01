@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/observability"
 	"github.com/jackc/pgx/v5"
@@ -123,6 +124,11 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
+	}
+	if r.Kind == "agent" {
+		if err = entitlement.CheckAllocation(ctx, tx, org); err != nil {
+			return Operation{}, err
+		}
 	}
 	err = tx.QueryRow(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,managed_hostname) SELECT id,$1,$2,$3,$4,$5,id::text||'.localhost' FROM (SELECT gen_random_uuid() AS id) identity RETURNING id`, org, r.Name, r.Region, r.Key, r.Kind).Scan(&id)
 	var pgErr *pgconn.PgError

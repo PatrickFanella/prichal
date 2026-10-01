@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,7 +57,7 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 		if err == nil {
 			findings = append(findings, Finding{Subject: subject, Kind: "capacity_exhausted", Active: len(capacity.InstanceIDs) >= capacity.MaximumSlots})
 		}
-		rows, err := pool.Query(ctx, `SELECT d.id::text,d.state,d.updated_at,coalesce(c.desired_state,'running'),coalesce(c.state,'applied'),coalesce(c.generation,0),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,desired_state,state,generation FROM service_operations WHERE deployment_id=d.id ORDER BY generation DESC LIMIT 1) c ON true JOIN instance_placements p ON p.deployment_id=d.id WHERE p.node_id=$1 ORDER BY d.id LIMIT 1001`, peer.NodeID)
+		rows, err := pool.Query(ctx, `SELECT d.id::text,d.state,d.updated_at,coalesce(c.desired_state,'running'),coalesce(c.state,'applied'),coalesce(c.generation,0),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,desired_state,state,generation FROM service_operations WHERE deployment_id=d.id AND kind='service' ORDER BY generation DESC LIMIT 1) c ON true JOIN instance_placements p ON p.deployment_id=d.id WHERE p.node_id=$1 ORDER BY d.id LIMIT 1001`, peer.NodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -95,6 +96,28 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 			}
 			if instance.desired == "suspended" && instance.phase == "applied" {
 				bad = err != nil || status.ID != instance.id || status.Endpoint != nodeagent.LocalEndpoint(instance.id) || status.State != "suspended" || status.Healthy || status.ServiceGeneration != instance.generation || status.ServiceTicket != instance.ticket || status.ServicePhase != "applied"
+			}
+
+			var accountGeneration int64
+			var accountPhase, accountDesired, accountTicket, expectedAccountDID string
+			accountErr := pool.QueryRow(ctx, `SELECT generation,state,desired_state,id::text,coalesce((SELECT account_did FROM enrollment_operations WHERE deployment_id=$1 AND state='verified' ORDER BY created_at DESC LIMIT 1),'') FROM service_operations WHERE deployment_id=$1 AND kind='account' ORDER BY generation DESC LIMIT 1`, instance.id).Scan(&accountGeneration, &accountPhase, &accountDesired, &accountTicket, &expectedAccountDID)
+			if accountErr != nil && !errors.Is(accountErr, pgx.ErrNoRows) {
+				return nil, accountErr
+			}
+			if accountErr == nil {
+				if accountPhase != "applied" {
+					bad = true
+				} else if !bad && instance.desired != "suspended" {
+					inspector, ok := observer.(interface {
+						AccountStatus(context.Context, nodeagent.Peer, string) (nodeagent.AccountStatus, error)
+					})
+					if !ok {
+						bad = true
+					} else {
+						account, err := inspector.AccountStatus(ctx, peer, instance.id)
+						bad = err != nil || account.InstanceID != instance.id || expectedAccountDID == "" || account.DID != expectedAccountDID || account.State != accountDesired || account.Generation != accountGeneration || account.Ticket != accountTicket || account.Phase != "applied"
+					}
+				}
 			}
 			findings = append(findings, Finding{Subject: "deployment/" + instance.id, DeploymentID: instance.id, Kind: "runtime_unhealthy", Active: bad})
 			if bad || instance.desired == "suspended" {
