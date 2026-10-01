@@ -100,3 +100,12 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - `./scripts/dev.sh smoke` passed frontend build, Go vet and race tests. Basic runtime qualification also passed SQLite integrity, invite/blob-volume persistence and stopped-runtime failure detection after populated account qualification.
 - Product enrollment expiry, wrong-tenant invitations, account/disk limits, public DNS/TLS, approved live email and downstream relay/indexing remain open. This does not complete #4, #8 or #9.
 - [PR #37](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/37) passed [CI run 11362](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11362) at `22ea5ca`.
+
+## Fail-closed local registration qualification
+
+- The pinned PDS has no native invitation expiry field. A local ingress guard now checks a tenant-bound lease at registration admission for both supported XRPC and OAuth signup routes. It receives no password body. Registration stays closed for invalid/expired policy or unavailable guard.
+- The qualification broker closes registration before revoking unused old codes, checking its 32-repository fixture ceiling and publishing a new 15-minute lease with one-use native code. Durable policy publication and serial qualification prevent accidental overlapping runs.
+- Actual qualification rejected expired, wrong-tenant, malformed, future-issued and excessive leases. Case, trailing-slash and encoded XRPC aliases also failed closed. Stopping the guard blocked registration with 502 while PDS health stayed 200. Recovery preserved the lease. Renewing an invitation revoked the previous unused code, and used-code replay failed.
+- The fixture account journey still passed identity/email, signed repository/media, stream events and restart persistence with the guard enabled. Product owner authorization, bounded recovery, persisted enrollment status and agent guard integration remain open for #8. The fixture ceiling is not a shared-hosting account limit.
+- Managed local PDS health currently proves transport only. Upstream derives its advertised PDS URL from hostname/port configuration; the agent's advertised HTTPS URL on port 443 must be reconciled with its current HTTP ingress on a reserved local port before creating identities there. Its PLC URL remains disabled, so no incorrect public identity was created.
+- `./scripts/dev.sh smoke` passed build, vet and race tests for this slice. The actual pinned Caddy binary validated the guard configuration.

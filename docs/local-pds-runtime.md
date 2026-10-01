@@ -44,4 +44,16 @@ This removes only fixture containers and networks, retaining its volumes. `up` r
 
 The script restarts only the qualification PDS and protocol fixture. It then verifies login, confirmed email, identity, record and uploaded media persistence. It retains the account and record for later recovery drills. Passwords stay in owner-only `.local/account-fixtures/` files; access/refresh tokens are not written or printed. Run this command only when the isolated fixture is not in use.
 
-This is protocol and transport evidence on localhost. It does not implement the product's expiring enrollment flow, test account limits, approve a production email sender or prove discovery/indexing by an external relay. Local managed agent PDS instances still have public identity disabled and do not use this fixture.
+This is protocol and transport evidence on localhost. It does not implement owner-authorized product enrollment, enforce shared-hosting account/disk limits, approve a production email sender or prove discovery/indexing by an external relay. Local managed agent PDS instances still have public identity disabled and do not use this fixture.
+
+## Local registration expiry
+
+The pinned PDS supports one-use invitations without an expiry field. The qualification ingress therefore checks a separate 15-minute lease before both XRPC and upstream OAuth registration. It forwards a GET authorization check and does not send the password body to the guard. The lease is checked on every request. Missing, malformed, wrong-tenant, future-issued, excessive-duration and expired policies deny registration. An unavailable guard also blocks registration while existing PDS health remains available. Case, encoded-path and trailing-slash aliases are checked.
+
+The operator-only fixture broker closes registration, revokes retained unused native codes, checks its 32-repository qualification ceiling, issues one native invitation and atomically publishes its bounded lease. Recovery cannot reactivate an old unused code. The account journey closes registration after verifying code reuse rejection. Existing accounts can still log in and write data.
+
+Qualification runs hold an exclusive local directory lock. A hard-killed run leaves `.local/account-fixtures/qualification.lock` for review; check that the previous process is absent before removing that empty generated lock directory. Do not run qualification concurrently.
+
+This is a fixture guard, not the management enrollment API. Product work still needs owner/session authorization, persisted request/recovery limits, worker-to-agent integration, invitation status and per-instance guard policy. Managed agent PDS instances remain closed to identity work until their advertised endpoint matches their ingress and local identity/mail fixtures are configured. The expiry check is admission-time validation; it does not cancel an already accepted upstream request.
+
+The guard uses Caddy's documented [forward authorization](https://caddyserver.com/docs/caddyfile/directives/forward_auth) and [decoded regular-expression path matching](https://caddyserver.com/docs/caddyfile/matchers#path_regexp). The pinned Caddy binary validated this configuration during local qualification.
