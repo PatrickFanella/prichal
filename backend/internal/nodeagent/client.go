@@ -204,3 +204,41 @@ func (c *Client) Enroll(ctx context.Context, peer Peer, id, ticket string) (Enro
 	}
 	return result, nil
 }
+
+// Export authenticates the registered node before requesting the expected sole native actor.
+func (c *Client) Export(ctx context.Context, peer Peer, id, did string) (PortableExport, error) {
+	if !instanceID.MatchString(id) || !accountDID.MatchString(did) {
+		return PortableExport{}, errors.New("invalid portable export reference")
+	}
+	client, err := c.httpClient(peer)
+	if err != nil {
+		return PortableExport{}, err
+	}
+	defer client.CloseIdleConnections()
+	body, marshalErr := json.Marshal(struct {
+		DID string `json:"did"`
+	}{did})
+	if marshalErr != nil {
+		return PortableExport{}, marshalErr
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/export", bytes.NewReader(body))
+	if err != nil {
+		return PortableExport{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return PortableExport{}, errors.New("registered node export unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return PortableExport{}, errors.New("registered node export could not be confirmed")
+	}
+	var result PortableExport
+	decoder := json.NewDecoder(io.LimitReader(response.Body, (24<<20)+1))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || !result.ValidFor(did) {
+		return PortableExport{}, errors.New("registered node portable export invalid")
+	}
+	return result, nil
+}
