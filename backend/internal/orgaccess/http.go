@@ -95,6 +95,32 @@ func (s *Store) Register(sessions Sessions) func(*http.ServeMux) {
 			}
 			reply(w, 200, v)
 		})
+		bind("GET /api/team/incoming/invitations/page", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
+			after, err := listQuery(r.URL.RawQuery, "after", 320)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			v, err := s.IncomingInvitationsPage(r.Context(), a.OwnerID, after)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			reply(w, 200, v)
+		})
+		bind("GET /api/team/incoming/transfers/page", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
+			after, err := listQuery(r.URL.RawQuery, "after", 320)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			v, err := s.IncomingTransfersPage(r.Context(), a.OwnerID, after)
+			if err != nil {
+				failure(w, err)
+				return
+			}
+			reply(w, 200, v)
+		})
 		bind("GET /api/team/organizations/{id}", false, func(w http.ResponseWriter, r *http.Request, a auth.Session) {
 			v, err := s.Shared(r.Context(), a.OwnerID, r.PathValue("id"))
 			if err != nil {
