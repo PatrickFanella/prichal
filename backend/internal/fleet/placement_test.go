@@ -28,7 +28,7 @@ func TestCapacityReservations(t *testing.T) {
 	}
 	ids := make([]string, 2)
 	for i := range ids {
-		if err := pool.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key) VALUES($1,$2,'local',$2) RETURNING id`, org, []string{"one", "two"}[i]).Scan(&ids[i]); err != nil {
+		if err := pool.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,managed_hostname) VALUES($1,$2,'local',$2,$2||'.localhost') RETURNING id`, org, []string{"one", "two"}[i]).Scan(&ids[i]); err != nil {
 			t.Fatal(err)
 		}
 	}

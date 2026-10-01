@@ -103,7 +103,7 @@ func (c *Client) Ensure(ctx context.Context, peer Peer, id string) (Instance, er
 	var result Instance
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 2048))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&result) != nil || result.ID != id || (result.State != "running" && result.State != "starting") {
+	if decoder.Decode(&result) != nil || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting") {
 		return Instance{}, errors.New("invalid node reconciliation response")
 	}
 	return result, nil

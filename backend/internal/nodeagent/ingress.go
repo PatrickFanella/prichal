@@ -1,0 +1,136 @@
+package nodeagent
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+)
+
+// CaddyImage is a pinned, service-managed local ingress release.
+const CaddyImage = "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"
+const roleLabel = "tv.subcult.pds-ass.role"
+
+// LocalEndpoint derives a stable loopback qualification hostname and port from the operation ID.
+func LocalEndpoint(id string) string {
+	if !instanceID.MatchString(id) {
+		return ""
+	}
+	prefix, err := strconv.ParseUint(id[:4], 16, 16)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("http://%s.localhost:%d", id, 36000+prefix%10000)
+}
+func (d *Docker) ingress(ctx context.Context, id string) error {
+	pdsName := "pds-ass-tenant-" + id
+	name := "pds-ass-edge-" + id
+	network := pdsName + "-network"
+	var current inspected
+	status, err := d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current)
+	if err != nil && status != 404 {
+		return err
+	}
+	configDirectory := filepath.Join(d.directory, id+"-edge")
+	configPath := filepath.Join(configDirectory, "Caddyfile")
+	if status == 404 {
+		if err = os.MkdirAll(configDirectory, 0700); err != nil {
+			return err
+		}
+		info, err := os.Lstat(configDirectory)
+		if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+			return errors.New("unsafe ingress configuration directory")
+		}
+		configuration := fmt.Sprintf("{\n auto_https off\n admin off\n}\n:80 {\n @allowed host %s.localhost\n handle @allowed {\n  reverse_proxy %s:2583\n }\n handle {\n  respond \"Unknown PDS host\" 421\n }\n}\n", id, pdsName)
+		if existing, err := os.ReadFile(configPath); err == nil {
+			info, err := os.Lstat(configPath)
+			if err != nil || !info.Mode().IsRegular() || string(existing) != configuration {
+				return errors.New("ingress configuration differs from policy")
+			}
+		} else if errors.Is(err, os.ErrNotExist) {
+			file, err := os.OpenFile(configPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+			if err != nil {
+				return err
+			}
+			if _, err = file.WriteString(configuration); err != nil {
+				file.Close()
+				return err
+			}
+			if err = file.Sync(); err != nil {
+				file.Close()
+				return err
+			}
+			if err = file.Close(); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+		const ingressNetwork = "pds-ass-agent-ingress"
+		var existing struct {
+			Labels   map[string]string
+			Internal bool
+		}
+		networkStatus, err := d.call(ctx, "GET", "/networks/"+ingressNetwork, nil, &existing)
+		if err == nil && (existing.Internal || existing.Labels[roleLabel] != "ingress-network") {
+			return errors.New("foreign ingress network conflict")
+		}
+		if err != nil && networkStatus != 404 {
+			return err
+		}
+		if networkStatus == 404 {
+			if _, err = d.call(ctx, "POST", "/networks/create", map[string]any{"Name": ingressNetwork, "Internal": false, "Labels": map[string]string{roleLabel: "ingress-network"}}, nil); err != nil {
+				return err
+			}
+		}
+		endpoint := LocalEndpoint(id)
+		port := endpoint[len(endpoint)-5:]
+		if _, err = strconv.Atoi(port); err != nil {
+			return errors.New("invalid local endpoint port")
+		}
+		payload := map[string]any{"Image": CaddyImage, "Labels": map[string]string{label: id, roleLabel: "ingress"}, "ExposedPorts": map[string]any{"80/tcp": map[string]any{}}, "HostConfig": map[string]any{"Binds": []string{configPath + ":/etc/caddy/Caddyfile:ro"}, "NetworkMode": network, "Memory": int64(128 << 20), "NanoCpus": int64(250000000), "PidsLimit": 64, "CapDrop": []string{"ALL"}, "CapAdd": []string{"NET_BIND_SERVICE"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"80/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": port}}}, "RestartPolicy": map[string]string{"Name": "no"}}, "NetworkingConfig": map[string]any{"EndpointsConfig": map[string]any{network: map[string]any{}, ingressNetwork: map[string]any{}}}}
+		status, err = d.call(ctx, "POST", "/containers/create?name="+name, payload, nil)
+		if err != nil && status != 409 {
+			return err
+		}
+		if _, err = d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current); err != nil {
+			return err
+		}
+	}
+	if len(current.NetworkSettings.Networks) != 2 || current.NetworkSettings.Networks[network] == nil || current.NetworkSettings.Networks["pds-ass-agent-ingress"] == nil {
+		return errors.New("ingress networks differ from policy")
+	}
+	if current.Config.Image != CaddyImage || current.Config.Labels[label] != id || current.Config.Labels[roleLabel] != "ingress" || current.HostConfig.Privileged || current.HostConfig.Memory != 128<<20 || current.HostConfig.NanoCpus != 250000000 || current.HostConfig.PidsLimit != 64 || current.HostConfig.NetworkMode != network || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.CapAdd) != 1 || current.HostConfig.CapAdd[0] != "NET_BIND_SERVICE" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" || len(current.HostConfig.Binds) != 1 || current.HostConfig.Binds[0] != configPath+":/etc/caddy/Caddyfile:ro" || len(current.Mounts) != 1 || current.Mounts[0].Type != "bind" || current.Mounts[0].Source != configPath || current.Mounts[0].Destination != "/etc/caddy/Caddyfile" || current.Mounts[0].RW {
+		return errors.New("ingress runtime differs from policy")
+	}
+	if !current.State.Running {
+		if _, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func localIngressHealthy(ctx context.Context, id string) bool {
+	endpoint, err := url.Parse(LocalEndpoint(id))
+	if err != nil {
+		return false
+	}
+	request, err := http.NewRequestWithContext(ctx, "GET", "http://127.0.0.1:"+endpoint.Port()+"/xrpc/_health", nil)
+	if err != nil {
+		return false
+	}
+	request.Host = endpoint.Host
+	client := &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("ingress redirects rejected") }}
+	response, err := client.Do(request)
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	return response.StatusCode == 200
+}

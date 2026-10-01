@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 type Event = { state: string; message: string; createdAt: string };
-type Operation = { kind: 'test' | 'agent'; id: string; name: string; state: string; message: string; events: Event[] };
+type Operation = { endpoint: string; managedHostname: string; kind: 'test' | 'agent'; id: string; name: string; state: string; message: string; events: Event[] };
 function object(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
+function localEndpoint(value: unknown, hostname: unknown): boolean {
+  if (value === '') return true;
+  if (typeof value !== 'string' || typeof hostname !== 'string') return false;
+  try { const endpoint = new URL(value); return endpoint.protocol === 'http:' && endpoint.hostname === hostname && /^[a-f0-9-]{36}\.localhost$/.test(hostname) && Number(endpoint.port) >= 36000 && Number(endpoint.port) < 46000 && !endpoint.username && !endpoint.password && endpoint.pathname === '/' && !endpoint.search && !endpoint.hash; } catch { return false; }
+}
 function operation(value: unknown): value is Operation {
-  return object(value) && (value.kind === 'test' || value.kind === 'agent') && typeof value.id === 'string' && typeof value.name === 'string' &&
+  return object(value) && typeof value.endpoint === 'string' && typeof value.managedHostname === 'string' && localEndpoint(value.endpoint, value.managedHostname) && (value.kind === 'test' || value.kind === 'agent') && typeof value.id === 'string' && typeof value.name === 'string' &&
     typeof value.state === 'string' && ['queued', 'configuring', 'checking', 'ready', 'failed'].includes(value.state) &&
     typeof value.message === 'string' && Array.isArray(value.events) && value.events.every(event =>
       object(event) && typeof event.state === 'string' && typeof event.message === 'string' && typeof event.createdAt === 'string');
@@ -64,7 +69,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
     <h4>Servers</h4><p>Local qualification. Public hosting is unavailable.</p>
     {error && <p role="alert">{error}</p>}
     {!loaded && <p role="status">Loading deployments...</p>}
-    <ul>{operations.map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p><p role="status">{item.state}: {item.message}</p><details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
+    <ul>{operations.map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">Open local PDS health</a></p>}<p role="status">{item.state}: {item.message}</p><details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
     <form onSubmit={event => { void submit(event); }}>
       <label htmlFor={`kind-${organizationId}`}>Deployment mode</label>
       <select id={`kind-${organizationId}`} value={kind} disabled={busy || uncertain} onChange={event => setKind(event.target.value === 'agent' ? 'agent' : 'test')}><option value="test">Simulate deployment</option><option value="agent">Create a local PDS</option></select>

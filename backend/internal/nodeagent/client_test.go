@@ -23,7 +23,7 @@ type clientRuntime struct{ calls int }
 
 func (r *clientRuntime) Ensure(_ context.Context, id string) (Instance, error) {
 	r.calls++
-	return Instance{ID: id, State: "running", Healthy: true}, nil
+	return Instance{ID: id, Endpoint: LocalEndpoint(id), State: "running", Healthy: true}, nil
 }
 func (r *clientRuntime) Capacity(context.Context) (Capacity, error) {
 	return Capacity{MaximumSlots: 2, CPUs: 8, MemoryBytes: 8 << 30, InstanceIDs: []string{}}, nil
