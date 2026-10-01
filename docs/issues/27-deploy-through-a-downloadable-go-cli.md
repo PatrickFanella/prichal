@@ -34,3 +34,7 @@ The CLI is optional; npm delivery is not required and fleet/provider credentials
 
 Phase: M5 - Additional access and portability. Priority: P2.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+## Local runtime evidence
+
+[CLI qualification](../local-customer-cli.md) includes the actual local device/deployment interruption drill and repeated offline checks on native macOS ARM64, translated macOS AMD64 and Linux ARM64. Five-target checksums passed. Intel hardware, Linux AMD64, Windows runtime/ACLs, installation, signing, published release and live onboarding remain open. These checks do not complete the platform release acceptance criterion.

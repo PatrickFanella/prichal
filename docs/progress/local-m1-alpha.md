@@ -608,3 +608,11 @@ The pre-fix download body, with only an injected artifact-reader seam, disclosed
 Final full smoke passed. Repeat actual read-only drill `f4900482-269c-4f15-b50d-0c17a36fbd5e` completed at 20:18:04Z against all four retained version 1/2 archives. Owned downloads/inventory, scope denials and independent offline signatures/media passed. Source work, sealed artifacts and native custody matched the baseline. No source expiry reset, new capture, target allocation or identity mutation occurred. Schema remains 26; retained native resources and recovery copies remain untouched.
 
 PR #82 commit `b0cb80b` and #83 commit `23097f5` passed remote CI runs 11580/11583. PR #84 run 11584 is in progress. No actionable findings remain in the disclosure-guard review after the corrected expiry regression and final gate.
+
+## Repeated offline CLI platform checks
+
+Fresh five-target binaries and checksum metadata passed the optional local runtime qualifier. Drill `f5740f1d-b4b4-40b7-b6e8-fd48983a66aa` completed at 20:22:34Z on native macOS ARM64, macOS AMD64 through Rosetta and isolated Linux ARM64. Each passed version, root/deploy help, three shell completions and noninteractive unknown-command/missing-sign-in exits with separate output streams. The first script attempt expected `sign in` while the actual diagnostic says `sign-in`; correcting the assertion allowed the unchanged binary to pass.
+
+All five checksums matched before/after, private configurations remained empty, and existing containers/volumes matched the baseline. No account authorization, API request, new image, installation or publication occurred. Translated startup took 1,879 ms before later 14–17 ms cases; cold-start, Intel hardware, Linux AMD64, Windows/ACL, signing and live onboarding gates remain open. See [CLI distribution evidence](../local-customer-cli.md).
+
+PR #84 commit `5217351` passed CI 11584. PR #85 commit `c102822` passed CI 11585. The final CLI runtime full smoke gate passed. Completion checks validate generated text only; shell integration remains unqualified.
