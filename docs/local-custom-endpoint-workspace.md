@@ -18,6 +18,10 @@ A separate read-only fixture displayed a 244-character hostname, TXT instruction
 
 The disconnect prevented restoration of that last browser fixture. It intercepts scoped endpoint mutations rather than forwarding them; the synthetic cancellation intent cannot submit automatically. Source checks after the disconnect still showed five cancelled choices/ten audits, zero pending choices and unchanged management/native work. The current browser may retain the fixture and synthetic intent; do not treat its displayed address as actual server state.
 
+## Subsequent qualification
+
+The earlier disconnect is historical. The remaining five-width and cache-denial checks passed in an isolated headless browser after T3 explicitly reported no automation host. The shared browser reconnected, original fetch was restored, actual null choice loaded and its synthetic request cleared at 19:46:38Z. See [observation controls](local-endpoint-observation-controls.md) for exact evidence, the mobile layout fix and remaining gates. Shared-browser fixture cleanup is complete.
+
 ## Browser cleanup after reconnect
 
 Restore the original fetch saved as `window.endpointWidthOriginalFetch`, if it exists, or navigate afresh to remove the temporary function. Refresh saved choice and wait for the actual null result. The retained cancellation is for synthetic choice `55555555-5555-4555-8555-555555555555` under local organization `a982ab3f-19d0-4bc6-a6b1-7fc7a16c193c`. Review and clear that browser request through the UI after the actual read. Do not submit its cancellation. Then rerun the remaining viewport and denied-read checks. Private metadata remains in `.local/endpoint-workspace-browser.json`.
