@@ -19,7 +19,8 @@ case "${1:-help}" in
   up) "${compose[@]}" up -d ;;
   check) node scripts/check-pds.mjs ;;
   qualify) node scripts/qualify-pds.mjs ;;
+  qualify-account) node scripts/qualify-account.mjs ;;
   restart) "${compose[@]}" restart pds ;;
   down) "${compose[@]}" down ;;
-  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|restart|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|restart|down}\n'; exit 2 ;;
 esac
