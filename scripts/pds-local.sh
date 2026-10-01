@@ -20,7 +20,8 @@ case "${1:-help}" in
   check) node scripts/check-pds.mjs ;;
   qualify) node scripts/qualify-pds.mjs ;;
   qualify-account) node scripts/qualify-account.mjs ;;
+  qualify-recovery) node scripts/qualify-recovery.mjs ;;
   restart) "${compose[@]}" restart pds ;;
   down) "${compose[@]}" down ;;
-  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|restart|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|qualify-recovery|restart|down}\n'; exit 2 ;;
 esac

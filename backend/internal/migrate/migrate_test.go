@@ -49,6 +49,45 @@ func TestMigrationLifecycle(t *testing.T) {
 	}
 }
 
+func TestLocalTLSDataUpgrade(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var owner, org, id string
+	if err := pool.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES('fixture','tls','TLS') RETURNING id`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'TLS',$1) RETURNING id`, owner).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,kind,state,managed_hostname,endpoint_url) VALUES($1,'tls','local','tls-1','agent','ready','fixture.localhost','http://fixture.localhost:44292') RETURNING id`, org).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	// Version 7 changes data only. Reconstruct the preceding version's URL and marker.
+	if _, err := pool.Exec(ctx, `DROP TABLE hosting_exit_reversals,hosting_exit_events,hosting_exits; DROP TABLE export_events,export_operations; DROP TABLE support_inspections; DROP TABLE billing_subscription_observations,billing_events,billing_customer_bindings; DROP TABLE pilot_entitlement_operations; DROP TABLE cli_approval_attempts,cli_credentials,cli_device_grants; DROP TABLE service_operation_events,service_operations; DROP TABLE instance_usage; DROP TABLE hosting_node_policy_events; DROP TABLE handle_events,handle_configurations; DROP TABLE enrollment_events; DROP TABLE enrollment_operations; DROP TABLE service_probe_runs; DROP TABLE service_observations; DROP TABLE recovery_retained_namespaces; DROP TABLE management_recovery; UPDATE schema_version SET version=6`); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var hostname, endpoint, state string
+	if err := pool.QueryRow(ctx, `SELECT managed_hostname,endpoint_url,state FROM deployments WHERE id=$1`, id).Scan(&hostname, &endpoint, &state); err != nil {
+		t.Fatal(err)
+	}
+	if hostname != "fixture.localhost" || endpoint != "https://fixture.localhost:44292" || state != "ready" {
+		t.Fatalf("unexpected identity change: %s %s %s", hostname, endpoint, state)
+	}
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var events int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM deployment_events WHERE deployment_id=$1`, id).Scan(&events); err != nil || events != 1 {
+		t.Fatalf("upgrade audit: %d %v", events, err)
+	}
+}
+
 func TestVersionOneUpgradeAndUnownedData(t *testing.T) {
 	for _, populated := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "unowned organization"}[populated], func(t *testing.T) {

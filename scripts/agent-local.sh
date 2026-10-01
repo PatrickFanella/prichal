@@ -43,5 +43,12 @@ case "${1:-help}" in
     [[ "$instance_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] || { printf 'Supply a lowercase instance UUID.\n' >&2; exit 2; }
     curl --silent --show-error --fail --max-time 30 --cacert "$agent_certs/ca.crt" --cert "$agent_certs/worker.crt" --key "$agent_certs/worker.key" -X PUT -H 'Content-Type: application/json' --data '{}' "https://127.0.0.1:9091/v1/instances/$instance_id"
     ;;
-  *) printf 'Usage: scripts/agent-local.sh {init|run|ensure INSTANCE_UUID}\n'; exit 2 ;;
+  certificate)
+    instance_id="${2:-}"
+    [[ "$instance_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] || { printf 'Supply a lowercase instance UUID.\n' >&2; exit 2; }
+    umask 077
+    openssl x509 -in "$agent_root/state/$instance_id-tls.pem" -out "$agent_root/$instance_id-public.crt"
+    printf 'Public fixture certificate exported to %s\n' "$agent_root/$instance_id-public.crt"
+    ;;
+  *) printf 'Usage: scripts/agent-local.sh {init|run|ensure INSTANCE_UUID|certificate INSTANCE_UUID}\n'; exit 2 ;;
 esac
