@@ -105,6 +105,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if _, err = client.Ensure(context.Background(), peer, nodeID); err != nil {
 		t.Fatal(err)
 	}
+	if usage, usageErr := client.Usage(context.Background(), peer, nodeID); usageErr != nil || usage.Accounts != 1 {
+		t.Fatal("registered usage failed")
+	}
 	if _, err = client.Capacity(context.Background(), peer); err != nil {
 		t.Fatal(err)
 	}
@@ -121,4 +124,8 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if runtime.calls != 1 {
 		t.Fatalf("invalid peer reached runtime: %d", runtime.calls)
 	}
+}
+
+func (r *clientRuntime) Usage(_ context.Context, id string) (Usage, error) {
+	return Usage{InstanceID: id, DataBytes: 1000, BlobBytes: 68, DataFiles: 20, BlobFiles: 1, Accounts: 1, FilesystemBytes: 8 << 30, FilesystemAvailableBytes: 4 << 30, ObservedAtMillis: time.Now().UnixMilli()}, nil
 }

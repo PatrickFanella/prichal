@@ -68,6 +68,25 @@ func Handler(runtime Runtime) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(result)
 	})
+	mux.HandleFunc("GET /v1/instances/{id}/usage", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			Usage(context.Context, string) (Usage, error)
+		})
+		if !ok {
+			http.Error(w, "usage unavailable", 503)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		result, err := provider.Usage(ctx, r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "usage unavailable", 503)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("POST /v1/instances/{id}/enrollment", func(w http.ResponseWriter, r *http.Request) {
 		provider, ok := runtime.(interface {
 			Enroll(context.Context, string, string) (Enrollment, error)
@@ -123,6 +142,10 @@ func Handler(runtime Runtime) http.Handler {
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && r.URL.Path == "/v1/capacity" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/usage") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/usage")) {
 			mux.ServeHTTP(w, r)
 			return
 		}
