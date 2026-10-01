@@ -312,3 +312,15 @@ Actual drill `afc197b2-f48c-4328-a270-66ab42091cef` completed at 2026-10-01T11:3
 No Stripe sandbox resources or charges were created. Checkout/portal, paid permissions, grace/risk policy, periodic reconciliation, tax, notification and live billing gates remain open for #18. See [local billing inbox](../local-billing-inbox.md).
 
 Fresh schema 19 management recovery `e10ebba7-f473-40b8-95cb-ad7e9b51b458` matched all 33 management/River tables and sequences, including eight billing events and 29 River jobs. The restored hold revoked copied authentication and refused worker startup. Exact host reconciliation and lost-checkpoint replay preserved source rows/sequences, populated signed data/media and protected host state. Reports remain in `.local/management-recovery/e10ebba7-f473-40b8-95cb-ad7e9b51b458/`. Source management writers were paused across capture/replay and resumed with billing disabled afterward.
+
+Billing inbox [PR #59](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/59) passed [CI run 11424](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11424) at `9841a92`.
+
+### Bounded tenant CPU pressure and cgroup OOM
+
+The local resource drill checks actual one-CPU, 768 MiB RAM, additional 768 MiB swap and 128-PID cgroup limits before applying fixed probes to Bob. Two worker threads run for five seconds. A finite memory probe increases its own OOM selection score and touches bounded buffers. Alice uses one native login and repeated authenticated session reads. Before and after, operator export verifies both signed repositories and every referenced blob; container IDs and protected host files must match.
+
+Final drill `2834130d-97ff-4b89-b80b-02a664f71ca0` completed at 2026-10-01T11:56:04Z. The CPU throttle counter increased by 50. Memory-limit events increased by 2,213 and the cgroup recorded one OOM kill; the probe exited 137. All 67 neighbor authenticated reads passed, with a worst observed response of 103 milliseconds. Both tenants retained signed data/media, containers and protected custody/lifecycle/admission state. No native records or management lifecycle intents changed.
+
+An initial cgroup helper failed before pressure due to a generated newline and was corrected. The first successful probe used repeated logins; an immediate repeat hit native rate protection before pressure. The final version reuses one session and passed after the login window reset. Private reports remain under `.local/resource-pressure/`, including the earlier successful drill `2558830d-7352-4f17-b518-df62aca256ff`. Full smoke and final script syntax checks passed.
+
+This is local fixed-probe evidence for #16. PID exhaustion, storage/account limits, sustained request load, bandwidth limits, hostile-tenant security and independent host failure boundaries remain open. See [resource pressure](../local-resource-pressure.md).
