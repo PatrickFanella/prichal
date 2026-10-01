@@ -550,3 +550,15 @@ A long-address/TXT/synthetic-review fixture passed the 320×568 overflow/bounds 
 Schema remains 26 with the retained 49-table checkpoint; the new browser receipt follows its snapshot. Source API/worker/monitor retain fixture permissions disabled and both admission policies open. No native container, volume or recovery-copy deletion occurred.
 
 The final browser smoke gate passed. PR #79 commit `85879a8` passed remote CI run 11560. Remaining browser checks and cleanup stay open after the connection loss.
+
+## Transient endpoint TXT observation
+
+The local current/original owner can request a bounded read-only observation of a saved TXT challenge. No customer resolver or URL is accepted. Cancelled/expired/local-test choices send no query; public DNS answers are bounded and raw records/errors are omitted. Scope, proof identity, cancellation and expiry are rechecked after lookup. A match creates no saved state, audit, domain claim or activation authority. See [DNS observation](../local-endpoint-dns-observation.md).
+
+Full smoke and focused race/coverage verification passed with 84.5% package statement coverage. Tests cover exact/duplicate/other scoped challenges, missing/oversized/error responses, deadline/parent cancellation and cancellation/expiry/ownership/proof changes during lookup. Strict empty JSON, browser Origin/CSRF, CLI and unchanged production boundaries passed.
+
+Actual drill `72c2f4bb-7acc-4fdc-be2f-98362ee0ef3d` completed at 19:24:00Z. Local-test guidance and denial checks passed; observations left choice/audits unchanged. Separate cancellation retained the new receipt. Six cancelled choices/twelve audits and zero pending choices remain. Jobs, endpoints, admission policies and native data/custody matched the baseline. Positive public DNS matching remains injected-test evidence only.
+
+Expiry and the reported check time now share one PostgreSQL statement timestamp. The final smoke/coverage gates passed, and the updated API reread the cancelled receipt at 19:26:27Z without authority. Schema remains 26; the earlier 49-table checkpoint predates later browser/DNS receipts. Source services retain fixture permissions disabled and both admission policies open. No native resource or recovery copy was removed.
+
+PR #80 commit `397abfb` passed remote CI run 11561. Disconnected browser-fixture cleanup/remaining viewports/cache denial, observation UI, controlled public DNS, exclusive verified claims, routing/TLS/activation and migration remain open.
