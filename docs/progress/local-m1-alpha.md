@@ -236,3 +236,11 @@ The final actual drill completed at 2026-10-01T09:04:20Z. It captured 15 files a
 The final measured cold drill took 7.087 seconds on this tiny localhost fixture. Report: `.local/managed-recovery/e597f6a7-f5cb-4666-8141-d85a9e83df52/report.json`. The first managed drill also restored successfully, then the final drill added signed-write and identity-rotation verification. Both retain stopped fresh/staging resources and separate private encryption keys. The shared fixture snapshot contains other development identities/mail and is operator recovery material, never a customer export. Independent custody, scheduling, retention, realistic data sizes, host/management keys and live recovery remain open. See [managed tenant recovery](../local-managed-recovery.md).
 
 Native usage [PR #51](https://git.subcult.tv/PatrickFanella/pds-ass/pulls/51) passed [CI run 11402](https://git.subcult.tv/PatrickFanella/pds-ass/actions/runs/11402) at `f72b6c8`.
+
+### Failed candidate and untouched-source rollback rehearsal
+
+The managed recovery helper now accepts only a fixed `--candidate-health-fault` option. The candidate runs against fresh restored volumes, with a fixed exiting command in the pinned image. The original remains fenced and untouched until candidate writers stop. The report distinguishes failed staging from a successful restored runtime and never claims a distinct release was qualified.
+
+Actual Bob rehearsal completed at 2026-10-01T09:12:49Z. The encrypted snapshot retained 15 files and 5 SQLite databases. The candidate failed health checks; its writers stopped before the original resumed at the same endpoint. Its 3 signed records, referenced blob, native container and source identity remained intact. Report: `.local/managed-recovery/c496de19-21af-4d17-a319-d7f838220e7e/report.json`. The 3.703-second local measurement is a small failure rehearsal, not a migrated-data rollback or production RTO claim.
+
+A current registry inspection resolved `pds:0.4` to our existing immutable digest. No distinct release was selected. Reviewed release/schema compatibility, canary promotion, lifecycle serialization and real cross-version rollout remain open for #15. See [release rehearsal](../local-release-rehearsal.md).
