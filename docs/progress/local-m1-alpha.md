@@ -708,3 +708,7 @@ An explicit fixed-local test restored a PostgreSQL dump with three synthetic cla
 ## TXT observation recovery fence, October 1
 
 Found and reproduced standalone observations bypassing held/missing recovery state before and during DNS. Both scoped reads now use the same short owner/recovery transaction as endpoint choices, released before network lookup. Four red regression cases then passed, including HTTP 503 with no proof disclosure and no pre-hold DNS. No schema or claim authority changed. Focused package race checks and local smoke passed. Persistent DNS request budgets and live qualification remain open.
+
+## Dynamic recovery readiness, October 1
+
+Reproduced the API reporting ready after a recovery hold was introduced at runtime. Readiness now composes current schema and recovery checks under the existing request deadline; startup refusal is preserved and the monitor's schema-only probe remains available. A disposable database verified real hold/reconciliation transitions and refusal for missing ledger, wrong schema and closed pool. No source hold or native mutation was introduced. Focused race and full local smoke passed. Browser copy now describes unconfirmed readiness without assuming database reachability. See [held recovery](../local-held-recovery.md).
