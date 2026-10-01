@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/billing"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/lifecycle"
@@ -70,7 +71,20 @@ func run() error {
 			return err
 		}
 	}
+	billingSettings, err := billing.LoadSettings(true)
+	if err != nil {
+		return err
+	}
+	billingAuthority, err := billing.NewAuthority(billingSettings)
+	if err != nil {
+		return err
+	}
+	billingEvents, err := billing.New(pool)
+	if err != nil {
+		return err
+	}
 	workers := river.NewWorkers()
+	river.AddWorker(workers, &billing.Worker{Store: billingEvents, Authority: billingAuthority})
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
