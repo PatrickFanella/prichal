@@ -37,3 +37,5 @@ Phase: M5 - Additional access and portability. Priority: P2.
 Schema-30 exclusive hostname reservations now have local competing-proof, atomic audit/release/expiry, recovery-hold and actual local-namespace refusal evidence. See [local claims](../local-exclusive-endpoint-claims.md). Positive public reservation, browser review, populated-claim recovery and routing/TLS/activation remain open.
 
 Local browser claim review, scoped receipts and exact-ticket retry are implemented. See [workspace evidence](../local-endpoint-claim-workspace.md); public DNS, populated-claim recovery and activation remain open.
+
+Disposable populated claim snapshot, held refusal and exact receipt replay are verified. See [recovery evidence](../local-populated-claim-recovery.md). Independent recovery, public DNS and activation remain open.
