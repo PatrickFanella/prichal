@@ -704,3 +704,7 @@ Added owner review, scoped receipt/status and retained exact-choice transport re
 ## Populated claim snapshot recovery, October 1
 
 An explicit fixed-local test restored a PostgreSQL dump with three synthetic claims/four audits into a disposable recovery database. Complete choice/claim ledgers matched. Held reads/retries/release were denied before DNS; empty-host reconciliation and exact receipt replay preserved released/reserved/expired authority without activation. A competing verified owner and foreign receipt access were denied. Focused race qualification and local smoke passed. Ordinary source work/native/custody and seven cancelled choices/fourteen audits remained unchanged. Safe private reports are retained; only allocator-owned test databases were removed. Public DNS and independent/customer hosting recovery remain open. See [recovery evidence](../local-populated-claim-recovery.md).
+
+## TXT observation recovery fence, October 1
+
+Found and reproduced standalone observations bypassing held/missing recovery state before and during DNS. Both scoped reads now use the same short owner/recovery transaction as endpoint choices, released before network lookup. Four red regression cases then passed, including HTTP 503 with no proof disclosure and no pre-hold DNS. No schema or claim authority changed. Focused package race checks and local smoke passed. Persistent DNS request budgets and live qualification remain open.

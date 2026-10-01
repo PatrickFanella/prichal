@@ -38,7 +38,14 @@ func (s *Store) observationInput(ctx context.Context, actor, org, id string) (ob
 	if !s.Local || !uuid.MatchString(actor) || !uuid.MatchString(org) || !uuid.MatchString(id) {
 		return c, ErrNotFound
 	}
-	err := s.Pool.QueryRow(ctx, `SELECT `+choiceColumns+`,c.expires_at<=statement_timestamp(),statement_timestamp() FROM endpoint_choices c JOIN organizations o ON o.id=c.organization_id WHERE c.id=$1 AND o.id=$2 AND o.owner_id=$3 AND c.actor_id=$3`, id, org, actor).Scan(&c.ID, &c.OrganizationID, &c.Hostname, &c.ApplicationHosts, &c.State, &c.ProofValue, &c.CreatedAt, &c.ExpiresAt, &c.expired, &c.now)
+	// Keep ownership and recovery inspection in the same short scoped transaction.
+	// It ends before DNS; the post-lookup read repeats both checks.
+	tx, err := s.beginChoice(ctx, actor, org)
+	if err != nil {
+		return c, err
+	}
+	defer tx.Rollback(ctx)
+	err = tx.QueryRow(ctx, `SELECT `+choiceColumns+`,c.expires_at<=statement_timestamp(),statement_timestamp() FROM endpoint_choices c WHERE c.id=$1 AND c.organization_id=$2 AND c.actor_id=$3 FOR SHARE`, id, org, actor).Scan(&c.ID, &c.OrganizationID, &c.Hostname, &c.ApplicationHosts, &c.State, &c.ProofValue, &c.CreatedAt, &c.ExpiresAt, &c.expired, &c.now)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c, ErrNotFound

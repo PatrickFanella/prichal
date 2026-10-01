@@ -19,3 +19,9 @@ Actual local drill `72c2f4bb-7acc-4fdc-be2f-98362ee0ef3d` completed at 19:24:00Z
 After making the database timestamp coherent, a fresh full smoke/coverage gate passed and the updated API reread the cancelled receipt at 19:26:27Z without claim/activation authority. Positive public DNS matching is verified only by injected resolver tests, not a controlled live domain. Browser observation response/focus/denial behavior and all five widths subsequently passed; shared fixture cleanup is complete. See [observation controls](local-endpoint-observation-controls.md). Controlled public DNS proof remains unqualified.
 
 Schema remains 26. The retained 49-table recovery checkpoint predates the later browser/DNS-drill receipts; this read-only feature adds no schema or job kind. Local services retain fixture permissions disabled and both admission policies open. No native container, volume or recovery copy was removed. Verified exclusive claims, routing/TLS, activation and account migration remain open.
+
+## Recovery fence, October 1
+
+Standalone observations now inspect current owner scope and recovery state in a short transaction before DNS and again after lookup. A held or missing ledger refuses observation without DNS; a hold or lost ledger introduced during lookup discards the result. The transaction ends before DNS, so owner cancellation and proof changes remain possible during the bounded network lookup. No observation, choice or claim audit is written.
+
+Four regression cases first failed: held/missing recovery before lookup and held/missing recovery during lookup all returned a match. After the fix, focused race checks and the full local smoke gate passed. HTTP checks return a generic 503 without proof data or a matching observation. Public DNS, persistent DNS request budgets and routing/activation remain open.
