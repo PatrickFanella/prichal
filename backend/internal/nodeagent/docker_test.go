@@ -47,6 +47,7 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	running := map[string]bool{}
 	creates := map[string]int{}
 	readOnly := false
+	failStop := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if readOnly && r.Method != "GET" {
 			t.Error("inspection mutated Docker")
@@ -113,6 +114,14 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/start")
 			running[name] = true
 			w.WriteHeader(204)
+		case strings.HasSuffix(path, "/stop"):
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/stop")
+			if failStop && strings.HasPrefix(name, "pds-ass-tenant-") {
+				w.WriteHeader(500)
+				return
+			}
+			running[name] = false
+			w.WriteHeader(204)
 		default:
 			w.WriteHeader(201)
 		}
@@ -144,6 +153,53 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 		t.Fatalf("stopped inspection: %+v %v", result, err)
 	}
 	running["pds-ass-tenant-"+id] = true
+	readOnly = false
+	// An interrupted stop retains its private hold. Ensure cannot restart ingress.
+	suspend := ServiceRequest{Ticket: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", Generation: 1, State: "suspended"}
+	failStop = true
+	if _, err = docker.Service(context.Background(), id, suspend); err == nil {
+		t.Fatal("failed stop reported success")
+	}
+	if running["pds-ass-edge-"+id] {
+		t.Fatal("ingress remained active after partial stop")
+	}
+	readOnly = true
+	result, err = docker.Ensure(context.Background(), id)
+	if err != nil || result.State != "suspended" || result.Healthy {
+		t.Fatal("reconciliation undid interrupted suspension")
+	}
+	lease, err := docker.readServiceLease(id)
+	if err != nil || lease.Phase != "pending" {
+		t.Fatal("failed stop lost durable hold")
+	}
+	readOnly = false
+	failStop = false
+	if _, err = docker.Service(context.Background(), id, suspend); err != nil {
+		t.Fatal(err)
+	}
+	if running["pds-ass-tenant-"+id] || running["pds-ass-edge-"+id] {
+		t.Fatal("suspension left a writer running")
+	}
+	resume := ServiceRequest{Ticket: "cccccccc-cccc-4ccc-cccc-cccccccccccc", Generation: 2, State: "running"}
+	if _, err = docker.Service(context.Background(), id, resume); err != nil {
+		t.Fatal(err)
+	}
+	readOnly = true
+	if _, err = docker.Service(context.Background(), id, suspend); err == nil {
+		t.Fatal("stale suspension overwrote resume")
+	}
+	conflict := resume
+	conflict.State = "suspended"
+	if _, err = docker.Service(context.Background(), id, conflict); err == nil {
+		t.Fatal("same generation accepted a different action")
+	}
+	result, err = docker.Status(context.Background(), id)
+	if err != nil || !result.Healthy {
+		t.Fatal("resume did not restore healthy retained runtime")
+	}
+	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
+		t.Fatal("lifecycle recreated retained resources")
+	}
 	credentialPath := filepath.Join(directory, id+".json")
 	credential, err := os.ReadFile(credentialPath)
 	if err != nil {

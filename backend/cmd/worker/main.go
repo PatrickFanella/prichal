@@ -9,8 +9,12 @@ import (
 	"syscall"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/billing"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/exports"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/hostingexit"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/lifecycle"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
@@ -50,7 +54,9 @@ func run() error {
 	if err = deployment.Migrate(startup, pool); err != nil {
 		return err
 	}
+	var exportAgent exports.Agent
 	var enrollmentAgent enrollment.Agent
+	var serviceAgent lifecycle.Agent
 	var agent deployment.AgentClient
 	if os.Getenv("PDS_WORKER_AGENT_CA_FILE") != "" {
 		client, err := nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
@@ -59,6 +65,8 @@ func run() error {
 		}
 		agent = client
 		enrollmentAgent = client
+		serviceAgent = client
+		exportAgent = client
 	}
 	var enrollmentCipher *enrollment.Cipher
 	if path := os.Getenv("PDS_ENROLLMENT_KEY_FILE"); path != "" {
@@ -67,7 +75,36 @@ func run() error {
 			return err
 		}
 	}
+	billingSettings, err := billing.LoadSettings(true)
+	if err != nil {
+		return err
+	}
+	billingAuthority, err := billing.NewAuthority(billingSettings)
+	if err != nil {
+		return err
+	}
+	billingEvents, err := billing.New(pool)
+	if err != nil {
+		return err
+	}
+	exportArtifacts, err := exports.LoadArtifacts(true)
+	if err != nil {
+		return err
+	}
+	portableExports, err := exports.New(pool, exportArtifacts)
+	if err != nil {
+		return err
+	}
+	hostingExits, err := hostingexit.New(pool, nil, portableExports)
+	if err != nil {
+		return err
+	}
 	workers := river.NewWorkers()
+	river.AddWorker(workers, &hostingexit.Worker{Store: hostingExits})
+	river.AddWorker(workers, &hostingexit.RetentionWorker{Store: hostingExits})
+	river.AddWorker(workers, &exports.Worker{Store: portableExports, Agent: exportAgent})
+	river.AddWorker(workers, &billing.Worker{Store: billingEvents, Authority: billingAuthority})
+	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 2}}})
