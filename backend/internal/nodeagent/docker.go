@@ -185,7 +185,10 @@ type inspected struct {
 		Image  string
 		Labels map[string]string
 	}
-	State           struct{ Running bool }
+	State struct {
+		Running bool
+		Health  struct{ Status string }
+	}
 	NetworkSettings struct {
 		Ports map[string][]struct{ HostIP, HostPort string }
 	}
@@ -205,6 +208,13 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 		return Instance{}, err
 	}
 	if status == 404 {
+		capacity, capacityErr := d.Capacity(ctx)
+		if capacityErr != nil {
+			return Instance{}, capacityErr
+		}
+		if len(capacity.InstanceIDs) >= capacity.MaximumSlots {
+			return Instance{}, errors.New("hosting capacity exhausted")
+		}
 		secret, err := d.credentials(id)
 		if err != nil {
 			return Instance{}, err
@@ -242,7 +252,7 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 				return Instance{}, err
 			}
 		}
-		payload := map[string]any{"Image": PDSImage, "Labels": map[string]string{label: id}, "Env": []string{"PDS_HOSTNAME=" + id + ".localhost", "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}, "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "0"}}}, "RestartPolicy": map[string]string{"Name": "no"}}}
+		payload := map[string]any{"Healthcheck": map[string]any{"Test": []string{"CMD", "node", "-e", "fetch('http://127.0.0.1:2583/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"}, "Interval": int64(1e9), "Timeout": int64(2e9), "StartPeriod": int64(10e9), "Retries": 3}, "Image": PDSImage, "Labels": map[string]string{label: id}, "Env": []string{"PDS_HOSTNAME=" + id + ".localhost", "PDS_PORT=2583", "PDS_DEV_MODE=true", "PDS_DATA_DIRECTORY=/pds", "PDS_BLOBSTORE_DISK_LOCATION=/blobs", "PDS_BLOBSTORE_DISK_TMP_LOCATION=/blobs/tmp", "PDS_INVITE_REQUIRED=true", "PDS_RATE_LIMITS_ENABLED=true", "PDS_BLOB_UPLOAD_LIMIT=5242880", "PDS_SERVICE_HANDLE_DOMAINS=.test", "PDS_DID_PLC_URL=http://127.0.0.1:9", "PDS_CRAWLERS=", "LOG_ENABLED=false", "PDS_JWT_SECRET=" + secret.JWT, "PDS_ADMIN_PASSWORD=" + secret.Admin, "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=" + secret.Rotation}, "ExposedPorts": map[string]any{"2583/tcp": map[string]any{}}, "HostConfig": map[string]any{"Mounts": []map[string]any{{"Type": "volume", "Source": name + "-data", "Target": "/pds"}, {"Type": "volume", "Source": name + "-blobs", "Target": "/blobs"}}, "NetworkMode": network, "Memory": int64(768 << 20), "NanoCpus": int64(1e9), "PidsLimit": 128, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "PortBindings": map[string]any{"2583/tcp": []map[string]string{{"HostIp": "127.0.0.1", "HostPort": "0"}}}, "RestartPolicy": map[string]string{"Name": "no"}}}
 		status, err = d.call(ctx, "POST", "/containers/create?name="+url.QueryEscape(name), payload, nil)
 		if err != nil && status != 409 {
 			return Instance{}, err
@@ -285,6 +295,7 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	result := Instance{ID: id, State: "starting"}
 	if current.State.Running {
 		result.State = "running"
+		result.Healthy = current.State.Health.Status == "healthy"
 	}
 	ports := current.NetworkSettings.Ports["2583/tcp"]
 	if len(ports) == 1 && ports[0].HostIP == "127.0.0.1" {

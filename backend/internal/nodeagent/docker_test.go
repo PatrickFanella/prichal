@@ -48,6 +48,10 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
+		case path == "/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"NCPU": 8, "MemTotal": 8 << 30})
+		case path == "/containers/json":
+			_ = json.NewEncoder(w).Encode([]any{})
 		case r.Method == "GET" && strings.HasPrefix(path, "/containers/"):
 			if !created {
 				w.WriteHeader(404)
@@ -112,4 +116,29 @@ func (r *rewriteTransport) RoundTrip(request *http.Request) (*http.Response, err
 	target, _ := http.NewRequest(request.Method, r.base+request.URL.RequestURI(), nil)
 	clone.URL = target.URL
 	return r.transport.RoundTrip(clone)
+}
+
+func TestMeasuredCapacityBounds(t *testing.T) {
+	for _, entry := range []struct {
+		name     string
+		cpus     int
+		memory   int64
+		expected int
+	}{{"host overhead", 1, 8 << 30, 0}, {"memory exhaustion", 8, 2 << 30, 0}, {"one instance", 8, (2 << 30) + (768 << 20), 1}, {"qualification ceiling", 16, 32 << 30, 2}} {
+		t.Run(entry.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/info") {
+					_ = json.NewEncoder(w).Encode(map[string]any{"NCPU": entry.cpus, "MemTotal": entry.memory})
+				} else {
+					_ = json.NewEncoder(w).Encode([]any{})
+				}
+			}))
+			defer server.Close()
+			docker := &Docker{client: &http.Client{Transport: &rewriteTransport{base: server.URL, transport: http.DefaultTransport}}}
+			capacity, err := docker.Capacity(context.Background())
+			if err != nil || capacity.MaximumSlots != entry.expected {
+				t.Fatalf("capacity: %+v %v", capacity, err)
+			}
+		})
+	}
 }

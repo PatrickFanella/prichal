@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,18 +61,25 @@ type Worker struct {
 func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 	for i := 0; i < 3; i++ {
 		if err := w.Provisioner.Step(ctx, job.Args.DeploymentID); err != nil {
+			if errors.Is(err, ErrHealthPending) {
+				return river.JobSnooze(time.Second)
+			}
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 			if job.Attempt >= job.MaxAttempts {
+				message := "Deployment could not be confirmed. Resources are preserved. Contact support."
+				if errors.Is(err, fleet.ErrCapacity) {
+					message = "No hosting capacity is available. Contact support to resume this deployment."
+				}
 				tx, txErr := w.Pool.Begin(ctx)
 				if txErr != nil {
 					return errors.New("deployment could not be checkpointed")
 				}
 				defer tx.Rollback(ctx)
-				result, txErr := tx.Exec(ctx, `UPDATE deployments SET state='failed',message='The local test could not finish. Contact support.',updated_at=now() WHERE id=$1 AND state NOT IN ('ready','failed')`, job.Args.DeploymentID)
+				result, txErr := tx.Exec(ctx, `UPDATE deployments SET state='failed',message=$2,updated_at=now() WHERE id=$1 AND state NOT IN ('ready','failed')`, job.Args.DeploymentID, message)
 				if txErr == nil && result.RowsAffected() > 0 {
-					_, txErr = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'failed','The local test could not finish. Contact support.')`, job.Args.DeploymentID)
+					_, txErr = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'failed',$2)`, job.Args.DeploymentID, message)
 				}
 				if txErr != nil {
 					return errors.New("deployment could not be checkpointed")

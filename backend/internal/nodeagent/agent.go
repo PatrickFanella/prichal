@@ -13,9 +13,10 @@ import (
 
 // Instance contains no runtime credentials or host administration details.
 type Instance struct {
-	ID    string `json:"id"`
-	State string `json:"state"`
-	Port  string `json:"port"`
+	ID      string `json:"id"`
+	State   string `json:"state"`
+	Port    string `json:"port"`
+	Healthy bool   `json:"healthy"`
 }
 
 // Runtime reconciles a stable, service-owned instance ID.
@@ -28,6 +29,25 @@ var instanceID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 // Handler accepts only an empty configuration object and a stable instance UUID.
 func Handler(runtime Runtime) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/capacity", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			Capacity(context.Context) (Capacity, error)
+		})
+		if !ok {
+			http.Error(w, "capacity unavailable", 503)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		capacity, err := provider.Capacity(ctx)
+		if err != nil {
+			http.Error(w, "capacity unavailable", 503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(capacity)
+	})
 	mux.HandleFunc("PUT /v1/instances/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
@@ -53,6 +73,10 @@ func Handler(runtime Runtime) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/v1/capacity" {
+			mux.ServeHTTP(w, r)
+			return
+		}
 		if r.Method != "PUT" || !strings.HasPrefix(r.URL.Path, "/v1/instances/") || !instanceID.MatchString(strings.TrimPrefix(r.URL.Path, "/v1/instances/")) {
 			http.NotFound(w, r)
 			return

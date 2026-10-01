@@ -23,6 +23,7 @@ var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,61}[a-z0-9]$|^[a-z]$`)
 var keyPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 
 type Request struct {
+	Kind   string `json:"kind"`
 	Name   string `json:"name"`
 	Region string `json:"region"`
 	Key    string `json:"idempotencyKey"`
@@ -33,6 +34,7 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
+	Kind           string  `json:"kind"`
 	ID             string  `json:"id"`
 	OrganizationID string  `json:"organizationId"`
 	Name           string  `json:"name"`
@@ -84,7 +86,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return err
 }
 func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Operation, error) {
-	if !namePattern.MatchString(r.Name) || r.Region != "local" || !keyPattern.MatchString(r.Key) {
+	if r.Kind == "" {
+		r.Kind = "test"
+	}
+	if (r.Kind != "test" && r.Kind != "agent") || !namePattern.MatchString(r.Name) || r.Region != "local" || !keyPattern.MatchString(r.Key) {
 		return Operation{}, ErrInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
@@ -99,10 +104,10 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	} else if err != nil {
 		return Operation{}, err
 	}
-	var id, name, region string
-	err = tx.QueryRow(ctx, `SELECT id,name,region FROM deployments WHERE organization_id=$1 AND idempotency_key=$2`, org, r.Key).Scan(&id, &name, &region)
+	var id, name, region, kind string
+	err = tx.QueryRow(ctx, `SELECT id,name,region,kind FROM deployments WHERE organization_id=$1 AND idempotency_key=$2`, org, r.Key).Scan(&id, &name, &region, &kind)
 	if err == nil {
-		if name != r.Name || region != r.Region {
+		if name != r.Name || region != r.Region || kind != r.Kind {
 			return Operation{}, ErrConflict
 		}
 		if err = tx.Commit(ctx); err != nil {
@@ -113,7 +118,7 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Operation{}, err
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key) VALUES($1,$2,$3,$4) RETURNING id`, org, r.Name, r.Region, r.Key).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,kind) VALUES($1,$2,$3,$4,$5) RETURNING id`, org, r.Name, r.Region, r.Key, r.Kind).Scan(&id)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return Operation{}, ErrConflict
@@ -134,7 +139,7 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 }
 func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 	var op Operation
-	err := s.Pool.QueryRow(ctx, `SELECT d.id,d.organization_id,d.name,d.region,d.state,d.message FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.OrganizationID, &op.Name, &op.Region, &op.State, &op.Message)
+	err := s.Pool.QueryRow(ctx, `SELECT d.id,d.organization_id,d.name,d.region,d.state,d.message,d.kind FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2`, id, owner).Scan(&op.ID, &op.OrganizationID, &op.Name, &op.Region, &op.State, &op.Message, &op.Kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}

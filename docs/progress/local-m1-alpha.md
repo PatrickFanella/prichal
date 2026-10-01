@@ -71,3 +71,13 @@ Choose staging infrastructure and domains before public DNS/TLS, real email deli
 - Database tests verify unknown/expired/replayed enrollment rejection, invalid CSR without token consumption, bounded certificate expiry and server-only role, plus concurrent reservation of a single slot and stable placement after node drain.
 - Actual local CLI enrollment registered node `d795a58b-1ab4-4178-8649-03c9c25d0d9e` at the loopback agent endpoint with two operator slots. Repeating the client recovered the same public certificate after the server rejected token replay. Secrets stayed in ignored private files.
 - Slot ceilings are not yet measured capacity, and registration does not prove the node's availability. Worker integration and verified measurements remain next. No provider or live node has been provisioned.
+
+## Browser-to-agent local deployment
+
+- Schema version 5 distinguishes simulations from local PDS operations and stores verified resource measurements. Existing simulations retain their behavior after configuring the agent worker.
+- Worker-to-agent HTTPS validates the dedicated CA, registered node ID and public-key hash. Wrong keys and wrong node identities fail before runtime execution. The public API has no agent or Docker credentials.
+- Placement uses fresh measured CPU/memory and retained namespace inventory, reserves host overhead and clamps to two local instances and the operator ceiling. Unregistered retained namespaces count against capacity. The agent independently checks its limit before creation.
+- Reconstructed worker tests recover after host success and lost response with one instance ID, one placement and no duplicate progress events. Pending internal health uses bounded durable snoozes. Failed requests preserve reservations/storage; capacity errors remain explicit.
+- Browser created `local-pds-one` as operation `bca4cb84-cfb2-4e58-afc6-26c5edad9ade`, resulting in one healthy container `7951dcce0fee`. A second request, `local-pds-two`, failed on capacity without another runtime. The older qualification fixture remained intact and counted against capacity.
+- `./scripts/dev.sh smoke` passed build, vet and race tests, including real mutual TLS and public-key-pin checks. Responsive overflow remained false at 375×812, 768×1024, 812×375 and 1440×900.
+- Ready means internal local PDS health only. Public ingress, real account fixtures, identity and federation remain unverified. The user reaffirmed local-only build/verification for later milestone preparation.

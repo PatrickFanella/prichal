@@ -23,7 +23,7 @@ func TestCapacityReservations(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Studio',$1) RETURNING id`, owner).Scan(&org); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots,state,public_key_hash) VALUES('local','https://127.0.0.1:9091',1,'active',$1) RETURNING id`, make([]byte, 32)).Scan(&node); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots,operator_slots,state,public_key_hash,last_verified_at) VALUES('local','https://127.0.0.1:9091',1,1,'active',$1,now()) RETURNING id`, make([]byte, 32)).Scan(&node); err != nil {
 		t.Fatal(err)
 	}
 	ids := make([]string, 2)
@@ -57,6 +57,13 @@ func TestCapacityReservations(t *testing.T) {
 		}
 	}
 	successful := <-results
+	if err := store.RecordCapacity(ctx, node, 1, 8, 8<<30, []string{successful, "cccccccc-cccc-cccc-cccc-cccccccccccc"}); err != nil {
+		t.Fatal(err)
+	}
+	var measuredSlots int
+	if err := pool.QueryRow(ctx, `SELECT slots FROM hosting_nodes WHERE id=$1`, node).Scan(&measuredSlots); err != nil || measuredSlots != 0 {
+		t.Fatalf("retained external namespace ignored: %d %v", measuredSlots, err)
+	}
 	if _, err := pool.Exec(ctx, `UPDATE hosting_nodes SET state='draining' WHERE id=$1`, node); err != nil {
 		t.Fatal(err)
 	}
