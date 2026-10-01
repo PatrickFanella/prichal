@@ -616,3 +616,11 @@ Fresh five-target binaries and checksum metadata passed the optional local runti
 All five checksums matched before/after, private configurations remained empty, and existing containers/volumes matched the baseline. No account authorization, API request, new image, installation or publication occurred. Translated startup took 1,879 ms before later 14–17 ms cases; cold-start, Intel hardware, Linux AMD64, Windows/ACL, signing and live onboarding gates remain open. See [CLI distribution evidence](../local-customer-cli.md).
 
 PR #84 commit `5217351` passed CI 11584. PR #85 commit `c102822` passed CI 11585. The final CLI runtime full smoke gate passed. Completion checks validate generated text only; shell integration remains unqualified.
+
+## Translated CLI local device authorization
+
+Drill `cba280d7-3676-4139-a61a-2f2037beaf34` completed at 20:27:20Z using the checksummed macOS AMD64 binary through Rosetta. Disposable Alice/Bob sign-in, owner-scoped organization/server reads, foreign server/revocation denial, own revocation enforcement and logout cleanup passed. Tokens remained absent from CLI output, private credential files were removed, and both created credentials were absent from active access afterward.
+
+Only authentication activity changed. Source deployment/job/export/enrollment/access/choice work, both native inventories/custody and the binary hash matched the baseline. No deployment, worker pause, native mutation, image or release publication occurred. Intel hardware, other-platform authorization, installation/signing and live onboarding remain open under issue #27. See [CLI evidence](../local-customer-cli.md).
+
+The translated-authorization full smoke gate passed. PR #86 commit `1911971` passed remote CI run 11586. No actionable findings remain in the local translated-read qualification review. Platform/live release gates remain open.

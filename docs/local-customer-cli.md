@@ -43,3 +43,11 @@ Drill `f5740f1d-b4b4-40b7-b6e8-fd48983a66aa` completed at 2026-10-01T20:22:34Z. 
 This adds Rosetta execution evidence to the earlier cross-build evidence. It does not qualify Intel hardware, Linux AMD64, Windows execution/credential ACLs, installation, signing, published delivery or live onboarding. The first translated version launch took 1,879 ms; subsequent translated cases took 14–17 ms. Linux timings include container startup. The cold-start target remains unqualified.
 
 Completion checks validate generated text, not installation into a shell session. Shell integration remains unqualified. The final full smoke gate passed after adding the qualifier and evidence.
+
+## Translated macOS authorization and scoped reads
+
+`node scripts/qualify-translated-cli-auth.mjs` runs the freshly built/checksummed macOS AMD64 binary through Rosetta against only `http://localhost:5173` and the disposable Alice/Bob issuer. Each receives a separate private configuration. The fixture browser reviews/approves requests started by the qualifier itself. It reads existing organizations and Bob's native server; it never submits a deployment. Individual revocation/logout removes only the qualifier's credentials. Source management work, native inventory/custody and binary hash must match afterward. Authentication activity intentionally changes.
+
+Drill `cba280d7-3676-4139-a61a-2f2037beaf34` completed at 2026-10-01T20:27:20Z. Both device approvals and owner-scoped reads passed. Alice could not read Bob's server or revoke his credential. Bob's own revocation blocked further reads; logout removed his credential file even after server revocation. Alice's logout also revoked/removed her credential. Neither token appeared in CLI output. Both qualifier credential IDs were absent from active credentials afterward. No server deployment, worker pause or native mutation occurred, and source work/native custody/binary matched the baseline. Private report remains under `.local/translated-cli-auth/`.
+
+This proves the local translated binary's authorization/read/revocation path. The earlier macOS ARM64 interruption/retry drill remains the deployment evidence. Intel hardware, other platform authorization, published installation and live onboarding remain open. No universal platform qualification follows from this drill.
