@@ -27,6 +27,16 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 		t.Fatal(err)
 	}
 	runtime.EnableLocalIdentityFixtures()
+	for _, args := range [][2]string{{"invalid", ticket}, {id, "invalid"}, {id, ticket}} {
+		if _, err := runtime.WithdrawEnrollment(context.Background(), args[0], args[1]); err == nil {
+			t.Fatal("unsafe or absent retained lease accepted")
+		}
+	}
+	runtime.localIdentity = false
+	if _, err := runtime.WithdrawEnrollment(context.Background(), id, ticket); err == nil {
+		t.Fatal("withdrawal accepted without explicit local fixtures")
+	}
+	runtime.localIdentity = true
 	secret, err := runtime.credentials(id)
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +78,10 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 	helpers := map[string][]string{}
 	counter, invitations, actors := 0, 0, 0
 	loseInvitationResponse := true
+	withdrawals, stops := 0, 0
+	loseWithdrawalResponse, accountDuringDrain := true, false
+	loseDrainResponse := true
+	transitions := []string{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
@@ -87,9 +101,24 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 			}
 			_ = json.NewEncoder(w).Encode(value)
 		case strings.HasSuffix(path, "/stop"):
+			policy, readErr := runtime.readEnrollmentLease(id)
+			if readErr != nil || policy.Code != "" || (policy.State != "preparing" && policy.State != "withdrawing") {
+				t.Error("host drain preceded closed admission")
+			}
+			transitions = append(transitions, path)
+			stops++
 			running = false
+			if policy.State == "withdrawing" && loseDrainResponse {
+				loseDrainResponse = false
+				w.WriteHeader(503)
+				return
+			}
+			if accountDuringDrain {
+				actors = 1
+			}
 			w.WriteHeader(204)
 		case strings.HasPrefix(path, "/containers/") && strings.HasSuffix(path, "/start"):
+			transitions = append(transitions, path)
 			running = true
 			w.WriteHeader(204)
 		case strings.HasSuffix(path, "/exec"):
@@ -114,6 +143,14 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 				value = map[string]string{"hash": hex.EncodeToString(hash[:])}
 			} else if actors == 1 {
 				value = nativeEnrollment{Count: 1, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa", Handle: "fixture.test", EmailConfirmed: true}
+			} else if args[len(args)-1] == "withdraw" {
+				withdrawals++
+				if loseWithdrawalResponse {
+					loseWithdrawalResponse = false
+					w.WriteHeader(503)
+					return
+				}
+				value = nativeEnrollment{}
 			} else if args[len(args)-1] == "invitation" {
 				invitations++
 				if loseInvitationResponse {
@@ -162,9 +199,62 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 	if err != nil || expired.State != "expired" || expired.Code != "" || invitations != 2 {
 		t.Fatal("expired replay minted an invitation")
 	}
-	actors = 1
+	before := counter
+	if _, err = runtime.WithdrawEnrollment(ctx, id, "cccccccc-cccc-cccc-cccc-cccccccccccc"); err == nil || counter != before {
+		t.Fatal("different ticket touched native resources")
+	}
+	if _, err = runtime.WithdrawEnrollment(ctx, id, ticket); err == nil {
+		t.Fatal("lost drain response reported confirmation")
+	}
+	lease, err = runtime.readEnrollmentLease(id)
+	if err != nil || lease.State != "withdrawing" || lease.Code != "" || withdrawals != 0 {
+		t.Fatal("interrupted drain did not retain closed admission")
+	}
+	if _, err = runtime.WithdrawEnrollment(ctx, id, ticket); err == nil {
+		t.Fatal("lost withdrawal response reported confirmation")
+	}
+	lease, err = runtime.readEnrollmentLease(id)
+	if err != nil || lease.State != "withdrawing" || lease.Code != "" {
+		t.Fatal("failed withdrawal left admission open")
+	}
+	if _, err = runtime.Enroll(ctx, id, ticket); err == nil {
+		t.Fatal("same ticket reopened withdrawal")
+	}
+	withdrawn, err := runtime.WithdrawEnrollment(ctx, id, ticket)
+	if err != nil || withdrawn.State != "withdrawn" || withdrawn.Code != "" || withdrawals != 2 {
+		t.Fatalf("withdrawal retry: %+v %v", withdrawn, err)
+	}
+	last := transitions[len(transitions)-4:]
+	want := []string{"/containers/pds-ass-edge-" + id + "/stop", "/containers/pds-ass-tenant-" + id + "/stop", "/containers/pds-ass-tenant-" + id + "/start", "/containers/pds-ass-edge-" + id + "/start"}
+	if strings.Join(last, " ") != strings.Join(want, " ") {
+		t.Fatal("withdrawal did not drain ingress before native runtime")
+	}
+	beforeStops := stops
+	repeated, err := runtime.WithdrawEnrollment(ctx, id, ticket)
+	if err != nil || repeated.State != "withdrawn" || stops != beforeStops || withdrawals != 2 {
+		t.Fatal("confirmed withdrawal repeated host mutation")
+	}
+	if _, err = runtime.Enroll(ctx, id, ticket); err == nil {
+		t.Fatal("withdrawn ticket minted invitation")
+	}
+	newTicket := "cccccccc-cccc-cccc-cccc-cccccccccccc"
+	if _, err = runtime.Enroll(ctx, id, newTicket); err != nil {
+		t.Fatal(err)
+	}
+	accountDuringDrain = true
+	raced, err := runtime.WithdrawEnrollment(ctx, id, newTicket)
+	if err != nil || raced.State != "verified" || raced.Code != "" || withdrawals != 2 {
+		t.Fatalf("in-flight account was not preserved: %+v %v", raced, err)
+	}
+	beforeStops = stops
+	beforeLease, _ := os.ReadFile(filepath.Join(enrollmentDirectory, "lease.json"))
+	preserved, err := runtime.WithdrawEnrollment(ctx, id, newTicket)
+	afterLease, _ := os.ReadFile(filepath.Join(enrollmentDirectory, "lease.json"))
+	if err != nil || preserved.State != "verified" || stops != beforeStops || string(beforeLease) != string(afterLease) {
+		t.Fatal("existing account withdrawal changed host policy")
+	}
 	completed, err := runtime.Enroll(ctx, id, "cccccccc-cccc-cccc-cccc-cccccccccccc")
-	if err != nil || completed.State != "verified" || completed.Code != "" || invitations != 2 {
+	if err != nil || completed.State != "verified" || completed.Code != "" || invitations != 3 {
 		t.Fatalf("account ceiling: %+v %v", completed, err)
 	}
 }
