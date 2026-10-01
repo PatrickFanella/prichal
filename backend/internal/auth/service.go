@@ -238,7 +238,7 @@ type Session struct {
 	ExpiresAt   time.Time `json:"expiresAt"`
 }
 
-func (s *Service) authorize(w http.ResponseWriter, r *http.Request, mutation bool) (Session, bool) {
+func (s *Service) Authorize(w http.ResponseWriter, r *http.Request, mutation bool) (Session, bool) {
 	var session Session
 	cookie, err := r.Cookie(s.settings.cookie("session"))
 	if err != nil || len(cookie.Value) != 43 {
@@ -261,14 +261,14 @@ func (s *Service) authorize(w http.ResponseWriter, r *http.Request, mutation boo
 	return session, true
 }
 func (s *Service) session(w http.ResponseWriter, r *http.Request) {
-	if session, ok := s.authorize(w, r, false); ok {
+	if session, ok := s.Authorize(w, r, false); ok {
 		jsonReply(w, 200, session)
 	}
 }
 func (s *Service) logout(w http.ResponseWriter, r *http.Request)    { s.endSessions(w, r, false) }
 func (s *Service) revokeAll(w http.ResponseWriter, r *http.Request) { s.endSessions(w, r, true) }
 func (s *Service) endSessions(w http.ResponseWriter, r *http.Request, all bool) {
-	session, ok := s.authorize(w, r, true)
+	session, ok := s.Authorize(w, r, true)
 	if !ok {
 		return
 	}
@@ -293,7 +293,7 @@ type Organization struct {
 }
 
 func (s *Service) organizations(w http.ResponseWriter, r *http.Request) {
-	session, ok := s.authorize(w, r, false)
+	session, ok := s.Authorize(w, r, false)
 	if !ok {
 		return
 	}
@@ -336,7 +336,7 @@ func organizationName(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return name, true
 }
 func (s *Service) createOrganization(w http.ResponseWriter, r *http.Request) {
-	session, ok := s.authorize(w, r, true)
+	session, ok := s.Authorize(w, r, true)
 	if !ok {
 		return
 	}
@@ -374,7 +374,7 @@ func (s *Service) renameOrganization(w http.ResponseWriter, r *http.Request) {
 	s.singleOrganization(w, r, true)
 }
 func (s *Service) singleOrganization(w http.ResponseWriter, r *http.Request, rename bool) {
-	session, ok := s.authorize(w, r, rename)
+	session, ok := s.Authorize(w, r, rename)
 	if !ok {
 		return
 	}

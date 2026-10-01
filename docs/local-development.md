@@ -11,7 +11,7 @@ cd ..
 ./scripts/dev.sh db
 ```
 
-In three separate terminals, start the isolated issuer before the API:
+In four separate terminals, start the isolated issuer before the API:
 
 ```sh
 ./scripts/dev.sh issuer
@@ -23,6 +23,10 @@ In three separate terminals, start the isolated issuer before the API:
 
 ```sh
 ./scripts/dev.sh web
+```
+
+```sh
+./scripts/dev.sh worker
 ```
 
 Open <http://localhost:5173>. The interface polls the Go API through Vite's same-origin proxy every three seconds. The API returns readiness only when PostgreSQL responds with the supported schema version. Responses contain no connection strings or database errors.
@@ -55,3 +59,9 @@ Stop the local database with `./scripts/dev.sh down`. This retains the managemen
 ## Current boundary
 
 The status page is a working foundation. A separate [disposable local PDS runtime](local-pds-runtime.md) qualifies the upstream container. Local [owner authentication and organization access](management-authentication.md) work through the isolated issuer. Server provisioning and public PDS service are subsequent pieces. The local HTTP listeners are for workstation use. Live host selection, public domains, TLS, email delivery and federation qualification remain pending.
+
+## Deployment operations
+
+Create an organization and run a deployment test. The local region exercises a durable operation, not a PDS container. Stop the worker before submitting to see queued status; start it to resume. Reloading lists the same operation and its history. The browser preserves an unconfirmed request key and name locally so retries reuse the original operation.
+
+The management schema is version 3. River 0.47.0 uses its own versioned migrations under a separate advisory lock. The API never starts workers or accesses Docker. `cmd/worker` requires explicit local mode and runs only the test provisioner. Production deployment submission returns unavailable until a real provisioner is configured.

@@ -1,6 +1,6 @@
 # Local M1 implementation progress
 
-The user chose local build and verification first on 2026-09-30. No staging host, provider, public PDS domain or cloud budget has been selected. The foundation was merged in PR #31. Owner authentication work continues on `feat/owner-auth`.
+The user chose local build and verification first on 2026-09-30. No staging host, provider, public PDS domain or cloud budget has been selected. The foundation was merged in PR #31. Owner authentication was merged in PR #32. Durable deployments continue on `feat/durable-deployments`.
 
 M1 depends on the M0 foundation. This branch begins with issue #1, then qualifies the disposable official PDS runtime from issue #4. Live infrastructure work remains pending. Neither local readiness nor a healthy PDS proves public federation or completes M1.
 
@@ -36,9 +36,19 @@ M1 depends on the M0 foundation. This branch begins with issue #1, then qualifie
 
 - Live production OIDC application configuration and provider qualification. Local owner identity, authorization and management sessions are implemented under #2.
 - Restricted node enrollment and execution (#3, #6).
-- Transactional durable deployment jobs and resumable status (#5).
+- Restricted agent integration with the durable deployment contract (#6).
 - Managed hostname, enrollment, records/media and BYO handle flow (#7–#10).
 
 ## Deferred live qualification
 
 Choose staging infrastructure and domains before public DNS/TLS, real email delivery, DID/relay/AppView visibility, cloud convergence and the timed 15-minute journey. Keep the corresponding issues open until their acceptance evidence exists.
+
+## Durable deployment operations
+
+- Schema version 3 stores organization-scoped deployment intent, request keys and progress events. River 0.47.0 jobs commit in the same transaction as intent and the first event.
+- Identical requests return the same operation. Changed parameters or a duplicate server name return a conflict. Organization locking serializes concurrent submissions.
+- A separate local worker checkpoints queued, configuring, checking and ready states. The test instance uses the operation ID as its primary key; repeated steps preserve one instance. Three attempts exhaust into a safe failed status. Cancellation preserves the checkpoint for retry.
+- `./scripts/dev.sh smoke` passed build, vet and race tests. Database tests cover replay, conflict, foreign-owner reads, failed job insertion rollback, worker reconstruction, actual River processing, bounded failures, HTTP session/CSRF checks and the production submission gate.
+- Browser verification submitted `restart-proof` while the worker was absent, observed queued status, started the worker and reloaded to the same ready operation. No horizontal overflow at 375×812, 768×1024, 812×375 and 1440×900.
+- The browser lists stored operations and polls status. It retains unconfirmed request parameters in local storage for replay after a page closes. Local test readiness explicitly states that no PDS has been deployed.
+- Hard-kill rescue timing, real host execution and public readiness remain subsequent qualification. No live deployment has been created.
