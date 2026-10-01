@@ -65,7 +65,7 @@ func (s Store) Issue(ctx context.Context, endpoint string, slots int) (Bootstrap
 	}
 	defer tx.Rollback(ctx)
 	bootstrap := Bootstrap{Token: token, Endpoint: endpoint}
-	if err = tx.QueryRow(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots) VALUES('local',$1,$2) RETURNING id`, endpoint, slots).Scan(&bootstrap.NodeID); err != nil {
+	if err = tx.QueryRow(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots,operator_slots) VALUES('local',$1,$2,$2) RETURNING id`, endpoint, slots).Scan(&bootstrap.NodeID); err != nil {
 		return Bootstrap{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO node_bootstrap_tokens(node_id,token_hash,expires_at) VALUES($1,$2,now()+interval '15 minutes')`, bootstrap.NodeID, hash[:]); err != nil {

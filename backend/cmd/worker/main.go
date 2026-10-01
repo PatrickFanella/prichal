@@ -11,6 +11,7 @@ import (
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -44,8 +45,16 @@ func run() error {
 	if err = deployment.Migrate(startup, pool); err != nil {
 		return err
 	}
+	var agent deployment.AgentClient
+	if os.Getenv("PDS_WORKER_AGENT_CA_FILE") != "" {
+		client, err := nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
+		if err != nil {
+			return err
+		}
+		agent = client
+	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.TestProvisioner{Pool: pool}})
+	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 2}}})
 	if err != nil {
 		return err
@@ -53,7 +62,7 @@ func run() error {
 	if err = client.Start(ctx); err != nil {
 		return err
 	}
-	log.Print("local test worker started; no host execution")
+	log.Print("local deployment worker started; host execution remains in the node agent")
 	<-ctx.Done()
 	shutdown, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()

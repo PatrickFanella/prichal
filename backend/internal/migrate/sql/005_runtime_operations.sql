@@ -1,0 +1,10 @@
+ALTER TABLE deployments ADD COLUMN kind text NOT NULL DEFAULT 'test' CHECK(kind IN ('test','agent'));
+ALTER TABLE hosting_nodes ADD COLUMN operator_slots integer;
+UPDATE hosting_nodes SET operator_slots=slots;
+ALTER TABLE hosting_nodes ALTER COLUMN operator_slots SET NOT NULL;
+ALTER TABLE hosting_nodes ADD CONSTRAINT operator_slots_positive CHECK(operator_slots BETWEEN 1 AND 1000);
+ALTER TABLE hosting_nodes ADD COLUMN measured_cpus integer;
+ALTER TABLE hosting_nodes ADD COLUMN measured_memory_bytes bigint;
+ALTER TABLE hosting_nodes ADD COLUMN last_verified_at timestamptz;
+ALTER TABLE hosting_nodes DROP CONSTRAINT hosting_nodes_slots_check;
+ALTER TABLE hosting_nodes ADD CONSTRAINT hosting_nodes_slots_check CHECK(slots BETWEEN 0 AND 1000);

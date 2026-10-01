@@ -108,7 +108,7 @@ func TestRiverWorkerCompletesPersistedJob(t *testing.T) {
 	if err = pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Studio',$1) RETURNING id`, owner).Scan(&org); err != nil {
 		t.Fatal(err)
 	}
-	op, err := store.Submit(ctx, owner, org, Request{"studio", "local", "persisted"})
+	op, err := store.Submit(ctx, owner, org, Request{Name: "studio", Region: "local", Key: "persisted"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestBoundedFailure(t *testing.T) {
 	if err = pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Studio',$1) RETURNING id`, owner).Scan(&org); err != nil {
 		t.Fatal(err)
 	}
-	op, err := store.Submit(ctx, owner, org, Request{"failure", "local", "failure"})
+	op, err := store.Submit(ctx, owner, org, Request{Name: "failure", Region: "local", Key: "failure"})
 	if err != nil {
 		t.Fatal(err)
 	}

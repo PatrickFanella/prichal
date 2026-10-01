@@ -81,7 +81,7 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 			t.Fatalf("authorization: %d %s", w.Code, w.Body.String())
 		}
 	}
-	op, err := store.Submit(ctx, alice, org, Request{"studio", "local", "request"})
+	op, err := store.Submit(ctx, alice, org, Request{Name: "studio", Region: "local", Key: "request"})
 	if err != nil {
 		t.Fatal(err)
 	}

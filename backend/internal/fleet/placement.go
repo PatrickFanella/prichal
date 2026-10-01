@@ -39,7 +39,7 @@ func (s Store) Reserve(ctx context.Context, deploymentID string) (Placement, err
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Placement{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT id,agent_endpoint,public_key_hash,slots FROM hosting_nodes WHERE region=$1 AND state='active' AND public_key_hash IS NOT NULL ORDER BY created_at,id FOR UPDATE SKIP LOCKED`, region)
+	rows, err := tx.Query(ctx, `SELECT id,agent_endpoint,public_key_hash,slots FROM hosting_nodes WHERE region=$1 AND state='active' AND public_key_hash IS NOT NULL AND last_verified_at>now()-interval '1 minute' ORDER BY created_at,id FOR UPDATE SKIP LOCKED`, region)
 	if err != nil {
 		return Placement{}, err
 	}
