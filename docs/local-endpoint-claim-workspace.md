@@ -18,4 +18,4 @@ Review panels fit at 320 x 740, 375 x 812, 844 x 390, 768 x 1024 and 1440 x 900 
 
 ## Remaining gates
 
-Controlled public DNS, positive populated-claim recovery, route/TLS provisioning, ownership revalidation and hosting activation remain open. Claims are local-only and every receipt retains `canActivate=false`. This workspace does not change native account identities or implement account migration.
+Controlled public DNS, independent populated-claim recovery, route/TLS provisioning, ownership revalidation and hosting activation remain open. Claims are local-only and every receipt retains `canActivate=false`. This workspace does not change native account identities or implement account migration.
