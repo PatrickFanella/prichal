@@ -16,8 +16,6 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U pds_ci -d pds_ci"
           --health-interval 2s --health-timeout 3s --health-retries 20
-    env:
-      PDS_DATABASE_URL: postgres://pds_ci:disposable-ci-only@postgres:5432/pds_ci?sslmode=disable
     steps:
       - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: https://github.com/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
@@ -29,5 +27,12 @@ jobs:
           node-version: '24.15.0'
       - name: Install pinned package manager
         run: npm install --global pnpm@12.6.0
+      - name: Resolve disposable PostgreSQL service
+        env:
+          PDS_CI_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: |
+          database_host=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PDS_CI_SERVICE_ID")
+          test -n "$database_host"
+          printf 'PDS_DATABASE_URL=postgres://pds_ci:disposable-ci-only@%s:5432/pds_ci?sslmode=disable\n' "$database_host" >> "$GITHUB_ENV"
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
