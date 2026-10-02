@@ -32,18 +32,27 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if errors.Is(err, recovery.ErrHeld) || recovery.Check(ctx, w.Pool) != nil {
+		return river.JobSnooze(time.Minute)
+	}
 	if job.Attempt >= job.MaxAttempts {
 		tx, txErr := w.Pool.Begin(ctx)
 		if txErr != nil {
 			return errors.New("service result could not be recorded")
 		}
 		defer tx.Rollback(ctx)
+		if txErr = checkRecoveryTx(ctx, tx); txErr != nil {
+			return river.JobSnooze(time.Minute)
+		}
 		changed, txErr := tx.Exec(ctx, `UPDATE service_operations SET state='failed',updated_at=now() WHERE id=$1 AND state='pending'`, job.Args.OperationID)
 		if txErr == nil && changed.RowsAffected() > 0 {
 			_, txErr = tx.Exec(ctx, `INSERT INTO service_operation_events(operation_id,state) VALUES($1,'failed')`, job.Args.OperationID)
 		}
 		if txErr != nil {
 			return errors.New("service result could not be recorded")
+		}
+		if txErr = checkRecoveryTx(ctx, tx); txErr != nil {
+			return river.JobSnooze(time.Minute)
 		}
 		if txErr = tx.Commit(ctx); txErr != nil {
 			return errors.New("service result could not be recorded")
@@ -76,6 +85,9 @@ func (w *Worker) perform(ctx context.Context, id string) error {
 	if err = tx.QueryRow(ctx, `SELECT state,desired_state,generation,kind FROM service_operations WHERE id=$1 FOR UPDATE`, id).Scan(&state, &desired, &generation, &kind); err != nil {
 		return err
 	}
+	if err = checkRecoveryTx(ctx, tx); err != nil {
+		return err
+	}
 	if state != "pending" {
 		return tx.Commit(ctx)
 	}
@@ -100,6 +112,9 @@ func (w *Worker) perform(ctx context.Context, id string) error {
 		if err = tx.QueryRow(ctx, `SELECT account_did FROM enrollment_operations WHERE deployment_id=$1 AND state='verified' ORDER BY created_at DESC LIMIT 1`, deployment).Scan(&expectedDID); err != nil {
 			return errors.New("verified native account required")
 		}
+		if err = checkRecoveryTx(ctx, tx); err != nil {
+			return err
+		}
 		account, accountErr := w.Agent.Account(ctx, peer, deployment, request)
 		err = accountErr
 		if account.DID != expectedDID {
@@ -107,6 +122,9 @@ func (w *Worker) perform(ctx context.Context, id string) error {
 		}
 		result = account.ServiceResult
 	} else {
+		if err = checkRecoveryTx(ctx, tx); err != nil {
+			return err
+		}
 		result, err = w.Agent.Service(ctx, peer, deployment, request)
 	}
 	if err != nil || result.InstanceID != deployment || result.ServiceRequest != request {
