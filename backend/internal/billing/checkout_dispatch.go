@@ -77,7 +77,7 @@ func (s *CheckoutIntents) Start(ctx context.Context, owner, org, id string, conf
 		return CheckoutIntent{}, err
 	}
 	if result.State != "prepared" {
-		if err = checkoutRecovery(ctx, tx); err != nil {
+		if err = billingRecovery(ctx, tx); err != nil {
 			return CheckoutIntent{}, err
 		}
 		return result, tx.Commit(ctx)
@@ -94,7 +94,7 @@ func (s *CheckoutIntents) Start(ctx context.Context, owner, org, id string, conf
 	if _, err = s.queue.InsertTx(ctx, tx, CheckoutArgs{RequestID: id}, &river.InsertOpts{MaxAttempts: 5}); err != nil {
 		return CheckoutIntent{}, err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return CheckoutIntent{}, err
 	}
 	result.State = "queued"
@@ -136,12 +136,12 @@ func (s *CheckoutIntents) reserveDispatch(ctx context.Context, id string) error 
 		return ErrConflict
 	}
 	if state == "session_ready" || state == "manual_review" || started != nil {
-		if err = checkoutRecovery(ctx, tx); err != nil {
+		if err = billingRecovery(ctx, tx); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE billing_checkout_requests SET dispatch_started_at=clock_timestamp() WHERE id=$1`, id); err != nil {
@@ -150,7 +150,7 @@ func (s *CheckoutIntents) reserveDispatch(ctx context.Context, id string) error 
 	if err = checkoutAudit(ctx, tx, id, org, owner, "dispatch_reserve", "worker"); err != nil {
 		return err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -192,7 +192,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 		return err
 	}
 	if state == "session_ready" || state == "manual_review" {
-		if err := checkoutRecovery(ctx, tx); err != nil {
+		if err := billingRecovery(ctx, tx); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
@@ -203,7 +203,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 	if err := checkoutPendingAuthority(ctx, tx, org); err != nil {
 		return err
 	}
-	if err := checkoutRecovery(ctx, tx); err != nil {
+	if err := billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	if started.After(time.Now().Add(time.Minute)) {
@@ -216,7 +216,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 		if err := checkoutAudit(ctx, tx, id, org, owner, "manual_review", "worker"); err != nil {
 			return err
 		}
-		if err := checkoutRecovery(ctx, tx); err != nil {
+		if err := billingRecovery(ctx, tx); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
@@ -226,7 +226,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 		if err != nil || !customerID.MatchString(value) {
 			return ErrUnavailable
 		}
-		if err = checkoutRecovery(ctx, tx); err != nil {
+		if err = billingRecovery(ctx, tx); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE billing_checkout_requests SET customer_id=$2,state='customer_ready' WHERE id=$1`, id, value); err != nil {
@@ -240,7 +240,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 		if err != nil || !checkoutID.MatchString(session.ID) || session.ExpiresAt.Before(time.Now()) {
 			return ErrUnavailable
 		}
-		if err = checkoutRecovery(ctx, tx); err != nil {
+		if err = billingRecovery(ctx, tx); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE billing_checkout_requests SET checkout_id=$2,session_expires_at=$3,state='session_ready' WHERE id=$1`, id, session.ID, session.ExpiresAt); err != nil {
@@ -250,7 +250,7 @@ func (s *CheckoutIntents) dispatchStep(ctx context.Context, tx pgx.Tx, id, owner
 			return err
 		}
 	}
-	if err := checkoutRecovery(ctx, tx); err != nil {
+	if err := billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

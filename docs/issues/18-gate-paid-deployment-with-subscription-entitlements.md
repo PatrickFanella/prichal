@@ -49,3 +49,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Disposable actual authority qualification](../local-checkout-authority-fixture.md) now exercises owner HTTP, the real River checkout worker, pinned SDK transport and a private synthetic registry without source resources or payment entitlement. Interactive browser, populated restore, signed completion mapping and commercial policy remain open.
 
 [Populated checkout snapshot qualification](../local-checkout-snapshot-recovery.md) now verifies all five disposable states, held refusal/authentication revocation and terminal/expired replay without new remote resources. Original source checkout remains empty. Fresh actual-registry replay and required completion/entitlement gates remain open.
+
+[Billing transaction recovery fences](../local-billing-recovery-fences.md) now preserve intake, immutable mapping and authoritative observations across late holds, including lock/response/write waits. Missing recovery leaves work pending. Required checkout completion mapping and paid entitlement policy remain open.

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
@@ -46,17 +45,6 @@ func NewCheckoutIntents(local bool, pool *pgxpool.Pool, adapter *FixtureSessions
 	return &CheckoutIntents{pool: pool, settings: adapter.settings, keyDigest: adapter.keyDigest, queue: queue}, nil
 }
 
-func checkoutRecovery(ctx context.Context, tx pgx.Tx) error {
-	var held bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM management_recovery WHERE state='held')`).Scan(&held); err != nil {
-		return ErrUnavailable
-	}
-	if held {
-		return recovery.ErrHeld
-	}
-	return nil
-}
-
 func (s *CheckoutIntents) begin(ctx context.Context, owner, org, lock string) (pgx.Tx, error) {
 	if s == nil || s.pool == nil || !uuid.MatchString(owner) || !uuid.MatchString(org) {
 		return nil, ErrCheckoutNotFound
@@ -69,7 +57,7 @@ func (s *CheckoutIntents) begin(ctx context.Context, owner, org, lock string) (p
 	// Lock mode is fixed by the caller, never request input.
 	err = tx.QueryRow(ctx, `SELECT id FROM organizations WHERE id=$1 AND owner_id=$2 `+lock, org, owner).Scan(&found)
 	if err == nil {
-		err = checkoutRecovery(ctx, tx)
+		err = billingRecovery(ctx, tx)
 	}
 	if err != nil {
 		_ = tx.Rollback(ctx)
@@ -117,7 +105,7 @@ func (s *CheckoutIntents) Prepare(ctx context.Context, owner, org, key string, c
 		if price != s.settings.PriceID || origin != s.settings.ReturnOrigin {
 			return CheckoutIntent{}, ErrConflict
 		}
-		if err = checkoutRecovery(ctx, tx); err != nil {
+		if err = billingRecovery(ctx, tx); err != nil {
 			return CheckoutIntent{}, err
 		}
 		return prior, tx.Commit(ctx)
@@ -140,7 +128,7 @@ func (s *CheckoutIntents) Prepare(ctx context.Context, owner, org, key string, c
 	if _, err = tx.Exec(ctx, `INSERT INTO billing_checkout_events(request_id,organization_id,actor_id,action) VALUES($1,$2,$3,'prepare')`, result.ID, org, owner); err != nil {
 		return CheckoutIntent{}, err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return CheckoutIntent{}, err
 	}
 	return result, tx.Commit(ctx)
@@ -175,7 +163,7 @@ func (s *CheckoutIntents) get(ctx context.Context, owner, org, id string, byKey 
 	if err != nil {
 		return CheckoutIntent{}, err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return CheckoutIntent{}, err
 	}
 	return result, tx.Commit(ctx)
