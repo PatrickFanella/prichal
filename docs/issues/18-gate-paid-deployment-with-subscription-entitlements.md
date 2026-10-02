@@ -29,6 +29,8 @@ Exercise checkout, webhook replay, failed/late payment, plan change and direct A
 
 No live charges in CI, marketplace payouts or ticketing revenue; subscription billing purchases this hosting service.
 
+The [local Checkout/Portal adapter](../local-billing-sessions.md) now has SDK transport and failure qualification. It exposes no owner route and grants no entitlement. Durable customer/request mapping, browser review, completion-event reconciliation, actual sandbox resources and commercial policy remain open.
+
 ## Planning reference
 
 Phase: M3 - Paid pilot. Priority: P0.
