@@ -712,3 +712,7 @@ Found and reproduced standalone observations bypassing held/missing recovery sta
 ## Dynamic recovery readiness, October 1
 
 Reproduced the API reporting ready after a recovery hold was introduced at runtime. Readiness now composes current schema and recovery checks under the existing request deadline; startup refusal is preserved and the monitor's schema-only probe remains available. A disposable database verified real hold/reconciliation transitions and refusal for missing ledger, wrong schema and closed pool. No source hold or native mutation was introduced. Focused race and full local smoke passed. Browser copy now describes unconfirmed readiness without assuming database reachability. See [held recovery](../local-held-recovery.md).
+
+## Lifecycle history failure and paging, October 1
+
+The read-only owner/operator activity panel now clears stale rows/cursors before refresh and on denied, unavailable or invalid responses, aborts changed scopes and focuses results/errors. Strict fifty-row generation/cursor and owner actor-redaction contracts are verified. Native twenty-six-row Bob history loaded; read-only fixtures verified fifty-to-two keyboard pagination and failure cleanup with six reads/zero unexpected mutations. Source work/native/custody matched. Build, contract and local smoke passed. Phone overflow checks passed; T3 resize timeouts leave four widths and visual/assistive gates open. See [history evidence](../local-lifecycle-history-workspace.md).

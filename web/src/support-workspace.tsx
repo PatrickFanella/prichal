@@ -1,26 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { LifecycleActivity } from './lifecycle-activity';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 function object(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
 function errorMessage(value: unknown): string { return object(value) && typeof value.error === 'string' ? value.error : 'Support evidence is temporarily unavailable.'; }
-type HistoryItem = { id: string; kind: string; generation: number; state: string; desiredState: string; reason: string; actor: string };
-type History = { items: HistoryItem[]; hasMore: boolean; nextBefore: number | null };
-function history(value: unknown): value is History {
-  return object(value) && Array.isArray(value.items) && value.items.every(item => object(item) && typeof item.id === 'string' && typeof item.kind === 'string' && typeof item.generation === 'number' && typeof item.state === 'string' && typeof item.desiredState === 'string' && typeof item.reason === 'string' && typeof item.actor === 'string') && typeof value.hasMore === 'boolean' && (value.nextBefore === null || typeof value.nextBefore === 'number');
-}
-export function LifecycleActivity({ deploymentId, operator = false }: { deploymentId: string; operator?: boolean }) {
-  const [page, setPage] = useState<History | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  const pageStatus = useRef<HTMLParagraphElement | null>(null);
-  useEffect(() => { if (page) pageStatus.current?.focus(); }, [page]);
-  async function load(before?: number) {
-    setBusy(true); setError('');
-    try {
-      const response = await fetch(`/api/${operator ? 'operator/' : ''}deployments/${deploymentId}/activity${before ? `?before=${before}` : ''}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-      const value: unknown = await response.json(); if (!response.ok) throw new Error(errorMessage(value)); if (!history(value)) throw new Error('The activity response could not be verified.'); setPage(value);
-    } catch (error) { setError(error instanceof Error ? error.message : 'Activity is unavailable.'); } finally { setBusy(false); }
-  }
-  return <details><summary>Service and account activity</summary><button type="button" disabled={busy} onClick={() => { void load(); }}>Load latest activity</button>{error && <p role="alert">{error}</p>}{page && <><p role="status" ref={pageStatus} tabIndex={-1}>{page.items.length} service and account actions shown.</p><ol>{page.items.map(item => <li key={item.id}>Generation {item.generation}: {item.kind} {item.desiredState}, {item.state}. Reason: {item.reason.replaceAll('_', ' ')}. {operator && <>Actor: {item.actor}.</>}</li>)}</ol>{page.items.length === 0 && <p>No service or account actions recorded.</p>}{page.hasMore && page.nextBefore !== null && <button type="button" disabled={busy} onClick={() => { void load(page.nextBefore!); }}>Load older activity</button>}</>}</details>;
-}
+export { LifecycleActivity } from './lifecycle-activity';
 type Tenant = { instanceId: string; organizationId: string; name: string; state: string; kind: string; managedHostname: string; billing: unknown; hostingGrant: unknown; lifecycle: unknown; incidents: unknown; usage: unknown; domainProof: unknown; managementRecovery: unknown };
 function tenant(value: unknown): value is Tenant { return object(value) && typeof value.instanceId === 'string' && uuid.test(value.instanceId) && typeof value.organizationId === 'string' && typeof value.name === 'string' && typeof value.state === 'string' && typeof value.kind === 'string' && typeof value.managedHostname === 'string'; }
 function state(value: unknown): string { return object(value) && typeof value.state === 'string' ? value.state : 'Unconfigured'; }
