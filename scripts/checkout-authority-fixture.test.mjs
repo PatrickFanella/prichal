@@ -4,7 +4,7 @@ import {mkdtempSync,readFileSync,rmSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {once} from 'node:events';
-import {createHash,randomBytes} from 'node:crypto';
+import {createHash,createHmac,randomBytes,randomUUID} from 'node:crypto';
 import {createCheckoutAuthority} from '../deploy/local/fixtures/checkout-authority.mjs';
 const key='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const version='2026-09-30.endive';
@@ -57,5 +57,47 @@ test('private fixture scope and expiration cannot silently create replacement re
   assert.throws(()=>createCheckoutAuthority({...config,priceId:'price_other'}));
   assert.throws(()=>createCheckoutAuthority({...config,apiKey:'rk_test_'+randomBytes(32).toString('hex')}));
   chmodSync(join(config.root,'authority.json'),0o644);assert.throws(()=>createCheckoutAuthority(config));
+ }finally{await close(instance.server);rmSync(config.root,{recursive:true,force:true});}
+});
+
+async function complete(instance,config,input,headers={}) {
+ return fetch(instance.origin+'/_fixture/checkout/completion',{method:'POST',headers:{Authorization:'Bearer '+config.controlKey,'Content-Type':'application/json',...headers},body:JSON.stringify(input),signal:AbortSignal.timeout(5000)});
+}
+test('separate host-only completion control retains exact events and current graph across restart',async()=>{
+ const config={...settings(),controlKey:'fixture_control_'+randomBytes(32).toString('hex'),webhookSecret:'whsec_'+randomBytes(32).toString('hex')};
+ let now=1700000000,instance=await start({...config,clock:()=>now});
+ try{
+  const customer=await (await request(instance,config,'/v1/customers',new URLSearchParams({description:'Managed PDS hosting fixture'}),'pdsaas-customer-'+key)).json();
+  const session=await (await request(instance,config,'/v1/checkout/sessions',checkoutForm(customer.id),'pdsaas-checkout-'+key)).json();
+  const input={nonce:randomUUID(),sessionId:session.id,type:'checkout.session.completed',paymentState:'unpaid',status:'active'};
+  const before=readFileSync(join(config.root,'authority.json'),'utf8');
+  for(const headers of [{Authorization:'Bearer '+config.apiKey},{Origin:''},{Cookie:''}])assert.equal((await complete(instance,config,input,headers)).status,401);
+  for(const invalid of [{...input,sessionId:'cs_test_foreign'},{...input,type:'checkout.session.async_payment_succeeded',paymentState:'paid'},{...input,owner:'arbitrary'},{...input,paymentState:'unknown'}])assert.equal((await complete(instance,config,invalid)).status,400);
+  assert.equal(readFileSync(join(config.root,'authority.json'),'utf8'),before);
+  const results=await Promise.all(Array.from({length:8},()=>complete(instance,config,input).then(async response=>{assert.equal(response.status,200);return response.json();})));
+  assert.ok(results.every(result=>result.body===results[0].body));const evidence=results[0];assert.equal(evidence.fixture,true);assert.equal(evidence.payments,false);
+  assert.equal(evidence.signature,'t='+now+',v1='+createHmac('sha256',config.webhookSecret).update(now+'.'+evidence.body).digest('hex'));
+  const event=JSON.parse(evidence.body),subscription=event.data.object.subscription;
+  assert.equal(event.data.object.customer,customer.id);assert.equal(event.data.object.client_reference_id,key);
+  assert.equal((await complete(instance,config,{...input,status:'past_due'})).status,400);
+  await close(instance.server);now+=7200;instance=await start({...config,clock:()=>now});
+  const retry=await (await complete(instance,config,input)).json();assert.equal(retry.body,evidence.body);assert.ok(retry.signature.startsWith('t='+now+','));
+  const recovered=await (await request(instance,config,'/v1/checkout/sessions/'+session.id+'?expand%5B0%5D=line_items')).json();assert.equal(recovered.status,'complete');assert.equal(recovered.url,null);assert.equal(recovered.expires_at,session.expires_at);
+  const graph=await (await request(instance,config,'/v1/subscriptions/'+subscription)).json();assert.equal(graph.customer,customer.id);assert.equal(graph.status,'active');assert.equal(graph.items.data[0].subscription,subscription);assert.equal(graph.items.data[0].price.id,config.priceId);
+  assert.equal((await request(instance,config,'/v1/subscriptions/'+subscription+'?expand=x')).status,404);
+  assert.equal((await complete(instance,config,{...input,nonce:randomUUID(),type:'checkout.session.async_payment_failed',status:'past_due'})).status,200);
+  assert.equal((await (await request(instance,config,'/v1/subscriptions/'+subscription)).json()).status,'past_due');
+  const ledger=JSON.parse(readFileSync(join(config.root,'authority.json'),'utf8'));assert.equal(Object.keys(ledger.requests).length,2);assert.equal(Object.keys(ledger.completions).length,2);assert.equal(Object.keys(ledger.subscriptions).length,1);
+  assert.throws(()=>createCheckoutAuthority({...config,controlKey:'fixture_control_'+randomBytes(32).toString('hex')}));
+  assert.throws(()=>createCheckoutAuthority({...config,webhookSecret:'whsec_'+randomBytes(32).toString('hex')}));
+ }finally{await close(instance.server);rmSync(config.root,{recursive:true,force:true});}
+});
+test('completion control defaults closed and cannot enable an existing registry scope',async()=>{
+ const config=settings(),instance=await start(config);
+ try{
+  const response=await fetch(instance.origin+'/_fixture/checkout/completion',{method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},body:'{}'});assert.equal(response.status,404);
+  await request(instance,config,'/v1/customers',new URLSearchParams({description:'Managed PDS hosting fixture'}),'pdsaas-customer-'+key);
+  assert.throws(()=>createCheckoutAuthority({...config,controlKey:'fixture_control_'+randomBytes(32).toString('hex'),webhookSecret:'whsec_'+randomBytes(32).toString('hex')}));
+  assert.throws(()=>createCheckoutAuthority({...config,controlKey:'fixture_control_'+randomBytes(32).toString('hex')}));
  }finally{await close(instance.server);rmSync(config.root,{recursive:true,force:true});}
 });
