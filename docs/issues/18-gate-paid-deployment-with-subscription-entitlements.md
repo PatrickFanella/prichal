@@ -47,3 +47,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Scoped browser checkout review](../local-checkout-workspace.md) now retains the original fixture key/Price, separates preparation and dispatch reviews, and recovers only transient confirmed navigation. Intercepted browser verification and real disabled reload checks passed; other responsive widths, actual authority journey, populated restore and completion/entitlement reconciliation remain open.
 
 [Disposable actual authority qualification](../local-checkout-authority-fixture.md) now exercises owner HTTP, the real River checkout worker, pinned SDK transport and a private synthetic registry without source resources or payment entitlement. Interactive browser, populated restore, signed completion mapping and commercial policy remain open.
+
+[Populated checkout snapshot qualification](../local-checkout-snapshot-recovery.md) now verifies all five disposable states, held refusal/authentication revocation and terminal/expired replay without new remote resources. Original source checkout remains empty. Fresh actual-registry replay and required completion/entitlement gates remain open.
