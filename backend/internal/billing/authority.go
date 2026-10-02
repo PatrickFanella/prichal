@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"crypto/sha256"
 	"net/http"
 	"time"
 
@@ -17,7 +18,10 @@ func (quietLogger) Warnf(string, ...interface{})  {}
 
 // StripeAuthority uses an instance client and a separately protected local fixture key.
 // It is not a qualified Stripe sandbox/live connection.
-type StripeAuthority struct{ Client *stripe.Client }
+type StripeAuthority struct {
+	Client    *stripe.Client
+	keyDigest [32]byte
+}
 
 func NewAuthority(settings Settings) (Authority, error) {
 	if !settings.Enabled {
@@ -31,7 +35,7 @@ func NewAuthority(settings Settings) (Authority, error) {
 		return nil, err
 	}
 	backend := stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{URL: stripe.String(settings.FixtureURL), HTTPClient: &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, MaxNetworkRetries: stripe.Int64(0), LeveledLogger: quietLogger{}})
-	return &StripeAuthority{Client: stripe.NewClient(key, stripe.WithBackends(&stripe.Backends{API: backend}))}, nil
+	return &StripeAuthority{Client: stripe.NewClient(key, stripe.WithBackends(&stripe.Backends{API: backend})), keyDigest: sha256.Sum256([]byte(key))}, nil
 }
 func (a *StripeAuthority) Subscription(ctx context.Context, id string) (Snapshot, error) {
 	if !subscriptionID.MatchString(id) {

@@ -8,6 +8,8 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
 // ErrCheckoutNotFound deliberately conceals unknown or foreign checkout scope.
@@ -15,8 +17,10 @@ var ErrCheckoutNotFound = errors.New("checkout preparation unavailable")
 
 // CheckoutIntents retains reviewed fixture preparation, without remote payment dispatch.
 type CheckoutIntents struct {
-	pool     *pgxpool.Pool
-	settings SessionSettings
+	pool      *pgxpool.Pool
+	settings  SessionSettings
+	keyDigest [32]byte
+	queue     *river.Client[pgx.Tx]
 }
 
 // CheckoutIntent is a safe owner receipt. It carries no navigation or payment capability.
@@ -35,13 +39,17 @@ func NewCheckoutIntents(local bool, pool *pgxpool.Pool, adapter *FixtureSessions
 	if !local || pool == nil || adapter == nil || adapter.client == nil {
 		return nil, ErrUnavailable
 	}
-	return &CheckoutIntents{pool, adapter.settings}, nil
+	queue, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+	if err != nil {
+		return nil, err
+	}
+	return &CheckoutIntents{pool: pool, settings: adapter.settings, keyDigest: adapter.keyDigest, queue: queue}, nil
 }
 
 func checkoutRecovery(ctx context.Context, tx pgx.Tx) error {
 	var held bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM management_recovery WHERE state='held')`).Scan(&held); err != nil {
-		return err
+		return ErrUnavailable
 	}
 	if held {
 		return recovery.ErrHeld

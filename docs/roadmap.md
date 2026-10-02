@@ -70,7 +70,7 @@ Optional CLI, custom PDS endpoints, account migration and organization collabora
 
 ## Current local evidence and remaining gates
 
-This snapshot includes schema-31 durable fixture checkout preparation and local exclusive endpoint claims and queued enrollment cancellation and deployment/enrollment admission and bounded collaboration pagers and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
+This snapshot includes schema-32 durable fixture checkout preparation and bounded customer/session dispatch and local exclusive endpoint claims and queued enrollment cancellation and deployment/enrollment admission and bounded collaboration pagers and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
 
 | Phase | Verified locally | Remaining before the phase closes |
 | --- | --- | --- |
@@ -116,3 +116,5 @@ Exclusive hostname claims now have local competition, expiry/release, recovery-h
 Local endpoint claim review and exact-choice retry are implemented and verified; [browser evidence](local-endpoint-claim-workspace.md) separates fixture reservations from live qualification. Public DNS and routing/TLS/activation remain open. Disposable populated-claim snapshot recovery is verified; see [recovery evidence](local-populated-claim-recovery.md).
 
 [Durable fixture checkout preparation](local-checkout-preparation.md) and [hosted session transport](local-billing-sessions.md) now have local qualification. Preparation creates no payment capability or entitlement. Durable customer mapping/dispatch, owner routes, actual sandbox billing and commercial policy remain open.
+
+[Durable fixture checkout dispatch](local-checkout-dispatch.md) now has queue/checkpoint/SDK/retry and authority-binding evidence. Ordinary source billing sessions stay disabled; no source payment capability or entitlement was created. Owner routes, hosted-session recovery, completion reconciliation and actual sandbox/commercial gates remain open.
