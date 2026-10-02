@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -26,6 +27,7 @@ func TestCheckoutPreparationUpgradePreservesVersionThirtyBilling(t *testing.T) {
 	if err := pool.QueryRow(ctx, query).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
+	testdb.ReconstructCheckout33(t, pool)
 	if _, err := pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; DROP TABLE billing_checkout_events,billing_checkout_requests; UPDATE schema_version SET version=30`); err != nil {
 		t.Fatal(err)
 	}

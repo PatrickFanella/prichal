@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	stripe "github.com/stripe/stripe-go/v87"
 	"time"
 )
 
@@ -37,12 +38,24 @@ func (a *FixtureSessions) CompletedGraph(ctx context.Context, request SessionReq
 		return CompletionGraph{}, ErrUnavailable
 	}
 	object, err := a.client.V1Subscriptions.Retrieve(ctx, subscription, nil)
-	if err != nil || object == nil || object.Object != "subscription" || object.Livemode || object.ID != subscription || object.Customer == nil || object.Customer.Livemode || object.Customer.Deleted || object.Customer.ID != request.CustomerID || !subscriptionState(string(object.Status)) || object.Items == nil || object.Items.HasMore || len(object.Items.Data) != 1 {
+	if err != nil {
 		return CompletionGraph{}, ErrUnavailable
+	}
+	snapshot, err := subscriptionSnapshot(object, subscription)
+	if err != nil || snapshot.Customer != request.CustomerID || snapshot.Price != a.settings.PriceID {
+		return CompletionGraph{}, ErrUnavailable
+	}
+	return CompletionGraph{Session: session, Subscription: snapshot}, nil
+}
+
+// subscriptionSnapshot validates the first-class current subscription/item graph for both inboxes.
+func subscriptionSnapshot(object *stripe.Subscription, id string) (Snapshot, error) {
+	if object == nil || object.Object != "subscription" || object.Livemode || object.ID != id || object.Customer == nil || object.Customer.Livemode || object.Customer.Deleted || !customerID.MatchString(object.Customer.ID) || !subscriptionState(string(object.Status)) || object.Items == nil || object.Items.HasMore || len(object.Items.Data) != 1 {
+		return Snapshot{}, ErrUnavailable
 	}
 	item := object.Items.Data[0]
-	if item == nil || item.Object != "subscription_item" || item.Subscription != subscription || item.Price == nil || item.Price.Object != "price" || item.Price.Livemode || item.Price.ID != a.settings.PriceID || item.Quantity != 1 || item.CurrentPeriodEnd <= 0 {
-		return CompletionGraph{}, ErrUnavailable
+	if item == nil || item.Object != "subscription_item" || item.Subscription != id || item.Price == nil || item.Price.Object != "price" || item.Price.Livemode || !priceID.MatchString(item.Price.ID) || item.Quantity != 1 || item.CurrentPeriodEnd <= 0 {
+		return Snapshot{}, ErrUnavailable
 	}
-	return CompletionGraph{Session: session, Subscription: Snapshot{Customer: object.Customer.ID, Subscription: object.ID, State: string(object.Status), Price: item.Price.ID, Quantity: 1, PeriodEnd: time.Unix(item.CurrentPeriodEnd, 0)}}, nil
+	return Snapshot{Customer: object.Customer.ID, Subscription: object.ID, State: string(object.Status), Price: item.Price.ID, Quantity: 1, PeriodEnd: time.Unix(item.CurrentPeriodEnd, 0)}, nil
 }

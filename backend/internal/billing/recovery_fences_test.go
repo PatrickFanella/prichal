@@ -89,7 +89,7 @@ func TestBillingReconcileHoldDuringEventOrOrganizationWait(t *testing.T) {
 			query := "SELECT customer_id,subscription_id,state"
 			if mode == "organization" {
 				_, err = tx.Exec(ctx, `SELECT id FROM organizations WHERE id=$1 FOR UPDATE`, org)
-				query = "SELECT id FROM organizations"
+				query = "SELECT id,owner_id FROM organizations"
 			} else {
 				_, err = tx.Exec(ctx, `SELECT event_id FROM billing_events WHERE event_id=$1 FOR UPDATE`, event.ID)
 			}

@@ -120,3 +120,5 @@ Local endpoint claim review and exact-choice retry are implemented and verified;
 [Durable fixture checkout dispatch](local-checkout-dispatch.md) now has queue/checkpoint/SDK/retry and authority-binding evidence. Ordinary source billing sessions stay disabled; no source payment capability or entitlement was created. Owner routes, hosted-session recovery, completion reconciliation and actual sandbox/commercial gates remain open.
 
 [Signed completion intake](local-checkout-completion-inbox.md) now has local atomic delivery, concurrent deduplication and schema-33 recovery/replay evidence. Claims remain pending and choose no ownership or access. Current owner/resource/subscription mapping and commercial entitlement policy remain open; ordinary source billing stays disabled.
+
+[Local completion mapping](local-checkout-completion-mapping.md) now has atomic custody/graph/binding/audit/observation evidence and schema-34 recovery/replay qualification. Unpaid or adverse states grant no access; ordinary source billing stays disabled. Populated mapping replay, actual completion/browser journey and commercial/sandbox/live gates remain open.

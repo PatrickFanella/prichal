@@ -2,9 +2,11 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
@@ -103,11 +105,21 @@ func (s *CompletionInbox) Receive(ctx context.Context, e CompletionEvent) (bool,
 	return tag.RowsAffected() == 0, tx.Commit(ctx)
 }
 
-// CompletionWorker keeps intake-only work pending until mapping is implemented and qualified.
+// CompletionWorker leaves disabled, held, unmapped and changed-custody work pending.
 type CompletionWorker struct {
 	river.WorkerDefaults[CompletionArgs]
+	Inbox     *CompletionInbox
+	Intents   *CheckoutIntents
+	Authority *FixtureSessions
 }
 
-func (*CompletionWorker) Work(context.Context, *river.Job[CompletionArgs]) error {
-	return river.JobSnooze(time.Minute)
+func (w *CompletionWorker) Work(ctx context.Context, job *river.Job[CompletionArgs]) error {
+	err := w.Inbox.Reconcile(ctx, job.Args.EventID, w.Intents, w.Authority)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrUnavailable) || errors.Is(err, ErrUnmapped) || errors.Is(err, ErrConflict) || errors.Is(err, ErrCheckoutNotFound) || errors.Is(err, recovery.ErrHeld) {
+		return river.JobSnooze(time.Minute)
+	}
+	return errors.New("checkout completion could not be confirmed")
 }
