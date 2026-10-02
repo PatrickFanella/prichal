@@ -232,7 +232,7 @@ func TestSeparateHandoverConsentAndEmptyOrganizationFence(t *testing.T) {
 	}
 }
 func TestHandoverRechecksPopulationAndAudit(t *testing.T) {
-	for _, mode := range []string{"populated", "revoked", "audit failure", "expired"} {
+	for _, mode := range []string{"populated", "checkout prepared", "revoked", "audit failure", "expired"} {
 		t.Run(mode, func(t *testing.T) {
 			s := fixture(t)
 			ctx := context.Background()
@@ -244,6 +244,8 @@ func TestHandoverRechecksPopulationAndAudit(t *testing.T) {
 			switch mode {
 			case "populated":
 				_, err = s.Pool.Exec(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,managed_hostname) VALUES($1,'retained','local','retained','retained.localhost')`, org)
+			case "checkout prepared":
+				_, err = s.Pool.Exec(ctx, `INSERT INTO billing_checkout_requests(organization_id,actor_id,idempotency_key,price_id,return_origin) VALUES($1,$2,$3,'price_fixtureHandover','http://127.0.0.1:5173')`, org, alice, key)
 			case "revoked":
 				err = s.ChangeMember(ctx, alice, org, bob, "revoked")
 			case "audit failure":
@@ -394,5 +396,21 @@ func TestOwnerMembershipProjectionAndRenameAuditRollback(t *testing.T) {
 	var name string
 	if err = s.Pool.QueryRow(ctx, `SELECT name FROM organizations WHERE id=$1`, org).Scan(&name); err != nil || name != "local collaboration" {
 		t.Fatal("failed rename changed organization")
+	}
+}
+
+func TestPreparedCheckoutBlocksHandoverOffer(t *testing.T) {
+	s := fixture(t)
+	ctx := context.Background()
+	accept(t, s, "administrator")
+	if _, err := s.Pool.Exec(ctx, `INSERT INTO billing_checkout_requests(organization_id,actor_id,idempotency_key,price_id,return_origin) VALUES($1,$2,$3,'price_fixtureHandover','http://127.0.0.1:5173')`, org, alice, key); err != nil {
+		t.Fatal(err)
+	}
+	before := count(t, s, "organization_access_events")
+	if _, err := s.Transfer(ctx, alice, org, bob, nextKey, true); err != ErrConflict {
+		t.Fatal("prepared checkout allowed handover offer")
+	}
+	if count(t, s, "organization_access_events") != before {
+		t.Fatal("refused offer changed audit")
 	}
 }

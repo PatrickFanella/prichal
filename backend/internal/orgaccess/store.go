@@ -302,7 +302,7 @@ func (s *Store) Transfer(ctx context.Context, actor, org, target, key string, co
 		return "", err
 	}
 	var eligible bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_members WHERE organization_id=$1 AND owner_id=$2 AND state='active' AND role='administrator') AND NOT EXISTS(SELECT 1 FROM deployments WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_customer_bindings WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM endpoint_choices WHERE organization_id=$1 AND state='awaiting_ownership')`, org, target).Scan(&eligible); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_members WHERE organization_id=$1 AND owner_id=$2 AND state='active' AND role='administrator') AND NOT EXISTS(SELECT 1 FROM deployments WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_customer_bindings WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_checkout_requests WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM endpoint_choices WHERE organization_id=$1 AND state='awaiting_ownership')`, org, target).Scan(&eligible); err != nil {
 		return "", err
 	}
 	if !eligible {
@@ -367,7 +367,7 @@ func (s *Store) AcceptTransfer(ctx context.Context, actor, id string, confirmed 
 		return "", ErrConflict
 	}
 	var eligible bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_members WHERE organization_id=$1 AND owner_id=$2 AND state='active' AND role='administrator') AND NOT EXISTS(SELECT 1 FROM deployments WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_customer_bindings WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM endpoint_choices WHERE organization_id=$1 AND state='awaiting_ownership')`, org, actor).Scan(&eligible); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_members WHERE organization_id=$1 AND owner_id=$2 AND state='active' AND role='administrator') AND NOT EXISTS(SELECT 1 FROM deployments WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_customer_bindings WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM billing_checkout_requests WHERE organization_id=$1) AND NOT EXISTS(SELECT 1 FROM endpoint_choices WHERE organization_id=$1 AND state='awaiting_ownership')`, org, actor).Scan(&eligible); err != nil {
 		return "", err
 	}
 	if !eligible {
