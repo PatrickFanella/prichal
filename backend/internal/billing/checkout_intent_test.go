@@ -26,7 +26,7 @@ func TestCheckoutPreparationUpgradePreservesVersionThirtyBilling(t *testing.T) {
 	if err := pool.QueryRow(ctx, query).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `DROP TABLE billing_checkout_events,billing_checkout_requests; UPDATE schema_version SET version=30`); err != nil {
+	if _, err := pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; DROP TABLE billing_checkout_events,billing_checkout_requests; UPDATE schema_version SET version=30`); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {

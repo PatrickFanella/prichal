@@ -125,6 +125,7 @@ func run() error {
 		checkoutWorker.Authority = checkoutAuthority
 	}
 	river.AddWorker(workers, checkoutWorker)
+	river.AddWorker(workers, &billing.CompletionWorker{})
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})

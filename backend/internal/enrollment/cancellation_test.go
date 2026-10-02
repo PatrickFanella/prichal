@@ -200,7 +200,7 @@ func TestCancellationUpgradeConservativelyFencesRetainedPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reconstruct only the new DDL in this disposable database.
-	if _, err = f.pool.Exec(ctx, `DROP TABLE billing_checkout_events,billing_checkout_requests; DROP TABLE endpoint_claim_events,endpoint_claims; ALTER TABLE endpoint_choices DROP CONSTRAINT endpoint_choice_claim_identity; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_cancellation_checkpoint; ALTER TABLE enrollment_operations DROP COLUMN dispatch_started_at; UPDATE schema_version SET version=28`); err != nil {
+	if _, err = f.pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; DROP TABLE billing_checkout_events,billing_checkout_requests; DROP TABLE endpoint_claim_events,endpoint_claims; ALTER TABLE endpoint_choices DROP CONSTRAINT endpoint_choice_claim_identity; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_cancellation_checkpoint; ALTER TABLE enrollment_operations DROP COLUMN dispatch_started_at; UPDATE schema_version SET version=28`); err != nil {
 		t.Fatal(err)
 	}
 	if err = migrate.Apply(ctx, f.pool); err != nil {
