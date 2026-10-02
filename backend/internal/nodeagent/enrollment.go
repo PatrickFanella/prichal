@@ -68,16 +68,25 @@ func (d *Docker) readEnrollmentLease(id string) (enrollmentLease, error) {
 	return lease, nil
 }
 func (d *Docker) publishEnrollmentLease(ctx context.Context, lease enrollmentLease) error {
-	directory := filepath.Join(d.directory, lease.InstanceID+"-enrollment")
-	info, err := os.Lstat(directory)
-	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
-		return errors.New("private enrollment directory required")
-	}
 	data, err := json.Marshal(lease)
 	if err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(directory, ".lease-")
+	return d.publishGuardPolicy(ctx, lease.InstanceID, "lease.json", data)
+}
+
+// publishGuardPolicy atomically replaces one private policy file in the guard's
+// read-only directory and confirms the bytes from inside the guard.
+func (d *Docker) publishGuardPolicy(ctx context.Context, id, file string, data []byte) error {
+	if file != "lease.json" && file != "members.json" {
+		return errors.New("unsupported guard policy")
+	}
+	directory := filepath.Join(d.directory, id+"-enrollment")
+	info, err := os.Lstat(directory)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return errors.New("private enrollment directory required")
+	}
+	temporary, err := os.CreateTemp(directory, ".policy-")
 	if err != nil {
 		return err
 	}
@@ -93,7 +102,7 @@ func (d *Docker) publishEnrollmentLease(ctx context.Context, lease enrollmentLea
 	if err = temporary.Close(); err != nil {
 		return err
 	}
-	if err = os.Rename(temporary.Name(), filepath.Join(directory, "lease.json")); err != nil {
+	if err = os.Rename(temporary.Name(), filepath.Join(directory, file)); err != nil {
 		return err
 	}
 	folder, err := os.Open(directory)
@@ -107,12 +116,12 @@ func (d *Docker) publishEnrollmentLease(ctx context.Context, lease enrollmentLea
 	}
 	digest := sha256.Sum256(data)
 	// The publication is confirmed inside the guard, not inferred from a host write.
-	const script = `const fs=require('node:fs'),crypto=require('node:crypto');process.stdout.write(JSON.stringify({hash:crypto.createHash('sha256').update(fs.readFileSync('/enrollment/lease.json')).digest('hex')}))`
+	script := `const fs=require('node:fs'),crypto=require('node:crypto');process.stdout.write(JSON.stringify({hash:crypto.createHash('sha256').update(fs.readFileSync('/enrollment/` + file + `')).digest('hex')}))`
 	for attempt := 0; attempt < 10; attempt++ {
 		var observed struct {
 			Hash string `json:"hash"`
 		}
-		if err = d.executeFixed(ctx, "pds-ass-enrollment-"+lease.InstanceID, script, nil, &observed); err == nil && observed.Hash == hex.EncodeToString(digest[:]) {
+		if err = d.executeFixed(ctx, "pds-ass-enrollment-"+id, script, nil, &observed); err == nil && observed.Hash == hex.EncodeToString(digest[:]) {
 			return nil
 		}
 		select {

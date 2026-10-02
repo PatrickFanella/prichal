@@ -12,9 +12,9 @@ async function call(method, body) {
 async function inventory() {
   const { DatabaseSync } = require('node:sqlite');
   const database = new DatabaseSync('/pds/account.sqlite', { readOnly: true });
-  const actors = database.prepare('SELECT did FROM actor LIMIT 2').all();
+  // Member accounts may follow; the owner's first account is the earliest actor.
+  const actors = database.prepare('SELECT did FROM actor ORDER BY createdAt,did LIMIT 1').all();
   database.close();
-  if (actors.length > 1) throw new Error('First-account ceiling exceeded');
   if (!actors.length) return { count: 0 };
   const info = await call('com.atproto.admin.getAccountInfo?did=' + encodeURIComponent(actors[0].did));
   return { count: 1, did: info.did, handle: info.handle, emailConfirmed: !!info.emailConfirmedAt };

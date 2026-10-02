@@ -222,6 +222,54 @@ func (c *Client) enrollment(ctx context.Context, peer Peer, id, ticket string, w
 }
 
 // Export authenticates the registered node before requesting the expected sole native actor.
+// MemberInvitation authenticates the registered node before issuing or reporting a member code.
+func (c *Client) MemberInvitation(ctx context.Context, peer Peer, id, ticket string) (MemberInvitation, error) {
+	return c.member(ctx, peer, id, ticket, false)
+}
+
+// WithdrawMemberInvitation authenticates the registered node before disabling an unused member code.
+func (c *Client) WithdrawMemberInvitation(ctx context.Context, peer Peer, id, ticket string) (MemberInvitation, error) {
+	return c.member(ctx, peer, id, ticket, true)
+}
+
+func (c *Client) member(ctx context.Context, peer Peer, id, ticket string, withdraw bool) (MemberInvitation, error) {
+	if !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+		return MemberInvitation{}, errors.New("invalid member invitation request")
+	}
+	client, err := c.httpClient(peer)
+	if err != nil {
+		return MemberInvitation{}, err
+	}
+	defer client.CloseIdleConnections()
+	body, _ := json.Marshal(struct {
+		Ticket string `json:"ticket"`
+	}{ticket})
+	path := "/v1/instances/" + id + "/members/invitation"
+	if withdraw {
+		path += "/withdraw"
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+path, bytes.NewReader(body))
+	if err != nil {
+		return MemberInvitation{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return MemberInvitation{}, errors.New("registered member node unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return MemberInvitation{}, errors.New("registered node could not confirm member invitation")
+	}
+	var result MemberInvitation
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 4096))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || !result.Valid(id, ticket, withdraw) {
+		return MemberInvitation{}, errors.New("invalid node member response")
+	}
+	return result, nil
+}
+
 func (c *Client) Export(ctx context.Context, peer Peer, id, did string) (PortableExport, error) {
 	if !instanceID.MatchString(id) || !accountDID.MatchString(did) {
 		return PortableExport{}, errors.New("invalid portable export reference")

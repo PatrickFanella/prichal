@@ -54,7 +54,8 @@ func create(t *testing.T, prefix string, size int) *pgxpool.Pool {
 		if pool != nil {
 			pool.Close()
 		}
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Forced drops can wait on checkpoint I/O when many packages run in parallel.
+		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if _, err := admin.Exec(cleanup, "DROP DATABASE "+identifier+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop disposable database: %v", err)
