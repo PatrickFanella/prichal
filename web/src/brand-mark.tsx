@@ -1,4 +1,4 @@
-// Prichal docking-node mark. Geometry matches brand/build.py; the red flange is the occupied port.
+// Prichal docking-node mark. Geometry matches the SUBCULT Studio pack (docking mode); the red flange is the occupied port.
 const port = (angle: number, fill: string) => <g key={angle} transform={`rotate(${angle} 256 256)`} fill={fill}><rect x="218" y="62" width="76" height="70" fill="var(--ink)"/><rect x="196" y="36" width="120" height="34"/></g>;
 
 export function BrandMark({ size = 40 }: { size?: number }) {
