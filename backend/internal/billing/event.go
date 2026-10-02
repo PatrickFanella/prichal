@@ -33,19 +33,20 @@ type Event struct {
 
 // Verify authenticates the unmodified raw body before inspecting any identifiers.
 // Unsupported and non-subscription invoice events are ignored without side effects.
-func Verify(body []byte, signature, secret string) (Event, bool, error) {
+// verifiedEnvelope authenticates raw delivery and its fixed fixture account/API scope.
+func verifiedEnvelope(body []byte, signature, secret string) (stripe.Event, error) {
 	if len(body) == 0 || len(body) > 262144 || len(signature) > 4096 || !strings.HasPrefix(secret, "whsec_") || len(secret) < 38 {
-		return Event{}, false, ErrInvalidEvent
+		return stripe.Event{}, ErrInvalidEvent
 	}
 	parsed, err := webhook.ConstructEvent(body, signature, secret)
 	if err != nil {
-		return Event{}, false, ErrInvalidEvent
+		return stripe.Event{}, ErrInvalidEvent
 	}
 	var mode struct {
 		LiveMode *bool `json:"livemode"`
 	}
 	if json.Unmarshal(body, &mode) != nil || mode.LiveMode == nil || *mode.LiveMode {
-		return Event{}, false, ErrInvalidEvent
+		return stripe.Event{}, ErrInvalidEvent
 	}
 	// The SDK rejects old timestamps; explicitly reject future timestamps as well.
 	timestamps := 0
@@ -54,16 +55,25 @@ func Verify(body []byte, signature, secret string) (Event, bool, error) {
 			timestamps++
 			seconds, parseErr := strconv.ParseInt(strings.TrimPrefix(part, "t="), 10, 64)
 			if parseErr != nil || time.Unix(seconds, 0).After(time.Now().Add(5*time.Minute)) {
-				return Event{}, false, ErrInvalidEvent
+				return stripe.Event{}, ErrInvalidEvent
 			}
 		}
 	}
 	if timestamps != 1 {
-		return Event{}, false, ErrInvalidEvent
+		return stripe.Event{}, ErrInvalidEvent
 	}
 	if parsed.Livemode || parsed.Account != "" || parsed.Context != "" || parsed.APIVersion != stripe.APIVersion || !eventID.MatchString(parsed.ID) || parsed.Created <= 0 || parsed.Created > time.Now().Add(5*time.Minute).Unix() || parsed.Data == nil {
-		return Event{}, false, ErrInvalidEvent
+		return stripe.Event{}, ErrInvalidEvent
 	}
+	return parsed, nil
+}
+
+func Verify(body []byte, signature, secret string) (Event, bool, error) {
+	parsed, err := verifiedEnvelope(body, signature, secret)
+	if err != nil {
+		return Event{}, false, err
+	}
+
 	var customer, subscription string
 	switch parsed.Type {
 	case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "customer.subscription.paused", "customer.subscription.resumed":

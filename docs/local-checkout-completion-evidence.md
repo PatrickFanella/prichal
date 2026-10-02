@@ -1,0 +1,17 @@
+# Checkout completion identity evidence
+
+Status: implemented and locally verified on October 1, 2026. Durable notification intake and ownership/subscription mapping remain open.
+
+A separate completion parser shares the existing raw-signature, fixed API version, test-mode, account/context and timestamp boundary. It recognizes completed and delayed-payment success/failure Checkout notifications. It retains only the event ID/type/time, first-class test session/customer/subscription IDs, original request reference and raw-body digest. Missing/live/foreign/malformed session identity is refused. Email, metadata and URLs never select ownership or enter the projection. The signed reference remains a claim until matched to a retained request and first-class IDs.
+
+The pinned instance SDK can re-read only an exact stored completed session, with expanded line items, mapped customer, original request, saved expiry, hosted subscription mode, fixed return URLs and one configured non-live Price at quantity one. It returns only identity and current payment status. It does not create a resource, return navigation, write a binding/observation or grant entitlement. An old saved expiry can still identify a completed session; it cannot renew that session.
+
+Completion and payment are separate states. The reader preserves paid, unpaid and no-payment-required explicitly, and rejects unknown payment status. It does not turn any of these into hosting access. Stripe's [fulfillment guidance](https://docs.stripe.com/checkout/fulfillment.md?payment-ui=stripe-hosted) requires webhooks and authoritative session reads, and distinguishes delayed payment after Checkout completes. Current subscription/customer/catalog confirmation and commercial entitlement policy remain required separate work.
+
+Focused races passed for all three signed event types, signature/time/version/account/context rejection, absent/live/malformed first-class IDs, metadata-only reference refusal and private-content projection. Actual pinned GET transport checks covered fixed expansion/version, all three payment statuses, exact saved expiry, non-live Price/quantity, foreign IDs/configuration, malformed/redirect/provider failure and input/cancellation before network. Completion/parser function coverage was 100%; the shared envelope was 90.9% in the focused run. The full local smoke gate passed, including legacy inbox and existing checkout behavior.
+
+No completion HTTP route, queue, schema or production caller is added here. Legacy inbox verification still ignores Checkout notifications; it does not silently enable mapping. Ordinary source billing stays disabled and checkout remains empty. Source work/native/custody and seven cancelled choices/fourteen audits match. This library addition changes no running configuration or source resource. Optional golangci-lint remains unavailable.
+
+Private evidence remains in ignored `.local/checkout-completion-focused.log`, `.local/checkout-completion-cover.out`, `.local/checkout-completion-smoke.log`, `.local/checkout-completion-review.md` and `.local/checkout-completion-source-after.json`. See [billing recovery fences](local-billing-recovery-fences.md) and [durable checkout dispatch](local-checkout-dispatch.md).
+
+Durable completion delivery/deduplication, exact retained/current-owner mapping, authoritative subscription reconciliation, actual restored-registry replay, interactive actual-authority browser, remaining responsive widths, commercial policy, actual Stripe sandbox and live qualification remain open.
