@@ -47,7 +47,7 @@ Ordered by expected fit. The first comes from the product-fit research in `resea
 - Members' accounts are held by an organization they chose, not an ad-funded company.
 - Members sign in to Patchwork with those accounts from day one.
 
-Not yet available. The roadmap covers one owner's first account per server and organization management roles (#30). Inviting members to create their own accounts on an organization's server needs a new feature: invitations, limits, removal and what happens to a member's account when they leave. Do not market this pitch until that exists.
+Not yet available. The roadmap covers one owner's first account per server and organization management roles (#30). Inviting members to create their own accounts on an organization's server needs a new feature, tracked in [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117): invitations, limits, removal and what happens to a member's account when they leave. Do not market this pitch until that exists.
 
 **3. Musicians and creators with a following.** *"Your name, your followers, your posts, on a server that's yours. Post from Bluesky like always. We keep it running."*
 - The audience follows the creator, not an account a platform company holds.
@@ -102,6 +102,15 @@ Measured contrast for ordinary text is in `tokens.json`; every text pairing is a
 - **JetBrains Mono**, uppercase, wide tracking: labels, port strips, metadata.
 
 All three are OFL and bundled in `fonts/` with their licenses. Oswald and JetBrains Mono include Cyrillic.
+
+## Product UI
+
+The web app takes its tokens from `web/src/styles.css` (`--paper`, `--ink`, `--signal`, `--steel`, `--line`).
+
+- Oswald appears only in the header wordmark. Page headings use Public Sans Bold in sentence case; long uppercase condensed headings are hard to read in forms and status text.
+- JetBrains Mono is for small uppercase labels such as the eyebrow.
+- Signal red is reserved for the mark. Status colors stay separate: green for ready, rust for unavailable and errors. Do not use red for buttons, links or emphasis in the product, where it would read as an error.
+- Buttons and focus rings use ink.
 
 ## Layout motif
 

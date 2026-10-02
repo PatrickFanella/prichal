@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { OwnerWorkspace } from './owner-workspace';
+import { BrandMark } from './brand-mark';
 
 type Status = { kind: 'checking' } | { kind: 'ready'; schemaVersion: number } | { kind: 'unavailable' };
 function isReadiness(value: unknown): value is { ready: boolean; database: string; schemaVersion: number } {
@@ -29,11 +30,11 @@ export function Workspace() {
   }, []);
   const label = status.kind === 'ready' ? 'Service available' : status.kind === 'checking' ? 'Checking service' : 'Service unavailable';
   return <div className="workspace">
-    <header><a className="brand" href="/" aria-label="PDS hosting home"><span className="brand-mark">p.</span> PDS hosting</a><span className="environment">Local workspace</span></header>
+    <header><a className="brand" href="/" aria-label="Prichal home"><BrandMark/>Prichal</a><span className="environment">Local workspace</span></header>
     <main>
-      <p className="eyebrow">YOUR OWN CORNER OF THE NETWORK</p>
-      <h1>Your data.<br/>Your address.</h1>
-      <p className="intro">A home for your identity, posts, and media. Managed hosting for creators and organizations.</p>
+      <p className="eyebrow">ACCOUNT HOSTING</p>
+      <h1>Your server.<br/>We keep it running.</h1>
+      <p className="intro">A home server for your account on the open social web, run for creators and organizations.</p>
       <OwnerWorkspace/>
       <section className="service-card" aria-labelledby="service-title">
         <div className="card-heading"><h2 id="service-title">Workspace status</h2><span className={`indicator ${status.kind}`} aria-hidden="true"/></div>
@@ -43,6 +44,6 @@ export function Workspace() {
       </section>
       <aside className="next"><span>UP NEXT</span><p>Public ingress and account enrollment are the next steps. Public hosting is not available yet.</p></aside>
     </main>
-    <footer>Standalone PDS hosting<span>Local foundation · Private alpha in progress</span></footer>
+    <footer>Prichal · Account hosting<span>Local foundation · Private alpha in progress</span></footer>
   </div>;
 }
