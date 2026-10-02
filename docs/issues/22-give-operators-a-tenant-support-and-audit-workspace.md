@@ -34,4 +34,4 @@ This workspace uses already qualified lifecycle actions; it does not expose a ra
 Phase: M3 - Paid pilot. Priority: P1.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
 
-Original-operator exact lifecycle request receipts now have audited scope/recovery and rollback verification. See [receipt evidence](../local-operator-lifecycle-receipts.md). Browser recovery and production operator policy remain open.
+Original-operator exact lifecycle request receipts now have audited scope/recovery and rollback verification. See [receipt evidence](../local-operator-lifecycle-receipts.md). [Browser recovery](../local-operator-lifecycle-workspace.md) now has local contract and intercepted keyboard/failure qualification. Actual operator policy and remaining visual/responsive checks remain open.

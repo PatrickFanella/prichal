@@ -1,6 +1,6 @@
 # Local operator lifecycle request receipts
 
-Status: implemented and locally verified on October 1, 2026. Browser exact-request recovery and production operator qualification remain open.
+Status: implemented and locally verified on October 1, 2026. [Browser recovery](local-operator-lifecycle-workspace.md) is locally verified with intercepted fixtures; production operator qualification remains open.
 
 An authorized management-browser operator can GET `/api/operator/deployments/{instance}/lifecycle-requests/{key}` to inspect their own exact retained lifecycle intent. The fixed UUID request key and original `oidc-owner` actor bind the result. Another operator, tenant, request key or issuer cannot read it. Current inspection-only rights can read an original operator's own receipt, while lifecycle mutation still requires operate rights. Empty operator configuration keeps the route closed; local identity configuration cannot enable production policy.
 
