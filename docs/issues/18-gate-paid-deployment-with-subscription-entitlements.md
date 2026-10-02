@@ -51,3 +51,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Populated checkout snapshot qualification](../local-checkout-snapshot-recovery.md) now verifies all five disposable states, held refusal/authentication revocation and terminal/expired replay without new remote resources. Original source checkout remains empty. Fresh actual-registry replay and required completion/entitlement gates remain open.
 
 [Billing transaction recovery fences](../local-billing-recovery-fences.md) now preserve intake, immutable mapping and authoritative observations across late holds, including lock/response/write waits. Missing recovery leaves work pending. Required checkout completion mapping and paid entitlement policy remain open.
+
+[Signed completion identity evidence](../local-checkout-completion-evidence.md) now verifies first-class claims and re-reads the exact completed session/payment state without metadata custody, navigation or entitlement. Durable intake, original-owner mapping, authoritative subscription reconciliation and commercial policy remain open.
