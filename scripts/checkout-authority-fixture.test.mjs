@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {request as httpRequest} from 'node:http';
 import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,rmSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -99,5 +100,26 @@ test('completion control defaults closed and cannot enable an existing registry 
   await request(instance,config,'/v1/customers',new URLSearchParams({description:'Managed PDS hosting fixture'}),'pdsaas-customer-'+key);
   assert.throws(()=>createCheckoutAuthority({...config,controlKey:'fixture_control_'+randomBytes(32).toString('hex'),webhookSecret:'whsec_'+randomBytes(32).toString('hex')}));
   assert.throws(()=>createCheckoutAuthority({...config,controlKey:'fixture_control_'+randomBytes(32).toString('hex')}));
+ }finally{await close(instance.server);rmSync(config.root,{recursive:true,force:true});}
+});
+
+test('hosted navigation is a read-only synthetic page without credentials or browser controls',async()=>{
+ const config={...settings(),controlKey:'fixture_control_'+randomBytes(32).toString('hex'),webhookSecret:'whsec_'+randomBytes(32).toString('hex')};
+ let now=1700000000;const instance=await start({...config,clock:()=>now});
+ try{
+  const customer=await (await request(instance,config,'/v1/customers',new URLSearchParams({description:'Managed PDS hosting fixture'}),'pdsaas-customer-'+key)).json();
+  const session=await (await request(instance,config,'/v1/checkout/sessions',checkoutForm(customer.id),'pdsaas-checkout-'+key)).json();
+  const page=async()=>{const response=await fetch(session.url);assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'text/html; charset=utf-8');assert.equal(response.headers.get('cache-control'),'no-store');assert.ok(response.headers.get('content-security-policy').includes("form-action 'none'"));return response.text();};
+  const before=readFileSync(join(config.root,'authority.json'),'utf8');const open=await page();assert.ok(open.includes('Fixture session: open.'));assert.ok(open.includes(config.returnOrigin+'/billing/cancel'));
+  for(const sensitive of [config.apiKey,config.controlKey,config.webhookSecret,customer.id,session.id,'<script','<form','<input'])assert.ok(!open.includes(sensitive));
+  for(const headers of [{Cookie:''},{Origin:''},{Authorization:'Bearer '+config.apiKey}])assert.equal((await fetch(session.url,{headers})).status,401);
+  const wrongHost=await new Promise((resolve,reject)=>{const request=httpRequest(session.url,{headers:{Host:'untrusted.test'}},response=>{response.resume();resolve(response.statusCode);});request.on('error',reject);request.end();});assert.equal(wrongHost,401);
+  assert.equal((await fetch(session.url,{method:'POST'})).status,401);
+  assert.equal((await fetch(session.url+'?complete=true')).status,401);
+  assert.equal(readFileSync(join(config.root,'authority.json'),'utf8'),before);
+  now+=7200;assert.ok((await page()).includes('Fixture session: expired.'));
+  assert.equal((await complete(instance,config,{nonce:randomUUID(),sessionId:session.id,type:'checkout.session.completed',paymentState:'unpaid',status:'active'})).status,400);
+  now-=7200;assert.equal((await complete(instance,config,{nonce:randomUUID(),sessionId:session.id,type:'checkout.session.completed',paymentState:'unpaid',status:'past_due'})).status,200);
+  const completedBefore=readFileSync(join(config.root,'authority.json'),'utf8'),completed=await page();assert.ok(completed.includes('Fixture session: complete.'));assert.ok(completed.includes('Fixture payment evidence: unpaid.'));assert.ok(completed.includes(config.returnOrigin+'/billing/return'));assert.equal(readFileSync(join(config.root,'authority.json'),'utf8'),completedBefore);
  }finally{await close(instance.server);rmSync(config.root,{recursive:true,force:true});}
 });

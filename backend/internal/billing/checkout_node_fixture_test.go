@@ -139,6 +139,20 @@ func TestCheckoutNodeAuthorityUsesRealOwnerHTTPRiverSDKAndDurableRegistry(t *tes
 		if json.Unmarshal(data, &session) != nil || session.Status != "open" || !strings.HasPrefix(session.URL, announced.Origin+"/checkout/cs_test_fixture") {
 			t.Fatal("Node authority recovery failed")
 		}
+
+		request, err := http.NewRequestWithContext(ctx, "GET", session.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal("hosted fixture navigation failed")
+		}
+		page, readErr := io.ReadAll(io.LimitReader(response.Body, 8193))
+		_ = response.Body.Close()
+		if readErr != nil || response.StatusCode != 200 || len(page) > 8192 || !strings.Contains(string(page), "Disposable checkout review") || !strings.Contains(string(page), "Fixture session: open.") || strings.Contains(string(page), "<script") || strings.Contains(string(page), "<form") {
+			t.Fatal("hosted fixture navigation crossed read-only boundary")
+		}
 	}
 	if checkoutLedger(t, s) != before {
 		t.Fatal("Node recovered navigation changed management ledger")
