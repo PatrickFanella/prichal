@@ -105,6 +105,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	sessionSettings, err := billing.LoadSessionSettings(cfg.Auth.Mode == "local", billingSettings)
+	if err != nil {
+		return err
+	}
+	var checkoutAdapter *billing.FixtureSessions
+	var checkoutIntents *billing.CheckoutIntents
+	if sessionSettings.Billing.Enabled {
+		checkoutAdapter, err = billing.NewFixtureSessions(sessionSettings)
+		if err != nil {
+			return err
+		}
+		checkoutIntents, err = billing.NewCheckoutIntents(cfg.Auth.Mode == "local", pool, checkoutAdapter)
+		if err != nil {
+			return err
+		}
+	}
 	var enrollmentCipher *enrollment.Cipher
 	if path := os.Getenv("PDS_ENROLLMENT_KEY_FILE"); path != "" {
 		enrollmentCipher, err = enrollment.LoadCipher(path)
@@ -122,7 +138,7 @@ func run() error {
 	}
 	endpointPlans := &endpointplan.Store{Pool: pool, Local: cfg.Auth.Mode == "local", ManagementHost: managementOrigin.Hostname()}
 	handles := &handleproof.Store{Pool: pool, Checker: handleproof.Checker{DNS: net.DefaultResolver, Directory: handleproof.NewDirectory(cfg.Auth.Mode == "local"), Local: cfg.Auth.Mode == "local"}}
-	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(managementProbe{Pool: pool}, owners.Register, endpointPlans.Register(owners), endpointPlans.RegisterChoices(owners), endpointPlans.RegisterObservation(owners, net.DefaultResolver), endpointPlans.RegisterClaims(owners, net.DefaultResolver), collaboration.Register(owners), portableExports.Register(owners), portableExports.RegisterMigration(owners, cfg.Auth.Mode == "local"), hostingExits.Register(owners), supportWorkspace.Register(owners, supportActions), billingEvents.Register(billingSettings), (entitlement.Store{Pool: pool}).Register(owners), deployments.Register(owners, cfg.Auth.Mode == "local"), enrollments.Register(owners, cfg.Auth.Mode == "local"), handles.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	server := &http.Server{Addr: cfg.ListenAddress, Handler: app.Handler(managementProbe{Pool: pool}, owners.Register, endpointPlans.Register(owners), endpointPlans.RegisterChoices(owners), endpointPlans.RegisterObservation(owners, net.DefaultResolver), endpointPlans.RegisterClaims(owners, net.DefaultResolver), collaboration.Register(owners), portableExports.Register(owners), portableExports.RegisterMigration(owners, cfg.Auth.Mode == "local"), hostingExits.Register(owners), supportWorkspace.Register(owners, supportActions), billingEvents.Register(billingSettings), checkoutIntents.RegisterCheckout(owners, checkoutAdapter), (entitlement.Store{Pool: pool}).Register(owners), deployments.Register(owners, cfg.Auth.Mode == "local"), enrollments.Register(owners, cfg.Auth.Mode == "local"), handles.Register(owners, cfg.Auth.Mode == "local")), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
 	done := make(chan error, 1)
 	go func() {
 		log.Printf("management API listening on %s", cfg.ListenAddress)
