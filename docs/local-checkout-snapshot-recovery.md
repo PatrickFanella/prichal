@@ -17,3 +17,5 @@ Run locally with `PDS_TEST_LOCAL_CHECKOUT_SNAPSHOT=true ./scripts/dev.sh smoke` 
 Private evidence remains in `.local/checkout-snapshot-focused.log`, `.local/checkout-snapshot-smoke.log`, `.local/checkout-snapshot-review.md` and `.local/checkout-snapshot-source-after.json`. See [actual synthetic authority journey](local-checkout-authority-fixture.md) and [source schema-32 recovery](local-checkout-dispatch.md).
 
 Fresh unresolved replay against a restored actual provider registry, interactive actual-authority browser, remaining responsive widths, signed completion/subscription mapping into authoritative reconciliation, commercial policy, actual Stripe sandbox and live qualification remain open.
+
+The subsequent [actual registry snapshot replay](local-checkout-registry-recovery.md) qualifies fresh unresolved session replay after an actual SDK response and failed SQL checkpoint. It restarts the original authority, restores the pending job and preserves original IDs/expiry and registry bytes. This closes the synthetic restored-registry gate; real provider durability and other gates above remain open.
