@@ -144,6 +144,18 @@ func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http
 		}
 		bind("GET /api/operator/deployments/{id}/activity", false, true, activity(true))
 		bind("GET /api/deployments/{id}/activity", false, false, activity(false))
+		bind("GET /api/operator/deployments/{id}/lifecycle-requests/{key}", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
+			if r.URL.RawQuery != "" {
+				reply(w, 400, map[string]string{"error": "Use the exact lifecycle request reference without query fields."})
+				return
+			}
+			receipt, err := s.LifecycleRequest(r.Context(), session.OwnerID, role, r.PathValue("id"), r.PathValue("key"))
+			if err != nil {
+				unavailable(w, err)
+				return
+			}
+			reply(w, 200, receipt)
+		})
 		bind("POST /api/operator/deployments/{id}/lifecycle", true, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
 			if !uuid.MatchString(r.PathValue("id")) {
 				unavailable(w, ErrNotFound)
