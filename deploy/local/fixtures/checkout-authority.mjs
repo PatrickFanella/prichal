@@ -8,6 +8,7 @@ import {join} from 'node:path';
 const version='2026-09-30.endive',uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const label=key=>'pdsaas_fixture_'+[...createHash('sha256').update(key).digest().subarray(0,8)].map(value=>String.fromCharCode(97+value%26)).join('');
+const escape=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 function privateFile(path){const stat=lstatSync(path);assert.ok(stat.isFile()&&!(stat.mode&0o077)&&stat.size<=262144,'Private fixture state unavailable');return readFileSync(path,'utf8');}
 
 // createCheckoutAuthority binds a synthetic instance to numeric loopback and private state.
@@ -57,6 +58,15 @@ export function createCheckoutAuthority({root,apiKey,priceId,returnOrigin,contro
   try{
    assert.equal(server.address()?.address,'127.0.0.1','Fixture must bind numeric loopback');
    const url=new URL(req.url,'http://127.0.0.1'),host='http://127.0.0.1:'+server.address().port;
+   // Browser navigation reads a synthetic receipt only. It has no control or API credential.
+   if(controls&&req.method==='GET'&&/^\/checkout\/cs_test_fixture[a-f0-9]{32}$/.test(url.pathname)&&!url.search){
+    if(req.headers.host!=='127.0.0.1:'+server.address().port||Object.hasOwn(req.headers,'origin')||Object.hasOwn(req.headers,'cookie')||Object.hasOwn(req.headers,'authorization')){reply(401,{error:{message:'Fixture navigation rejected.'}});return;}
+    const session=Object.values(ledger.requests).find(row=>row.resource.object==='checkout.session'&&row.resource.id===url.pathname.slice(10))?.resource;
+    if(!session){reply(404,{error:{message:'Fixture session not found.'}});return;}
+    const status=session.status==='open'&&session.expires_at<=clock()?'expired':session.status;
+    res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+    res.writeHead(200);res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Disposable checkout review</title></head><body><main><h1>Disposable checkout review</h1><p>This local fixture processes no payments. Do not enter payment details.</p><p>Fixture session: '+escape(status)+'.</p>'+(status==='complete'?'<p>Fixture payment evidence: '+escape(session.payment_status)+'. This page grants no hosting access.</p>':'<p>Completion requires the separate local test operator control.</p>')+'<p><a href="'+escape(returnOrigin+(status==='complete'?'/billing/return':'/billing/cancel'))+'">Return to management</a></p></main></body></html>');return;
+   }
    const control=url.pathname==='/_fixture/checkout/completion';
    const authorization=Buffer.from(req.headers.authorization??''),expected=Buffer.from('Bearer '+(control&&controls?controlKey:apiKey));
    if(authorization.length!==expected.length||!timingSafeEqual(authorization,expected)||Object.hasOwn(req.headers,'origin')||Object.hasOwn(req.headers,'cookie')){reply(401,{error:{message:'Fixture authentication required.'}});return;}

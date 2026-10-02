@@ -124,3 +124,5 @@ Local endpoint claim review and exact-choice retry are implemented and verified;
 [Local completion mapping](local-checkout-completion-mapping.md) now has atomic custody/graph/binding/audit/observation evidence and schema-34 recovery/replay qualification. Unpaid or adverse states grant no access; ordinary source billing stays disabled. Populated mapping replay, actual completion/browser journey and commercial/sandbox/live gates remain open.
 
 [Actual synthetic completion authority](local-checkout-completion-authority.md) now verifies the Node registry, signed management intake and real checkout/completion workers together. Separate host-only controls remain disabled by default; unpaid/past-due evidence grants no access. Interactive browser, commercial policy and sandbox/live gates remain open.
+
+[Actual hosted fixture review](local-checkout-hosted-review.md) now has credential-free navigation, open/completed responsive and keyboard-return evidence. This qualifies a synthetic read-only page; authenticated round-trip, positive-state management widths, commercial policy and sandbox/live gates remain open.
