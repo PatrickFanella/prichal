@@ -18,3 +18,11 @@ Compose dollar escaping preserves the guard's JavaScript and protected runtime v
 The outer qualifier waits for the original container's health check before requesting account resume. Native HTTP readiness alone can precede Docker health confirmation. Failed audited operations remain retained and require inspection; the qualifier does not rewrite their outcomes.
 
 This remains an operator recovery fixture containing shared development identity/mail state. It is not a customer export. Service-held restore, independent backup custody, realistic datasets, user-deactivated accounts, key/certificate-loss recovery and live incident recovery remain open. Exact local evidence and failed attempts are recorded in [progress](progress/local-m1-alpha.md).
+
+## Dynamic API readiness, October 1
+
+The management API now checks current schema and recovery state on every readiness request. A hold introduced after startup, a missing ledger, incompatible schema or unavailable database produces generic HTTP 503 with `ready=false`. The existing startup recovery refusal remains in place. The response discloses no snapshot or host reconciliation details; the browser reports unconfirmed readiness instead of assuming the database is unreachable. The monitor's schema-only probe remains available for inspecting recovery conditions.
+
+A disposable recovery database reproduced the former HTTP 200 during a runtime hold. The same handler now transitions 200 to 503 after the real hold and back to 200 after empty-host reconciliation; missing-ledger, incompatible-schema and closed-pool checks refuse readiness. Focused race checks and the full local smoke gate passed. No source recovery hold, account/session revocation, migration or native mutation was performed. Live health routing and independent recovery remain open.
+
+The browser poll showed unavailable/unverified readiness with an intercepted 503, then returned to available after restoring native fetch. The fixture was removed and retained claim metadata remained absent. This was a browser response fixture, not a source recovery hold.

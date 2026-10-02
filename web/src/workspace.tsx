@@ -38,8 +38,8 @@ export function Workspace() {
       <section className="service-card" aria-labelledby="service-title">
         <div className="card-heading"><h2 id="service-title">Workspace status</h2><span className={`indicator ${status.kind}`} aria-hidden="true"/></div>
         <p className="status" role="status" aria-live="polite">{label}</p>
-        <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'The service or database is unreachable. This page will check again automatically.'}</p>
-        <dl><div><dt>Environment</dt><dd>Local development</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unavailable'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
+        <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'Service readiness could not be confirmed. This page will check again automatically.'}</p>
+        <dl><div><dt>Environment</dt><dd>Local development</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unverified'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
       </section>
       <aside className="next"><span>UP NEXT</span><p>Public ingress and account enrollment are the next steps. Public hosting is not available yet.</p></aside>
     </main>
