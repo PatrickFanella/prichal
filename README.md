@@ -1,6 +1,6 @@
 # pds-ass
 
-A standalone managed AT Protocol PDS hosting service. A customer signs in, names their server, and deploys it on our infrastructure without administering a machine. Browser onboarding is the first delivery path; a CLI can later use the same management API.
+Prichal is a standalone managed AT Protocol PDS hosting service. `pds-ass` remains the repository name; the brand guide and assets are in [brand/](brand/GUIDE.md). A customer signs in, names their server, and deploys it on our infrastructure without administering a machine. Browser onboarding is the first delivery path; a CLI can later use the same management API.
 
 The initial target is a usable PDS within 15 minutes on a provider-managed domain. This is a target to measure, not a verified service guarantee. Custom DNS and existing-account migration have separate completion criteria.
 
