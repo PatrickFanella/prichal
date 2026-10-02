@@ -3,6 +3,7 @@ package enrollment
 import (
 	"context"
 	"errors"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"sync"
 	"testing"
 
@@ -256,6 +257,7 @@ func TestWithdrawalMigrationPreservesPreviousSchemaIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reconstruct schema 27 only in this disposable integration database.
+	testdb.ReconstructCheckout33(t, f.pool)
 	if _, err = f.pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; DROP TABLE billing_checkout_events,billing_checkout_requests; DROP TABLE endpoint_claim_events,endpoint_claims; ALTER TABLE endpoint_choices DROP CONSTRAINT endpoint_choice_claim_identity; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_cancellation_checkpoint; ALTER TABLE enrollment_operations DROP COLUMN dispatch_started_at; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_withdrawal_intent; ALTER TABLE enrollment_operations DROP COLUMN withdrawal_requested_at, DROP COLUMN withdrawal_attempts; ALTER TABLE enrollment_operations DROP CONSTRAINT enrollment_operations_state_check; ALTER TABLE enrollment_operations ADD CONSTRAINT enrollment_operations_state_check CHECK(state IN ('pending','invitation_ready','account_created','verified','expired','failed','superseded')); UPDATE schema_version SET version=27`); err != nil {
 		t.Fatal(err)
 	}

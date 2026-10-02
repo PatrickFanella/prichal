@@ -93,12 +93,19 @@ func run() error {
 	}
 	var checkoutIntents *billing.CheckoutIntents
 	var checkoutAuthority *billing.FixtureSessions
+	var checkoutCompletions *billing.CompletionInbox
 	if sessionSettings.Billing.Enabled {
 		checkoutAuthority, err = billing.NewFixtureSessions(sessionSettings)
 		if err != nil {
 			return err
 		}
 		checkoutIntents, err = billing.NewCheckoutIntents(true, pool, checkoutAuthority)
+		if err != nil {
+			return err
+		}
+	}
+	if checkoutAuthority != nil {
+		checkoutCompletions, err = billing.NewCompletionInbox(true, pool, checkoutAuthority)
 		if err != nil {
 			return err
 		}
@@ -125,7 +132,7 @@ func run() error {
 		checkoutWorker.Authority = checkoutAuthority
 	}
 	river.AddWorker(workers, checkoutWorker)
-	river.AddWorker(workers, &billing.CompletionWorker{})
+	river.AddWorker(workers, &billing.CompletionWorker{Inbox: checkoutCompletions, Intents: checkoutIntents, Authority: checkoutAuthority})
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})

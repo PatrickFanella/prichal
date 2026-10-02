@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -194,6 +195,7 @@ func TestCompletionInboxMigrationPreservesPriorLedger(t *testing.T) {
 	if err := inbox.pool.QueryRow(ctx, query).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
+	testdb.ReconstructCheckout33(t, inbox.pool)
 	if _, err := inbox.pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; UPDATE schema_version SET version=32`); err != nil {
 		t.Fatal(err)
 	}

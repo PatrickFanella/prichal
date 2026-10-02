@@ -21,6 +21,7 @@ func (quietLogger) Warnf(string, ...interface{})  {}
 type StripeAuthority struct {
 	Client    *stripe.Client
 	keyDigest [32]byte
+	origin    string
 }
 
 func NewAuthority(settings Settings) (Authority, error) {
@@ -35,19 +36,20 @@ func NewAuthority(settings Settings) (Authority, error) {
 		return nil, err
 	}
 	backend := stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{URL: stripe.String(settings.FixtureURL), HTTPClient: &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, MaxNetworkRetries: stripe.Int64(0), LeveledLogger: quietLogger{}})
-	return &StripeAuthority{Client: stripe.NewClient(key, stripe.WithBackends(&stripe.Backends{API: backend})), keyDigest: sha256.Sum256([]byte(key))}, nil
+	return &StripeAuthority{Client: stripe.NewClient(key, stripe.WithBackends(&stripe.Backends{API: backend})), keyDigest: sha256.Sum256([]byte(key)), origin: settings.FixtureURL}, nil
 }
 func (a *StripeAuthority) Subscription(ctx context.Context, id string) (Snapshot, error) {
+	if a == nil || a.Client == nil {
+		return Snapshot{}, ErrUnavailable
+	}
 	if !subscriptionID.MatchString(id) {
 		return Snapshot{}, ErrInvalidEvent
 	}
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
 	object, err := a.Client.V1Subscriptions.Retrieve(ctx, id, nil)
-	if err != nil || object == nil || object.Livemode || object.ID != id || object.Customer == nil || object.Items == nil || object.Items.HasMore || len(object.Items.Data) != 1 {
+	if err != nil {
 		return Snapshot{}, ErrUnavailable
 	}
-	item := object.Items.Data[0]
-	if item == nil || item.Price == nil || item.Price.Livemode || item.Quantity != 1 || item.CurrentPeriodEnd <= 0 {
-		return Snapshot{}, ErrUnavailable
-	}
-	return Snapshot{Customer: object.Customer.ID, Subscription: object.ID, State: string(object.Status), Price: item.Price.ID, Quantity: 1, PeriodEnd: time.Unix(item.CurrentPeriodEnd, 0)}, nil
+	return subscriptionSnapshot(object, id)
 }

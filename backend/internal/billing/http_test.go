@@ -110,7 +110,7 @@ func TestAuthorityUsesInstanceClientAndRejectsRedirects(t *testing.T) {
 			http.Redirect(w, r, "http://127.0.0.1:1/must-not-follow", 307)
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]any{"id": "sub_fixtureAlice", "object": "subscription", "customer": "cus_fixtureAlice", "livemode": false, "status": "past_due", "items": map[string]any{"object": "list", "has_more": false, "data": []any{map[string]any{"id": "si_fixtureAlice", "object": "subscription_item", "quantity": 1, "current_period_end": time.Now().Add(time.Hour).Unix(), "price": map[string]any{"id": "price_fixtureSingle", "object": "price", "livemode": false}}}}})
+		json.NewEncoder(w).Encode(map[string]any{"id": "sub_fixtureAlice", "object": "subscription", "customer": "cus_fixtureAlice", "livemode": false, "status": "past_due", "items": map[string]any{"object": "list", "has_more": false, "data": []any{map[string]any{"id": "si_fixtureAlice", "object": "subscription_item", "subscription": "sub_fixtureAlice", "quantity": 1, "current_period_end": time.Now().Add(time.Hour).Unix(), "price": map[string]any{"id": "price_fixtureSingle", "object": "price", "livemode": false}}}}})
 	}))
 	defer server.Close()
 	authority, err := NewAuthority(Settings{Enabled: true, FixtureURL: server.URL, FixtureKeyFile: file})

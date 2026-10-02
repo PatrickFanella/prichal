@@ -1,6 +1,7 @@
 package billing
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -120,19 +121,32 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 		return tx.Commit(ctx)
 	}
 	var org string
-	err = tx.QueryRow(ctx, `SELECT organization_id FROM billing_customer_bindings WHERE customer_id=$1 AND subscription_id=$2`, event.Customer, event.Subscription).Scan(&org)
+	var checkoutRequest *string
+	err = tx.QueryRow(ctx, `SELECT organization_id,checkout_request_id::text FROM billing_customer_bindings WHERE customer_id=$1 AND subscription_id=$2`, event.Customer, event.Subscription).Scan(&org, &checkoutRequest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrUnmapped
 	}
 	if err != nil {
 		return err
 	}
-	var found string
-	if err = tx.QueryRow(ctx, `SELECT id FROM organizations WHERE id=$1 FOR UPDATE`, org).Scan(&found); err != nil {
+	var found, currentOwner string
+	if err = tx.QueryRow(ctx, `SELECT id,owner_id FROM organizations WHERE id=$1 FOR UPDATE`, org).Scan(&found, &currentOwner); err != nil {
 		return err
 	}
 	if err = billingRecovery(ctx, tx); err != nil {
 		return err
+	}
+	var expectedPrice string
+	if checkoutRequest != nil {
+		var origin, originalOwner string
+		var digest []byte
+		if err = tx.QueryRow(ctx, `SELECT price_id,authority_origin,authority_key_sha256,actor_id FROM billing_checkout_requests WHERE id=$1`, *checkoutRequest).Scan(&expectedPrice, &origin, &digest, &originalOwner); err != nil {
+			return ErrUnavailable
+		}
+		configured, ok := authority.(*StripeAuthority)
+		if !ok || originalOwner != currentOwner || configured.origin != origin || !bytes.Equal(configured.keyDigest[:], digest) {
+			return ErrUnavailable
+		}
 	}
 	// Fetch inside the organization lock: a slower old event cannot overwrite a newer read.
 	snapshot, err := authority.Subscription(ctx, event.Subscription)
@@ -142,10 +156,10 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
-	if snapshot.Customer != event.Customer || snapshot.Subscription != event.Subscription || !subscriptionState(snapshot.State) || !priceID.MatchString(snapshot.Price) || snapshot.Quantity != 1 || snapshot.PeriodEnd.IsZero() {
+	if snapshot.Customer != event.Customer || snapshot.Subscription != event.Subscription || !subscriptionState(snapshot.State) || !priceID.MatchString(snapshot.Price) || expectedPrice != "" && snapshot.Price != expectedPrice || snapshot.Quantity != 1 || snapshot.PeriodEnd.IsZero() {
 		return ErrInvalidEvent
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO billing_subscription_observations(organization_id,customer_id,subscription_id,subscription_state,price_id,quantity,period_end,event_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(organization_id) DO UPDATE SET customer_id=excluded.customer_id,subscription_id=excluded.subscription_id,subscription_state=excluded.subscription_state,price_id=excluded.price_id,quantity=excluded.quantity,period_end=excluded.period_end,event_id=excluded.event_id,checked_at=clock_timestamp()`, org, snapshot.Customer, snapshot.Subscription, snapshot.State, snapshot.Price, snapshot.Quantity, snapshot.PeriodEnd, id)
+	_, err = tx.Exec(ctx, `INSERT INTO billing_subscription_observations(organization_id,customer_id,subscription_id,subscription_state,price_id,quantity,period_end,event_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(organization_id) DO UPDATE SET customer_id=excluded.customer_id,subscription_id=excluded.subscription_id,subscription_state=excluded.subscription_state,price_id=excluded.price_id,quantity=excluded.quantity,period_end=excluded.period_end,event_id=excluded.event_id,completion_event_id=NULL,checkout_payment_state=NULL,checked_at=clock_timestamp()`, org, snapshot.Customer, snapshot.Subscription, snapshot.State, snapshot.Price, snapshot.Quantity, snapshot.PeriodEnd, id)
 	if err != nil {
 		return err
 	}
