@@ -39,3 +39,5 @@ The [local Checkout/Portal adapter](../local-billing-sessions.md) now has SDK tr
 
 Phase: M3 - Paid pilot. Priority: P0.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+[Read-only session recovery](../local-checkout-session-recovery.md) now verifies the original confirmed fixture checkout without creating replacement resources. It returns only transient navigation for open sessions and never grants payment entitlement. Owner HTTP/browser and completion reconciliation remain open.
