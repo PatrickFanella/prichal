@@ -1,0 +1,11 @@
+:root {
+  --prichal-background: #f4f1e9;
+  --prichal-text: #1c2230;
+  --prichal-accent: #b23a26;
+  --prichal-secondary: #5d6675;
+  --prichal-rule: #c9c4b6;
+  --prichal-dark-accent: #e8674b;
+  --prichal-font-display: "Oswald";
+  --prichal-font-body: "Public Sans";
+  --prichal-font-label: "JetBrains Mono";
+}
