@@ -7,7 +7,7 @@ const ticket='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',owned='bbbbbbbb-bbbb-4bbb-bb
 async function fixture({action='apply',state='suspended',applied=false,ref,ownedRef='',deactivated=false,actors=[{did}],fail=false}={}){
  let stdout='',stderr='',writes=0,takedown={applied,...(ref?{ref}:{})};
  const process={argv:['node',action,state,ticket,ownedRef],env:{PDS_DEV_MODE:'true',PDS_DID_PLC_URL:'http://pds-ass-protocol-fixtures:2582',PDS_ADMIN_PASSWORD:'PRIVATE PASSWORD'},stdout:{write:value=>stdout+=value},stderr:{write:value=>stderr+=value},exitCode:0};
- const require=name=>{assert.equal(name,'node:sqlite');return {DatabaseSync:class{constructor(path,options){assert.equal(path,'/pds/account.sqlite');assert.equal(options.readOnly,true)}prepare(sql){assert.equal(sql,'SELECT did FROM actor LIMIT 2');return {all:()=>actors}}close(){}}}};
+ const require=name=>{assert.equal(name,'node:sqlite');return {DatabaseSync:class{constructor(path,options){assert.equal(path,'/pds/account.sqlite');assert.equal(options.readOnly,true)}prepare(sql){assert.equal(sql,'SELECT did FROM actor ORDER BY createdAt,did LIMIT 1');return {all:()=>actors.slice(0,1)}}close(){}}}};
  const fetch=async(url,options)=>{
   assert.ok(url.startsWith('http://127.0.0.1:2583/xrpc/com.atproto.admin.'));assert.ok(options.headers.Authorization.startsWith('Basic '));
   if(fail)throw new Error('PRIVATE NATIVE RESPONSE');
@@ -25,8 +25,12 @@ test('Native resume clears only platform takedown and retains user deactivation'
  const resumed=await fixture({state:'running',applied:true,ref:owned,ownedRef:owned,deactivated:true});assert.equal(resumed.exitCode,0);assert.equal(resumed.writes,1);const result=JSON.parse(resumed.stdout);assert.equal(result.state,'running');assert.equal(result.deactivated,true);assert.equal(result.appliedRef,'');assert.ok(!resumed.stdout.includes('PASSWORD'));
  for(const state of ['running','suspended']){const outside=await fixture({state,applied:true,ref:'external-moderation'});assert.equal(outside.exitCode,1);assert.equal(outside.writes,0);assert.equal(outside.stdout,'');}
 });
-test('Native account helper fails closed on missing actors, excess actors and private errors',async()=>{
- for(const options of [{actors:[]},{actors:[{did},{did}]},{fail:true}]){const result=await fixture(options);assert.equal(result.exitCode,1);assert.equal(result.writes,0);assert.equal(result.stdout,'');assert.equal(result.stderr,'Fixed native moderation failed');}
+test('Native account takedown targets only the owner account when members exist',async()=>{
+ const member='did:plc:bbbbbbbbbbbbbbbbbbbbbbbb';
+ const result=await fixture({actors:[{did},{did:member}]});assert.equal(result.exitCode,0);assert.equal(result.writes,1);assert.equal(JSON.parse(result.stdout).did,did);
+});
+test('Native account helper fails closed on missing actors and private errors',async()=>{
+ for(const options of [{actors:[]},{fail:true}]){const result=await fixture(options);assert.equal(result.exitCode,1);assert.equal(result.writes,0);assert.equal(result.stdout,'');assert.equal(result.stderr,'Fixed native moderation failed');}
 });
 
 test('Native moderation inspection never writes and returns only public status',async()=>{const result=await fixture({action:'native_status',applied:true,ref:owned,deactivated:true});assert.equal(result.exitCode,0);assert.equal(result.writes,0);assert.equal(JSON.parse(result.stdout).deactivated,true);assert.ok(!result.stdout.includes('PASSWORD'))});

@@ -33,6 +33,7 @@ type Docker struct {
 	healthProbe   func(context.Context, string) bool
 	localIdentity bool
 	maximumSlots  int
+	memberCeiling int
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.

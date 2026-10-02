@@ -17,7 +17,7 @@ async function run(action, { accounts = 0, failDisable = false, failInventory = 
       assert.equal(name, 'node:sqlite');
       return { DatabaseSync: class {
         constructor(path, options) { assert.equal(path, '/pds/account.sqlite'); assert.equal(options.readOnly, true); }
-        prepare(query) { assert.equal(query, 'SELECT did FROM actor LIMIT 2'); return { all() { if (failInventory) throw new Error('private-fixture-admin'); return Array.from({ length: accounts }, () => ({ did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa' })); } }; }
+        prepare(query) { assert.equal(query, 'SELECT did FROM actor ORDER BY createdAt,did LIMIT 1'); return { all() { if (failInventory) throw new Error('private-fixture-admin'); return Array.from({ length: Math.min(accounts, 1) }, () => ({ did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa' })); } }; }
         close() {}
       } };
     },
@@ -53,7 +53,14 @@ test('Withdrawal preserves an existing native account and fails closed on unavai
   assert.equal(JSON.parse(existing.stdout).count, 1);
   assert.equal(existing.calls.length, 1);
   assert.ok(existing.calls[0].method.startsWith('com.atproto.admin.getAccountInfo'));
-  for (const options of [{ failInventory: true }, { failDisable: true }, { accounts: 2 }]) {
+  // Member accounts follow the owner's first account; the owner stays the reported account.
+  for (const action of ['withdraw', 'invitation']) {
+    const members = await run(action, { accounts: 3 });
+    assert.equal(members.exitCode, undefined);
+    assert.equal(JSON.parse(members.stdout).did, 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa');
+    assert.deepEqual(members.calls.map(value => value.method.split('?')[0]), ['com.atproto.admin.getAccountInfo']);
+  }
+  for (const options of [{ failInventory: true }, { failDisable: true }]) {
     const failed = await run('withdraw', options);
     assert.equal(failed.stdout, ''); assert.equal(failed.exitCode, 1);
     assert.equal(failed.stderr, 'Native enrollment operation failed');

@@ -63,6 +63,45 @@ func Handler(runtime Runtime) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(result)
 	})
+	member := func(withdraw bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			provider, ok := runtime.(interface {
+				MemberInvitation(context.Context, string, string) (MemberInvitation, error)
+				WithdrawMemberInvitation(context.Context, string, string) (MemberInvitation, error)
+			})
+			if !ok {
+				http.Error(w, "member invitations unavailable", 503)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, 128)
+			var body struct {
+				Ticket string `json:"ticket"`
+			}
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !instanceID.MatchString(body.Ticket) {
+				http.Error(w, "member ticket required", 400)
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+			defer cancel()
+			call := provider.MemberInvitation
+			if withdraw {
+				call = provider.WithdrawMemberInvitation
+			}
+			result, err := call(ctx, r.PathValue("id"), body.Ticket)
+			if err != nil {
+				http.Error(w, "member invitation could not be confirmed", 503)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(result)
+		}
+	}
+	mux.HandleFunc("POST /v1/instances/{id}/members/invitation", member(false))
+	mux.HandleFunc("POST /v1/instances/{id}/members/invitation/withdraw", member(true))
 	mux.HandleFunc("POST /v1/instances/{id}/export", func(w http.ResponseWriter, r *http.Request) {
 		provider, ok := runtime.(interface {
 			Export(context.Context, string, string) (PortableExport, error)
@@ -297,6 +336,12 @@ func Handler(runtime Runtime) http.Handler {
 		if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/usage") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/usage")) {
 			mux.ServeHTTP(w, r)
 			return
+		}
+		for _, suffix := range []string{"/members/invitation", "/members/invitation/withdraw"} {
+			if r.Method == "POST" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, suffix) && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), suffix)) {
+				mux.ServeHTTP(w, r)
+				return
+			}
 		}
 		if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/enrollment/withdraw") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/enrollment/withdraw")) {
 			mux.ServeHTTP(w, r)

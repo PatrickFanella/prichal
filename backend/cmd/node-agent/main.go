@@ -63,6 +63,15 @@ func run() error {
 			return err
 		}
 	}
+	if value := os.Getenv("PDS_AGENT_MEMBER_CEILING"); value != "" {
+		ceiling, parseErr := strconv.Atoi(value)
+		if parseErr != nil {
+			return errors.New("invalid agent member ceiling")
+		}
+		if err = runtime.SetMemberCeiling(ceiling); err != nil {
+			return err
+		}
+	}
 	if os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") == "true" {
 		runtime.EnableLocalIdentityFixtures()
 	}

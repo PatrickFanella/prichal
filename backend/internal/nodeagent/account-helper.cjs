@@ -9,8 +9,9 @@ async function call(method,body){
 async function main(){
  if(process.env.PDS_DEV_MODE!=='true'||process.env.PDS_DID_PLC_URL!=='http://pds-ass-protocol-fixtures:2582')throw new Error('Isolated local PDS required');
  if(action!=='native_status'&&action!=='apply')throw new Error('Fixed moderation action required');
- const {DatabaseSync}=require('node:sqlite'),database=new DatabaseSync('/pds/account.sqlite',{readOnly:true});const actors=database.prepare('SELECT did FROM actor LIMIT 2').all();database.close();
- if(actors.length!==1||!/^did:plc:[a-z2-7]{24}$/.test(actors[0].did))throw new Error('Single retained account required');
+ const {DatabaseSync}=require('node:sqlite'),database=new DatabaseSync('/pds/account.sqlite',{readOnly:true});const actors=database.prepare('SELECT did FROM actor ORDER BY createdAt,did LIMIT 1').all();database.close();
+ // Moderation applies to the owner's first account. Member accounts are not changed here.
+ if(actors.length!==1||!/^did:plc:[a-z2-7]{24}$/.test(actors[0].did))throw new Error('Retained owner account required');
  const did=actors[0].did;
  const status=()=>call('com.atproto.admin.getSubjectStatus?did='+encodeURIComponent(did));
  let current=await status();
