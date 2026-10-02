@@ -58,3 +58,20 @@ func LoadSettings(local bool) (Settings, error) {
 	}
 	return Settings{Enabled: true, WebhookSecret: secret, FixtureURL: origin, FixtureKeyFile: path}, nil
 }
+
+// LoadSessionSettings separately gates payment-session fixtures. Enabling the
+// existing notification inbox does not enable customer or checkout creation.
+func LoadSessionSettings(local bool, billing Settings) (SessionSettings, error) {
+	mode := os.Getenv("PDS_BILLING_SESSIONS_MODE")
+	if mode == "" || mode == "disabled" {
+		return SessionSettings{}, nil
+	}
+	if mode != "fixture" || !local || !billing.Enabled {
+		return SessionSettings{}, ErrUnavailable
+	}
+	settings := SessionSettings{Billing: billing, PriceID: os.Getenv("PDS_BILLING_PRICE_ID"), PortalConfigurationID: os.Getenv("PDS_BILLING_PORTAL_CONFIGURATION_ID"), ReturnOrigin: os.Getenv("PDS_BILLING_RETURN_ORIGIN")}
+	if _, err := NewFixtureSessions(settings); err != nil {
+		return SessionSettings{}, ErrUnavailable
+	}
+	return settings, nil
+}

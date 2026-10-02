@@ -30,8 +30,9 @@ type HostedSession struct {
 // FixtureSessions is a loopback-only Checkout and Portal adapter. It exposes no HTTP route.
 // Durable ownership, customer creation and fulfillment remain separate work.
 type FixtureSessions struct {
-	client   *stripe.Client
-	settings SessionSettings
+	client    *stripe.Client
+	settings  SessionSettings
+	keyDigest [32]byte
 }
 
 var checkoutID = regexp.MustCompile(`^cs_test_[A-Za-z0-9]{1,100}$`)
@@ -51,7 +52,7 @@ func NewFixtureSessions(settings SessionSettings) (*FixtureSessions, error) {
 	if !ok || a.Client == nil {
 		return nil, ErrUnavailable
 	}
-	return &FixtureSessions{client: a.Client, settings: settings}, nil
+	return &FixtureSessions{client: a.Client, settings: settings, keyDigest: a.keyDigest}, nil
 }
 
 func sessionOrigin(raw string) bool {

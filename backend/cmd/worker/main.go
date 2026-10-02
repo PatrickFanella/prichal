@@ -87,6 +87,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	sessionSettings, err := billing.LoadSessionSettings(true, billingSettings)
+	if err != nil {
+		return err
+	}
+	var checkoutIntents *billing.CheckoutIntents
+	var checkoutAuthority *billing.FixtureSessions
+	if sessionSettings.Billing.Enabled {
+		checkoutAuthority, err = billing.NewFixtureSessions(sessionSettings)
+		if err != nil {
+			return err
+		}
+		checkoutIntents, err = billing.NewCheckoutIntents(true, pool, checkoutAuthority)
+		if err != nil {
+			return err
+		}
+	}
 	exportArtifacts, err := exports.LoadArtifacts(true)
 	if err != nil {
 		return err
@@ -104,6 +120,11 @@ func run() error {
 	river.AddWorker(workers, &hostingexit.RetentionWorker{Store: hostingExits})
 	river.AddWorker(workers, &exports.Worker{Store: portableExports, Agent: exportAgent})
 	river.AddWorker(workers, &billing.Worker{Store: billingEvents, Authority: billingAuthority})
+	checkoutWorker := &billing.CheckoutWorker{Store: checkoutIntents}
+	if checkoutAuthority != nil {
+		checkoutWorker.Authority = checkoutAuthority
+	}
+	river.AddWorker(workers, checkoutWorker)
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})

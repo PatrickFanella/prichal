@@ -33,6 +33,8 @@ The [local Checkout/Portal adapter](../local-billing-sessions.md) now has SDK tr
 
 [Checkout preparation](../local-checkout-preparation.md) now records original/current owner scope and a stable configured fixture plan with atomic review audit and read-only key recovery. It dispatches no payment and grants no entitlement. Schema-31 upgrade and source recovery passed; customer mapping, dispatch and browser routes remain open.
 
+[Durable fixture dispatch](../local-checkout-dispatch.md) now checkpoints first-class customer/session IDs with authority/credential binding and a bounded original-key retry window. SQL/SDK failure and schema-32 recovery checks passed. No source checkout was dispatched and no entitlement was granted. Owner routes, hosted-session recovery, populated restore, browser review and required completion reconciliation remain open.
+
 ## Planning reference
 
 Phase: M3 - Paid pilot. Priority: P0.
