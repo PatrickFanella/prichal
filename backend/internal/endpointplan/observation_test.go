@@ -11,7 +11,47 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 )
+
+func TestTXTObservationRecoveryFence(t *testing.T) {
+	for _, mode := range []string{"held", "missing-ledger"} {
+		t.Run(mode, func(t *testing.T) {
+			s, c := publicChoice(t)
+			ctx := context.Background()
+			before := claimRecoveryInventory(t, s.Pool)
+			query := `INSERT INTO management_recovery(snapshot_sha256,state) VALUES(decode(repeat('00',32),'hex'),'held')`
+			if mode == "missing-ledger" {
+				query = `DROP TABLE management_recovery`
+			}
+			if _, err := s.Pool.Exec(ctx, query); err != nil {
+				t.Fatal(err)
+			}
+			dns := &txtFixture{records: []string{c.ProofValue}}
+			result, err := s.Observe(ctx, alice, org, c.ID, dns)
+			if err == nil || result.Matched || dns.calls.Load() != 0 {
+				t.Fatal("uncertain recovery permitted observation", err)
+			}
+			if mode == "held" && !errors.Is(err, recovery.ErrHeld) {
+				t.Fatal("hold not reported", err)
+			}
+			mux := http.NewServeMux()
+			s.RegisterObservation(&sessions{owner: alice}, dns)(mux)
+			request := httptest.NewRequest("POST", "/api/organizations/"+org+"/endpoint-choices/"+c.ID+"/dns-observation", strings.NewReader(`{}`))
+			request.Header.Set("Origin", "http://localhost")
+			request.Header.Set("X-CSRF-Token", "fixture-csrf")
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, request)
+			if response.Code != 503 || strings.Contains(response.Body.String(), c.ProofValue) || strings.Contains(response.Body.String(), "challenge_match") || dns.calls.Load() != 0 {
+				t.Fatal("recovery refusal disclosed HTTP proof or performed DNS")
+			}
+			if claimRecoveryInventory(t, s.Pool) != before {
+				t.Fatal("refused observation changed retained receipts")
+			}
+		})
+	}
+}
 
 type txtFixture struct {
 	records  []string
@@ -144,7 +184,7 @@ func (d pausedTXT) LookupTXT(ctx context.Context, _ string) ([]string, error) {
 	}
 }
 func TestTXTRechecksCustodyCancellationAndExpiryAfterLookup(t *testing.T) {
-	for _, mode := range []string{"cancelled", "expired", "owner", "changed-proof", "timeout"} {
+	for _, mode := range []string{"cancelled", "expired", "owner", "changed-proof", "held", "missing-ledger", "timeout"} {
 		t.Run(mode, func(t *testing.T) {
 			s, c := publicChoice(t)
 			ctx := context.Background()
@@ -167,6 +207,14 @@ func TestTXTRechecksCustodyCancellationAndExpiryAfterLookup(t *testing.T) {
 			}()
 			<-dns.entered
 			switch mode {
+			case "held":
+				if _, err := s.Pool.Exec(ctx, `INSERT INTO management_recovery(snapshot_sha256,state) VALUES(decode(repeat('00',32),'hex'),'held')`); err != nil {
+					t.Fatal(err)
+				}
+			case "missing-ledger":
+				if _, err := s.Pool.Exec(ctx, `DROP TABLE management_recovery`); err != nil {
+					t.Fatal(err)
+				}
 			case "cancelled":
 				if _, err := s.CancelChoice(context.Background(), alice, org, c.ID, "cancel", true); err != nil {
 					t.Fatal(err)
@@ -200,6 +248,14 @@ func TestTXTRechecksCustodyCancellationAndExpiryAfterLookup(t *testing.T) {
 			case "cancelled", "expired":
 				if out.err != nil || out.r.Matched || out.r.State != mode {
 					t.Fatal("stale match")
+				}
+			case "held":
+				if !errors.Is(out.err, recovery.ErrHeld) || out.r.Matched {
+					t.Fatal("recovery hold during DNS disclosed observation", out.err)
+				}
+			case "missing-ledger":
+				if out.err == nil || out.r.Matched {
+					t.Fatal("missing recovery ledger during DNS disclosed observation")
 				}
 			case "owner":
 				if !errors.Is(out.err, ErrNotFound) {
