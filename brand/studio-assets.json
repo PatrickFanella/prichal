@@ -1,0 +1,54 @@
+{
+  "repository": "subculture-collective/subcult-studio",
+  "revision": "9240db0c6507949d502896e8ab57b5120b4db4df",
+  "pack": "branding/2026-10-01-packs/brands/prichal/",
+  "note": "Studio owns the Prichal brand. Copy from the pack and update this file; do not edit the copies.",
+  "files": [
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/product/favicon.svg",
+      "target": "site/mark.svg",
+      "sha256": "15f42ef42d8f7423c96e1f1a1a13259f6a1a24cd50991f99f64d6aa31a4516f4"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/product/favicon.svg",
+      "target": "web/public/favicon.svg",
+      "sha256": "15f42ef42d8f7423c96e1f1a1a13259f6a1a24cd50991f99f64d6aa31a4516f4"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/product/apple-touch-icon.png",
+      "target": "site/apple-touch-icon.png",
+      "sha256": "6de77f6a3879f7893ea6394fc4649713d5d5dfdd274bbec835bbe15f14403a05"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/product/og.png",
+      "target": "site/og.png",
+      "sha256": "7d21a51a278e8221011bc54f95c30021aaff7f5084d49e2767ffa041bbaac0a3"
+    }
+  ],
+  "derived_fonts": [
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/fonts/Public-Sans-0.ttf",
+      "target": "web/src/assets/fonts/PublicSans-Regular.woff2",
+      "conversion": "fontTools WOFF2, unchanged glyphs",
+      "source_sha256": "d8a092f98db3ae7c7f01e73f8f23aaaec97f16c325765042ae5a052f4d8de546"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/fonts/Public-Sans-1.ttf",
+      "target": "web/src/assets/fonts/PublicSans-Bold.woff2",
+      "conversion": "fontTools WOFF2, unchanged glyphs",
+      "source_sha256": "0daaf804b064cf37990f38ff9ba89fc8029e879f8e64260e7bfa6ef739569c3a"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/fonts/Oswald-1.ttf",
+      "target": "web/src/assets/fonts/Oswald-Bold.woff2",
+      "conversion": "fontTools WOFF2, unchanged glyphs",
+      "source_sha256": "a6ee8b91ec269a6f48631ba4ba1a3ab7e5039e5482dda8dc9672ee4620d7bd68"
+    },
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/fonts/JetBrains-Mono-0.ttf",
+      "target": "web/src/assets/fonts/JetBrainsMono-Regular.woff2",
+      "conversion": "fontTools WOFF2, unchanged glyphs",
+      "source_sha256": "44ce4a84f20d60f24539bd0cef11f79c29e38609e0f8adf18551c9794a5d9dc3"
+    }
+  ]
+}

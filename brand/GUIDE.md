@@ -2,6 +2,8 @@
 
 Draft, 2026-10-01. The name, palette, type and messaging are chosen. The mark is a first draft and has not been reviewed by the owner at production sizes.
 
+This guide owns Prichal's product messaging and interface rules. Logos, social and video templates, fonts and web artwork belong to the Prichal pack in SUBCULT Studio (`subculture-collective/subcult-studio`, `branding/2026-10-01-packs/brands/prichal/`). Files copied from Studio into this repository are listed with their source hashes in `brand/studio-assets.json`.
+
 ## Name
 
 **Prichal** is the product name for this repository's managed AT Protocol PDS hosting. The repository, Go module and service identifiers stay `pds-ass` until a separate rename.
@@ -80,7 +82,7 @@ A docking node: a sphere with its equator drawn in perspective and four collars 
 - The red flange is always on the right. Do not rotate, recolor individual collars, or add a centre dot or inner ring. With the cross of ports, a centred ring reads as a gun sight.
 - Mono variants turn the flange to ink.
 
-Files: `logos/mark*.svg` (editable), `logos/*-outlined.svg` (text converted to paths), PNG exports.
+Files: the Studio pack's `logos/` (editable, outlined and PNG variants) and `product/` (favicon, touch icon, hero and Open Graph image).
 
 ## Color
 
@@ -93,7 +95,7 @@ Files: `logos/mark*.svg` (editable), `logos/*-outlined.svg` (text converted to p
 | `rule` | `#c9c4b6` | Hairlines and tick scales. Decorative only. |
 | `dark_accent` | `#e8674b` | Signal red on ink fields. |
 
-Measured contrast for ordinary text is in `tokens.json`; every text pairing is at least 4.5:1, and `build.py` refuses to build otherwise. `rule` is below 4.5:1 and must not carry text. Use red for emphasis, not body copy.
+Every text pairing is at least 4.5:1; the Studio pack's `tokens.json` and the library's `verification.json` record the measurements. `rule` is below 4.5:1 and must not carry text. Use red for emphasis, not body copy.
 
 ## Type
 
@@ -101,7 +103,7 @@ Measured contrast for ordinary text is in `tokens.json`; every text pairing is a
 - **Public Sans**: body copy and taglines, sentence case.
 - **JetBrains Mono**, uppercase, wide tracking: labels, port strips, metadata.
 
-All three are OFL and bundled in `fonts/` with their licenses. Oswald and JetBrains Mono include Cyrillic.
+All three are OFL; the Studio pack bundles them with their licenses, and the web app ships WOFF2 conversions of those files. Oswald and JetBrains Mono include Cyrillic.
 
 ## Product UI
 
@@ -116,17 +118,13 @@ The web app takes its tokens from `web/src/styles.css` (`--paper`, `--ink`, `--s
 
 Engineering-drawing details: a tick scale on the left edge, a hairline above the footer, a port strip (`PORT 01 · 02 · 03 · 04 · 05 · 06`) and mono metadata. Keep them light; the mark carries the identity. Story content stays between y=250 and y=1670. Video layouts use a 96 px outer margin.
 
-## Building
+## Updating artwork
 
-```sh
-python3 brand/build.py --render --outline
-```
-
-Needs Python 3, `rsvg-convert` for PNGs and Inkscape for outlined SVGs. The builder regenerates `logos/`, `social/`, `video/`, tokens and the manifest from `brand.json`. Edit `brand.json` or `build.py`, not the exports. The output follows the shared Subcult starter-template layout so the pack can move into the branding library.
+Change the mark, templates or web artwork in Studio: `branding/2026-10-01-packs/` (`design_helpers.py` docking mode, `prichal_product_assets.py`), then rebuild with `BRAND_ONLY=prichal`. Copy the changed files here and update `brand/studio-assets.json` with the new revision and hashes. Keep `web/src/brand-mark.tsx` geometry identical to the Studio mark. Do not edit the copied files directly.
 
 ## Before publishing
 
-- Replace `prichal.example`. No domain has been registered. On 2026-10-01 `prichal.com`, `.net` and `.app` were registered by others; `.io` returned no WHOIS record; `.dev`, `.host`, `.social` and `.cloud` had no DNS records. Confirm with a registrar.
+- The preview runs at `prichal.subcult.tv`. No dedicated domain has been registered (#126). On 2026-10-01 `prichal.com`, `.net` and `.app` were registered by others; `.io` returned no WHOIS record; `.dev`, `.host`, `.social` and `.cloud` had no DNS records. Confirm with a registrar.
 - No trademark search has been done.
 - Layout copy is placeholder until the claims behind it are verified.
-- Write alt text for finished images; starters are in `alt-text.md`.
+- Write alt text for finished images; starters are in the Studio pack's `alt-text.md`.

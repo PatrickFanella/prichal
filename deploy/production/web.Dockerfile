@@ -11,5 +11,4 @@ FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac523
 COPY deploy/production/Caddyfile /etc/caddy/Caddyfile
 COPY site/ /srv/site/
 COPY web/src/assets/fonts/ /srv/site/fonts/
-COPY brand/logos/mark.svg /srv/site/mark.svg
 COPY --from=build /src/web/dist/ /srv/app/
