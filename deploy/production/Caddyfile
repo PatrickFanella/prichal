@@ -1,0 +1,40 @@
+# Inner listener. TLS ends at Cloudflare; the Almaz edge forwards the original Host.
+{
+	admin off
+	auto_https off
+}
+
+(headers) {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+http://prichal.subcult.tv:80 {
+	import headers
+	header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+	encode zstd gzip
+	root * /srv/site
+	file_server
+}
+
+http://prichal-app.subcult.tv:80 {
+	import headers
+	encode zstd gzip
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle {
+		root * /srv/app
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+:80 {
+	respond "Unknown host" 421
+}
