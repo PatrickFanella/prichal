@@ -84,7 +84,7 @@ func (s *CheckoutIntents) RecoverSession(ctx context.Context, owner, org, id str
 	if err = checkoutPendingAuthority(ctx, tx, org); err != nil {
 		return RecoveredCheckout{}, err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return RecoveredCheckout{}, err
 	}
 	result := RecoveredCheckout{Status: "expired", ExpiresAt: *expires}
@@ -94,7 +94,7 @@ func (s *CheckoutIntents) RecoverSession(ctx context.Context, owner, org, id str
 			return RecoveredCheckout{}, err
 		}
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return RecoveredCheckout{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {

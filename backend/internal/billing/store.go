@@ -43,8 +43,14 @@ func (s *Store) Receive(ctx context.Context, event Event) (bool, error) {
 		return false, err
 	}
 	defer tx.Rollback(ctx)
+	if err = billingRecovery(ctx, tx); err != nil {
+		return false, err
+	}
 	tag, err := tx.Exec(ctx, `INSERT INTO billing_events(event_id,payload_sha256,event_type,event_created,customer_id,subscription_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(event_id) DO NOTHING`, event.ID, event.Digest, event.Type, event.Created, event.Customer, event.Subscription)
 	if err != nil {
+		return false, err
+	}
+	if err = billingRecovery(ctx, tx); err != nil {
 		return false, err
 	}
 	if tag.RowsAffected() == 0 {
@@ -57,9 +63,15 @@ func (s *Store) Receive(ctx context.Context, event Event) (bool, error) {
 		if retained.Type != event.Type || retained.Created != event.Created || retained.Customer != event.Customer || retained.Subscription != event.Subscription {
 			return false, ErrConflict
 		}
+		if err = billingRecovery(ctx, tx); err != nil {
+			return false, err
+		}
 		return true, tx.Commit(ctx)
 	}
 	if _, err = s.Queue.InsertTx(ctx, tx, Args{EventID: event.ID}, &river.InsertOpts{MaxAttempts: 5}); err != nil {
+		return false, err
+	}
+	if err = billingRecovery(ctx, tx); err != nil {
 		return false, err
 	}
 	return false, tx.Commit(ctx)
@@ -82,18 +94,23 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 	if authority == nil {
 		return ErrUnavailable
 	}
-	if err := recovery.Check(ctx, s.Pool); err != nil {
-		return err
-	}
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if err = billingRecovery(ctx, tx); err != nil {
+		return err
+	}
 	var event Event
 	var state string
 	err = tx.QueryRow(ctx, `SELECT customer_id,subscription_id,state FROM billing_events WHERE event_id=$1 FOR UPDATE`, id).Scan(&event.Customer, &event.Subscription, &state)
 	if err != nil {
+		return err
+	}
+	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	if state == "applied" {
@@ -111,10 +128,16 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 	if err = tx.QueryRow(ctx, `SELECT id FROM organizations WHERE id=$1 FOR UPDATE`, org).Scan(&found); err != nil {
 		return err
 	}
+	if err = billingRecovery(ctx, tx); err != nil {
+		return err
+	}
 	// Fetch inside the organization lock: a slower old event cannot overwrite a newer read.
 	snapshot, err := authority.Subscription(ctx, event.Subscription)
 	if err != nil {
 		return ErrUnavailable
+	}
+	if err = billingRecovery(ctx, tx); err != nil {
+		return err
 	}
 	validState := map[string]bool{"incomplete": true, "incomplete_expired": true, "trialing": true, "active": true, "past_due": true, "canceled": true, "unpaid": true, "paused": true}
 	if snapshot.Customer != event.Customer || snapshot.Subscription != event.Subscription || !validState[snapshot.State] || !priceID.MatchString(snapshot.Price) || snapshot.Quantity != 1 || snapshot.PeriodEnd.IsZero() {
@@ -125,6 +148,9 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE billing_events SET state='applied',applied_at=clock_timestamp() WHERE event_id=$1`, id); err != nil {
+		return err
+	}
+	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

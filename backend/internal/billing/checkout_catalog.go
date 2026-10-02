@@ -25,7 +25,7 @@ func (s *CheckoutIntents) Plan(ctx context.Context, owner, org string) (Checkout
 	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM billing_checkout_requests WHERE organization_id=$1) OR EXISTS(SELECT 1 FROM billing_customer_bindings WHERE organization_id=$1) OR EXISTS(SELECT 1 FROM organization_transfers WHERE organization_id=$1 AND state='pending' AND expires_at>clock_timestamp())`, org).Scan(&blocked); err != nil {
 		return CheckoutPlan{}, err
 	}
-	if err = checkoutRecovery(ctx, tx); err != nil {
+	if err = billingRecovery(ctx, tx); err != nil {
 		return CheckoutPlan{}, err
 	}
 	result := CheckoutPlan{PriceID: s.settings.PriceID, Fixture: true, CanPrepare: !blocked}
