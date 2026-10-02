@@ -142,8 +142,7 @@ func (s *Store) Reconcile(ctx context.Context, id string, authority Authority) e
 	if err = billingRecovery(ctx, tx); err != nil {
 		return err
 	}
-	validState := map[string]bool{"incomplete": true, "incomplete_expired": true, "trialing": true, "active": true, "past_due": true, "canceled": true, "unpaid": true, "paused": true}
-	if snapshot.Customer != event.Customer || snapshot.Subscription != event.Subscription || !validState[snapshot.State] || !priceID.MatchString(snapshot.Price) || snapshot.Quantity != 1 || snapshot.PeriodEnd.IsZero() {
+	if snapshot.Customer != event.Customer || snapshot.Subscription != event.Subscription || !subscriptionState(snapshot.State) || !priceID.MatchString(snapshot.Price) || snapshot.Quantity != 1 || snapshot.PeriodEnd.IsZero() {
 		return ErrInvalidEvent
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO billing_subscription_observations(organization_id,customer_id,subscription_id,subscription_state,price_id,quantity,period_end,event_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(organization_id) DO UPDATE SET customer_id=excluded.customer_id,subscription_id=excluded.subscription_id,subscription_state=excluded.subscription_state,price_id=excluded.price_id,quantity=excluded.quantity,period_end=excluded.period_end,event_id=excluded.event_id,checked_at=clock_timestamp()`, org, snapshot.Customer, snapshot.Subscription, snapshot.State, snapshot.Price, snapshot.Quantity, snapshot.PeriodEnd, id)
