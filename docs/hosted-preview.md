@@ -12,7 +12,7 @@ This is a preview, not public PDS hosting. The API runs in production mode with 
 ## Layout on Dozor
 
 - Releases: `/srv/apps/prichal/releases/<commit>/source` (a clean checkout), with `current` linking to the active release.
-- Secrets: `/etc/prichal/production.env`, owner-only, with `PRICHAL_DB_PASSWORD`, `PRICHAL_OIDC_CLIENT_ID` and `PRICHAL_OIDC_CLIENT_SECRET`. The Gitea OAuth application "Prichal hosted preview" belongs to the PatrickFanella account; its only redirect URI is `https://prichal-app.subcult.tv/api/auth/callback`.
+- Secrets: `/etc/prichal/production.env`, owner-only, with `PRICHAL_DB_PASSWORD`, `PRICHAL_OIDC_CLIENT_ID` and `PRICHAL_OIDC_CLIENT_SECRET`. Set the OIDC pair with `deploy/production/set-oidc-client.sh` from the current release; it reads the secret without echoing it, keeps a dated copy of the previous file and restarts only the API. The Gitea OAuth application "Prichal hosted preview" belongs to the PatrickFanella account; its only redirect URI is `https://prichal-app.subcult.tv/api/auth/callback`.
 - Compose project `prichal` from `deploy/production/compose.yaml`: PostgreSQL 17 (volume `prichal_management-data`), the API and a Caddy web listener. Only `10.0.0.57:3090` is published. PostgreSQL has no published port.
 
 ## Release
