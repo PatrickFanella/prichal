@@ -45,3 +45,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Owner checkout routes](../local-checkout-owner-routes.md) now expose local preparation, explicit original-key dispatch and read-only session recovery under real browser authentication/CSRF. They remain separately disabled by default. Browser review, actual fixture journey and completion/entitlement reconciliation remain open.
 
 [Scoped browser checkout review](../local-checkout-workspace.md) now retains the original fixture key/Price, separates preparation and dispatch reviews, and recovers only transient confirmed navigation. Intercepted browser verification and real disabled reload checks passed; other responsive widths, actual authority journey, populated restore and completion/entitlement reconciliation remain open.
+
+[Disposable actual authority qualification](../local-checkout-authority-fixture.md) now exercises owner HTTP, the real River checkout worker, pinned SDK transport and a private synthetic registry without source resources or payment entitlement. Interactive browser, populated restore, signed completion mapping and commercial policy remain open.
