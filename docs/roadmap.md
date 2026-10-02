@@ -122,3 +122,5 @@ Local endpoint claim review and exact-choice retry are implemented and verified;
 [Signed completion intake](local-checkout-completion-inbox.md) now has local atomic delivery, concurrent deduplication and schema-33 recovery/replay evidence. Claims remain pending and choose no ownership or access. Current owner/resource/subscription mapping and commercial entitlement policy remain open; ordinary source billing stays disabled.
 
 [Local completion mapping](local-checkout-completion-mapping.md) now has atomic custody/graph/binding/audit/observation evidence and schema-34 recovery/replay qualification. Unpaid or adverse states grant no access; ordinary source billing stays disabled. Populated mapping replay, actual completion/browser journey and commercial/sandbox/live gates remain open.
+
+[Actual synthetic completion authority](local-checkout-completion-authority.md) now verifies the Node registry, signed management intake and real checkout/completion workers together. Separate host-only controls remain disabled by default; unpaid/past-due evidence grants no access. Interactive browser, commercial policy and sandbox/live gates remain open.
