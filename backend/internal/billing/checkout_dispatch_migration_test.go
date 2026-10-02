@@ -15,7 +15,7 @@ func TestCheckoutDispatchUpgradePreservesPreparedOriginalReceipt(t *testing.T) {
 	if err := s.pool.QueryRow(ctx, query).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.pool.Exec(ctx, `ALTER TABLE billing_checkout_requests DROP CONSTRAINT checkout_dispatch_checkpoint; ALTER TABLE billing_checkout_requests DROP CONSTRAINT checkout_authority_identity;
+	if _, err := s.pool.Exec(ctx, `DROP TABLE billing_checkout_notifications; ALTER TABLE billing_checkout_requests DROP CONSTRAINT checkout_dispatch_checkpoint; ALTER TABLE billing_checkout_requests DROP CONSTRAINT checkout_authority_identity;
  ALTER TABLE billing_checkout_requests DROP COLUMN dispatch_started_at, DROP COLUMN customer_id, DROP COLUMN checkout_id, DROP COLUMN session_expires_at, DROP COLUMN authority_origin, DROP COLUMN authority_key_sha256;
  ALTER TABLE billing_checkout_requests DROP CONSTRAINT billing_checkout_requests_state_check;
  ALTER TABLE billing_checkout_requests ADD CONSTRAINT billing_checkout_requests_state_check CHECK(state='prepared');

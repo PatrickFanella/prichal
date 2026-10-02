@@ -46,6 +46,9 @@ func (s *Store) Receive(ctx context.Context, event Event) (bool, error) {
 	if err = billingRecovery(ctx, tx); err != nil {
 		return false, err
 	}
+	if err = billingEventLock(ctx, tx, event.ID, "billing_checkout_notifications"); err != nil {
+		return false, err
+	}
 	tag, err := tx.Exec(ctx, `INSERT INTO billing_events(event_id,payload_sha256,event_type,event_created,customer_id,subscription_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(event_id) DO NOTHING`, event.ID, event.Digest, event.Type, event.Created, event.Customer, event.Subscription)
 	if err != nil {
 		return false, err

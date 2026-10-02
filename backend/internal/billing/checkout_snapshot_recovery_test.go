@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
@@ -233,7 +234,7 @@ func TestPopulatedCheckoutSnapshotRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := fmt.Sprintf("schema=32\nrequests=5\ncheckout_audits=17\ncheckout_jobs=4\nexact_snapshot_preserved=true\nheld_rpc_count=0\ncopied_authentication_revoked=true\nreconciled_without_hosts=true\noriginal_receipts_preserved=true\nterminal_replay_rpc_count=0\nexpired_unknown_rpc_count=0\nconfirmed_customer_retained=true\nsource_fixture_unchanged=true\npaid_entitlement=false\ncompleted_at=%s\n", time.Now().UTC().Format(time.RFC3339))
+	report := fmt.Sprintf("schema=%d\nrequests=5\ncheckout_audits=17\ncheckout_jobs=4\nexact_snapshot_preserved=true\nheld_rpc_count=0\ncopied_authentication_revoked=true\nreconciled_without_hosts=true\noriginal_receipts_preserved=true\nterminal_replay_rpc_count=0\nexpired_unknown_rpc_count=0\nconfirmed_customer_retained=true\nsource_fixture_unchanged=true\npaid_entitlement=false\ncompleted_at=%s\n", migrate.Version, time.Now().UTC().Format(time.RFC3339))
 	if err := os.WriteFile(filepath.Join(work, "report.txt"), []byte(report), 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -53,3 +53,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Billing transaction recovery fences](../local-billing-recovery-fences.md) now preserve intake, immutable mapping and authoritative observations across late holds, including lock/response/write waits. Missing recovery leaves work pending. Required checkout completion mapping and paid entitlement policy remain open.
 
 [Signed completion identity evidence](../local-checkout-completion-evidence.md) now verifies first-class claims and re-reads the exact completed session/payment state without metadata custody, navigation or entitlement. Durable intake, original-owner mapping, authoritative subscription reconciliation and commercial policy remain open.
+
+[Durable local completion intake](../local-checkout-completion-inbox.md) now retains signed claims and one pending job atomically, with concurrent deduplication, cross-inbox identity exclusion and recovery fences. Source schema-33 upgrade/restore/replay passed; ordinary billing remains disabled. Ownership mapping, authoritative subscription reconciliation and commercial entitlement remain open.
