@@ -1,0 +1,15 @@
+# Checkout registry restart and snapshot replay
+
+Status: locally qualified on October 1, 2026 using allocator-owned PostgreSQL fixtures and a private synthetic Node authority. No actual Stripe resource or payment was created.
+
+The explicit snapshot opt-in now qualifies a pending checkout against an actual retained registry. The fixture queues the original request and confirms its customer. The actual pinned SDK then creates a session, while a deliberately rejected SQL audit rolls back the session checkpoint. Management remains customer-ready with the original reservation/job; the private authority has exactly two resources.
+
+A bounded in-memory pg_dump restores into a new allocator-owned recovery database. The authority shuts down and restarts at its original numeric-loopback address, reloading the same private registry and credential/catalog/return scope. The fixture runner accepts an optional bounded numeric port to preserve that address; its default remains ephemeral. It accepts no host argument or remote payment authority.
+
+The freshly constructed adapter/store preserve the copied ledger exactly. Holding the copy revokes authentication, refuses navigation and snoozes the original job with zero authority calls and unchanged work. Reconciliation acquires no host authority. A real River worker in the reconciled copy replays only the original session key, recovers the already-created session and commits its checkpoint. Customer/session IDs and original expiry match the registry. The registry bytes are unchanged, proving no replacement resource or renewed expiry. Terminal dispatch makes no further call; read-only navigation changes no ledger. Original fixture requests/audits/jobs stay unchanged.
+
+Focused race qualification and full smoke with `PDS_TEST_LOCAL_CHECKOUT_SNAPSHOT=true` passed. Normal source schema-33 readiness remains green with billing sessions disabled. Source work/native/custody inventories match. No binding, subscription observation, pilot grant or native action occurred. Only allocator-owned fixture databases/processes/directories are cleaned up. Safe 0600 reports remain under ignored `.local/checkout-registry-recovery-*/report.txt`; no credentials, snapshot or raw provider response enter them.
+
+Private logs: `.local/checkout-registry-recovery-focused.log`, `.local/checkout-registry-recovery-smoke.log` and `.local/checkout-registry-recovery-source-after.json`. See [populated checkout recovery](local-checkout-snapshot-recovery.md), [actual authority journey](local-checkout-authority-fixture.md) and [completion inbox](local-checkout-completion-inbox.md). Optional golangci-lint remains unavailable.
+
+This qualifies replay inside the original unresolved retry window and original scope. Expired unresolved work still requires manual review; the earlier populated snapshot test covers that refusal. Independent backup custody, real provider durability, interactive actual-authority browser, remaining responsive widths, completion ownership/subscription mapping, commercial entitlement policy, Stripe sandbox and live qualification remain open.

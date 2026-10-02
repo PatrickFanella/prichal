@@ -55,3 +55,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Signed completion identity evidence](../local-checkout-completion-evidence.md) now verifies first-class claims and re-reads the exact completed session/payment state without metadata custody, navigation or entitlement. Durable intake, original-owner mapping, authoritative subscription reconciliation and commercial policy remain open.
 
 [Durable local completion intake](../local-checkout-completion-inbox.md) now retains signed claims and one pending job atomically, with concurrent deduplication, cross-inbox identity exclusion and recovery fences. Source schema-33 upgrade/restore/replay passed; ordinary billing remains disabled. Ownership mapping, authoritative subscription reconciliation and commercial entitlement remain open.
+
+[Actual registry snapshot replay](../local-checkout-registry-recovery.md) now verifies a lost session checkpoint against the restarted private authority and restored real River job, preserving original IDs/expiry and registry bytes without changing the source fixture or granting entitlement. Interactive browser and completion/subscription/commercial gates remain open.
