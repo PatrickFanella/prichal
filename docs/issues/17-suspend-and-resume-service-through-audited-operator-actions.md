@@ -33,3 +33,5 @@ Suspension is reversible and separate from billing cancellation, scheduled delet
 
 Phase: M2 - Recoverable managed service. Priority: P0.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+Local lifecycle submission, dispatch and terminal-audit recovery fences now have deterministic lock-wait evidence. See [recovery fences](../local-lifecycle-recovery-fence.md). Production operator and independent incident recovery remain open.

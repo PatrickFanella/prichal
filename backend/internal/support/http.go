@@ -114,11 +114,16 @@ func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http
 		})
 		activity := func(operator bool) func(http.ResponseWriter, *http.Request, auth.Session, string) {
 			return func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
+				query, queryErr := url.ParseQuery(r.URL.RawQuery)
+				if queryErr != nil || len(query) > 1 || (len(query) == 1 && (len(query["before"]) != 1 || query.Get("before") == "")) {
+					reply(w, 400, map[string]string{"error": "Use one valid history cursor."})
+					return
+				}
 				before := int64(0)
-				if raw := r.URL.Query().Get("before"); raw != "" {
+				if raw := query.Get("before"); raw != "" {
 					var err error
 					before, err = strconv.ParseInt(raw, 10, 64)
-					if err != nil || before <= 0 || before > 1<<53 {
+					if err != nil || before <= 0 || before > (1<<53)-1 {
 						reply(w, 400, map[string]string{"error": "Use a valid history cursor."})
 						return
 					}

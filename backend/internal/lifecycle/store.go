@@ -17,6 +17,17 @@ import (
 var uuid = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 var ErrConflict = errors.New("service transition conflicts with retained intent")
 
+func checkRecoveryTx(ctx context.Context, tx pgx.Tx) error {
+	var held bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM management_recovery WHERE state='held')`).Scan(&held); err != nil {
+		return err
+	}
+	if held {
+		return recovery.ErrHeld
+	}
+	return nil
+}
+
 type Args struct {
 	OperationID string `json:"operationId"`
 }
@@ -51,6 +62,8 @@ func New(pool *pgxpool.Pool) (*Store, error) {
 
 // Submit is an operator-only contract. There is no customer HTTP mutation endpoint.
 func (s *Store) Submit(ctx context.Context, actor, deployment string, request Request) (Operation, error) {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
 	if request.Kind == "" {
 		request.Kind = "service"
 	}
@@ -72,6 +85,9 @@ func (s *Store) Submit(ctx context.Context, actor, deployment string, request Re
 	if err = tx.QueryRow(ctx, `SELECT state,kind FROM deployments WHERE id=$1 FOR UPDATE`, deployment).Scan(&state, &kind); err != nil {
 		return Operation{}, errors.New("managed deployment unavailable")
 	}
+	if err = checkRecoveryTx(ctx, tx); err != nil {
+		return Operation{}, err
+	}
 	if state != "ready" || kind != "agent" {
 		return Operation{}, ErrConflict
 	}
@@ -80,6 +96,9 @@ func (s *Store) Submit(ctx context.Context, actor, deployment string, request Re
 	if err == nil {
 		if desired != request.State || reason != request.Reason || previousActor != actor || previousKind != request.Kind {
 			return Operation{}, ErrConflict
+		}
+		if err = checkRecoveryTx(ctx, tx); err != nil {
+			return Operation{}, err
 		}
 		if err = tx.Commit(ctx); err != nil {
 			return Operation{}, err
@@ -117,6 +136,9 @@ func (s *Store) Submit(ctx context.Context, actor, deployment string, request Re
 		return Operation{}, err
 	}
 	if _, err = s.Queue.InsertTx(ctx, tx, Args{id}, &river.InsertOpts{MaxAttempts: 3}); err != nil {
+		return Operation{}, err
+	}
+	if err = checkRecoveryTx(ctx, tx); err != nil {
 		return Operation{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {

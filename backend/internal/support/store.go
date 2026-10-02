@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5"
@@ -82,21 +83,53 @@ func (s *Store) Inspect(ctx context.Context, owner, role, id string) (json.RawMe
 
 // Activity returns bounded lifecycle history after either owner scope or explicit operator authorization.
 func (s *Store) Activity(ctx context.Context, owner, id string, operator bool, before int64) (json.RawMessage, error) {
-	if !uuid.MatchString(id) {
+	if !uuid.MatchString(id) || !uuid.MatchString(owner) {
 		return nil, ErrNotFound
 	}
+	if before < 0 || before > (1<<53)-1 {
+		return nil, ErrCursor
+	}
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
 	var found string
-	err := s.Pool.QueryRow(ctx, `SELECT d.id FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND ($3 OR o.owner_id=$2)`, id, owner, operator).Scan(&found)
+	err = tx.QueryRow(ctx, `SELECT d.id FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND ($3 OR o.owner_id=$2) FOR SHARE OF d,o`, id, owner, operator).Scan(&found)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	checkRecovery := func() error {
+		var held bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM management_recovery WHERE state='held')`).Scan(&held); err != nil {
+			return err
+		}
+		if held {
+			return recovery.ErrHeld
+		}
+		return nil
+	}
+	if err = checkRecovery(); err != nil {
+		return nil, err
+	}
 	var result []byte
-	err = s.Pool.QueryRow(ctx, `WITH page AS (SELECT * FROM service_operations WHERE deployment_id=$1 AND ($2::bigint=0 OR generation<$2) ORDER BY generation DESC LIMIT 51), visible AS (SELECT * FROM page ORDER BY generation DESC LIMIT 50)
+	err = tx.QueryRow(ctx, `WITH page AS (SELECT * FROM service_operations WHERE deployment_id=$1 AND ($2::bigint=0 OR generation<$2) ORDER BY generation DESC LIMIT 51), visible AS (SELECT * FROM page ORDER BY generation DESC LIMIT 50)
  SELECT jsonb_build_object('items',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',v.id,'kind',v.kind,'generation',v.generation,'state',v.state,'desiredState',v.desired_state,'priorState',v.prior_state,'reason',v.reason,'updatedAt',v.updated_at,'actor',CASE WHEN $3 THEN v.actor ELSE 'operator' END,'events',COALESCE((SELECT jsonb_agg(jsonb_build_object('state',e.state,'createdAt',e.created_at) ORDER BY e.id) FROM service_operation_events e WHERE e.operation_id=v.id),'[]'::jsonb)) ORDER BY v.generation DESC) FROM visible v),'[]'::jsonb),'hasMore',(SELECT count(*)>50 FROM page),'nextBefore',CASE WHEN (SELECT count(*)>50 FROM page) THEN (SELECT min(generation) FROM visible) ELSE NULL END)`, id, before, operator).Scan(&result)
-	return result, err
+	if err != nil {
+		return nil, err
+	}
+	if err = checkRecovery(); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Organization finds bounded instance references and audits the organization inspection.

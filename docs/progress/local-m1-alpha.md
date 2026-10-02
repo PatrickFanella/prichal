@@ -716,3 +716,11 @@ Reproduced the API reporting ready after a recovery hold was introduced at runti
 ## Lifecycle history failure and paging, October 1
 
 The read-only owner/operator activity panel now clears stale rows/cursors before refresh and on denied, unavailable or invalid responses, aborts changed scopes and focuses results/errors. Strict fifty-row generation/cursor and owner actor-redaction contracts are verified. Native twenty-six-row Bob history loaded; read-only fixtures verified fifty-to-two keyboard pagination and failure cleanup with six reads/zero unexpected mutations. Source work/native/custody matched. Build, contract and local smoke passed. Phone overflow checks passed; T3 resize timeouts leave four widths and visual/assistive gates open. See [history evidence](../local-lifecycle-history-workspace.md).
+
+## Activity history scope and recovery, October 1
+
+Reproduced owner/operator activity bypassing held/missing recovery and accepting ambiguous cursor queries. Reads now keep owner scope locked through one bounded transaction and recheck recovery after page materialization. Deterministic blocked-page tests verify custody serialization and held-result refusal; malformed/duplicate/unknown/empty/unsafe cursors return 400. Focused support race checks and local smoke passed. No schema or native authority changed. See [activity evidence](../local-activity-recovery-scope.md).
+
+## Lifecycle dispatch and commit recovery fences, October 1
+
+Reproduced new-intent, retained-retry and worker dispatch bypassing a hold introduced during deployment-lock wait. Submission and native dispatch now recheck current recovery after waits; terminal failures snooze and roll back when recovery becomes held during audit recording. Six held/missing-ledger cases preserve operations/audits/jobs with zero mock native calls. New-intent and terminal-audit wait checks verify rollback and retained pending recovery identity. Focused lifecycle race and full local smoke passed. Already-dispatched native RPCs remain governed by their retained ticket/generation and writers must still be quiesced for snapshots. See [lifecycle recovery](../local-lifecycle-recovery-fence.md).
