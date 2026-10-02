@@ -43,3 +43,5 @@ Phase: M3 - Paid pilot. Priority: P0.
 [Read-only session recovery](../local-checkout-session-recovery.md) now verifies the original confirmed fixture checkout without creating replacement resources. It returns only transient navigation for open sessions and never grants payment entitlement. Owner HTTP/browser and completion reconciliation remain open.
 
 [Owner checkout routes](../local-checkout-owner-routes.md) now expose local preparation, explicit original-key dispatch and read-only session recovery under real browser authentication/CSRF. They remain separately disabled by default. Browser review, actual fixture journey and completion/entitlement reconciliation remain open.
+
+[Scoped browser checkout review](../local-checkout-workspace.md) now retains the original fixture key/Price, separates preparation and dispatch reviews, and recovers only transient confirmed navigation. Intercepted browser verification and real disabled reload checks passed; other responsive widths, actual authority journey, populated restore and completion/entitlement reconciliation remain open.

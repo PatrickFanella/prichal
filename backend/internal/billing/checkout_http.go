@@ -145,6 +145,8 @@ func (s *CheckoutIntents) RegisterCheckout(sessions CheckoutSessions, adapter *F
 				var result any
 				var err error
 				switch action {
+				case "plan":
+					result, err = s.Plan(ctx, owner.OwnerID, org)
 				case "prepare":
 					result, err = s.Prepare(ctx, owner.OwnerID, org, key, true)
 				case "start":
@@ -163,6 +165,7 @@ func (s *CheckoutIntents) RegisterCheckout(sessions CheckoutSessions, adapter *F
 				checkoutReply(w, 200, result)
 			})
 		}
+		register("GET /api/organizations/{id}/billing/checkout-plan", "plan", false)
 		register("POST /api/organizations/{id}/billing/checkout", "prepare", true)
 		register("GET /api/organizations/{id}/billing/checkout", "byKey", false)
 		register("GET /api/organizations/{id}/billing/checkout/{checkout}", "get", false)

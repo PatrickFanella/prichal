@@ -218,3 +218,35 @@ func TestCheckoutHTTPDisabledAndNilAuthorization(t *testing.T) {
 		t.Fatal("disabled routes reached authority")
 	}
 }
+
+func TestCheckoutHTTPConfiguredPlanIsReadOnlyAndCurrent(t *testing.T) {
+	s, _, owner, org, calls := fixtureCheckoutIntents(t)
+	adapter, _ := fixtureSessionAdapter(t, func(w http.ResponseWriter, r *http.Request) { t.Error("catalog contacted authority") })
+	owners := checkoutHTTPAuth(t, s, owner)
+	mux := http.NewServeMux()
+	s.RegisterCheckout(owners, adapter)(mux)
+	path := "/api/organizations/" + org + "/billing/checkout-plan"
+	before := checkoutLedger(t, s)
+	var plan CheckoutPlan
+	if data := checkoutHTTPRequest(t, mux, "GET", path, "", nil, 200); json.Unmarshal(data, &plan) != nil || !plan.Fixture || !plan.CanPrepare || plan.PriceID != s.settings.PriceID {
+		t.Fatal("fixed fixture catalog missing")
+	}
+	if checkoutLedger(t, s) != before || calls.Load() != 0 {
+		t.Fatal("catalog read changed work")
+	}
+	if _, err := s.Prepare(context.Background(), owner, org, sessionFixtureRequest.Key, true); err != nil {
+		t.Fatal(err)
+	}
+	before = checkoutLedger(t, s)
+	if data := checkoutHTTPRequest(t, mux, "GET", path, "", nil, 200); json.Unmarshal(data, &plan) != nil || plan.CanPrepare {
+		t.Fatal("catalog offered replacement for retained checkout")
+	}
+	if checkoutLedger(t, s) != before {
+		t.Fatal("catalog availability mutated checkout")
+	}
+	checkoutHTTPRequest(t, mux, "GET", "/api/organizations/"+sessionFixtureRequest.Key+"/billing/checkout-plan", "", nil, 404)
+	if _, err := s.pool.Exec(context.Background(), `INSERT INTO management_recovery(singleton,snapshot_sha256,state) VALUES(true,$1,'held')`, make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	checkoutHTTPRequest(t, mux, "GET", path, "", nil, 503)
+}
