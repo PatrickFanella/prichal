@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "product": "prichal",
+  "selected_for": "Gitea marketing README",
+  "source_repository": "subculture-collective/subcult-tv",
+  "source_revision": "49cde4b00db3149d15e107b642354ce50538fd10",
+  "source_path": "studio/branding/library/brands/prichal/social/banner-x-bluesky.png",
+  "source_sha256": "6695fda661555b34f032db8e900eb874d9d9196f7caabc820d506dec33868ff9",
+  "source_manifest_path": "studio/branding/library/brands/prichal/asset-manifest.json",
+  "source_manifest_sha256": "f826a82ac630cb8b6c04f9a1813d7485a8487ee61c1708fad18ded3101675518",
+  "destination_path": "docs/assets/readme/banner.png",
+  "destination_sha256": "6695fda661555b34f032db8e900eb874d9d9196f7caabc820d506dec33868ff9",
+  "voice_source": "studio/content/VOICE.md",
+  "voice_source_sha256": "5b3427970e133693dcea70660de38bb8ffae4b242b5d178b4e17cbdcccff43bd",
+  "alt_text": "Prichal: Your server. We keep it running. Docking-node mark on an engineering drawing.",
+  "publication_scope": "README artwork only; no site deployment, social dispatch or media relay"
+}
