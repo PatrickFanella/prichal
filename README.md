@@ -1,6 +1,10 @@
 # pds-ass
 
-Prichal is a standalone managed AT Protocol PDS hosting service. `pds-ass` remains the repository name; the product brand guide is [brand/GUIDE.md](brand/GUIDE.md); logos and artwork come from the Prichal pack in SUBCULT Studio. A customer signs in, names their server, and deploys it on our infrastructure without administering a machine. Browser onboarding is the first delivery path; a CLI can later use the same management API.
+Prichal is managed AT Protocol PDS hosting: a customer gets their account's home server on the open network Bluesky runs on, and we keep it running. It is a private preview and is not open for sign-up.
+
+A customer signs in, names their server and deploys it on our infrastructure without administering a machine. Browser onboarding is the first delivery path; a CLI, qualified locally so far, uses the same management API.
+
+`pds-ass` remains the repository name. Product messaging is in [brand/GUIDE.md](brand/GUIDE.md); logos and artwork come from the Prichal pack in SUBCULT Studio.
 
 The initial target is a usable PDS within 15 minutes on a provider-managed domain. This is a target to measure, not a verified service guarantee. Custom DNS and existing-account migration have separate completion criteria.
 
@@ -13,4 +17,6 @@ The initial target is a usable PDS within 15 minutes on a provider-managed domai
 
 The planned stack is Go, PostgreSQL, River jobs, React with TypeScript, the official Bluesky PDS container, Docker, Caddy, OpenTofu, and Ansible. PDS SQLite databases and blobs remain separate from the management database.
 
-The repository now includes a local Go API, React interface, PostgreSQL schema, OIDC owner sign-in, organization isolation and smoke checks. See [local development](docs/local-development.md) for startup and verification, and [local PDS qualification](docs/local-pds-runtime.md) for the separate upstream runtime. Public PDS hosting is not available yet. Earlier research explored hosting Subcult OS and Patchwork applications. The implementation plan supersedes that product scope: this service has its own codebase, authentication, database, and deployment lifecycle.
+The repository includes a local Go API, React interface, PostgreSQL schema, OIDC owner sign-in, organization isolation and smoke checks. See [local development](docs/local-development.md) for startup and verification, and [local PDS qualification](docs/local-pds-runtime.md) for the separate upstream runtime. A [hosted preview](docs/hosted-preview.md) serves the landing page and the management interface; it does not host accounts. Public PDS hosting is not available yet.
+
+Earlier research explored hosting Subcult OS and Patchwork applications. The implementation plan supersedes that scope: this service has its own codebase, authentication, database and deployment lifecycle.
