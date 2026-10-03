@@ -186,14 +186,14 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
     {admission?.open === false && <p role="status">New first-account requests are paused. Retained requests and account status remain available. Already-issued invitations remain valid until expiry.</p>}
     {!policyChecked && <p>Checking first-account availability…</p>}
     {policyChecked && admission === null && <p>New first-account availability could not be confirmed. Retained requests and account status remain available.</p>}
-    <p>Create your account directly on your PDS. Your account password stays with the PDS.</p>
+    <p>Create your account directly on your server. Your account password stays with that server.</p>
     <p>For this local test, use a .test handle with 3–18 characters before the suffix and a .invalid email address. Confirmation mail stays in the test inbox.</p>
     {operation && <p role="status" ref={result} tabIndex={-1}>{withdrawalId ? 'withdrawal unconfirmed' : cancellationId ? 'cancellation unconfirmed' : state}: {(withdrawalId || cancellationId) ? 'The retained request is awaiting status confirmation.' : expired ? 'This invitation expired. Request recovery to replace it.' : operation.message}</p>}
     {state === 'invitation_ready' && !withdrawalId && !cancellationId && loaded && operation?.code && <>
       <p>One-use invitation: <code>{operation.code}</code></p>
       <p>Expires {operation.expiresAt && new Date(operation.expiresAt).toLocaleString()}.</p>
       <button type="button" onClick={() => { if (!navigator.clipboard) { setError('Copy unavailable. Select the invitation text.'); return; } void navigator.clipboard.writeText(operation.code ?? '').then(() => setNotice('Invitation copied.'), () => setError('Copy unavailable. Select the invitation text.')); }}>Copy invitation</button>
-      <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your PDS</a></p>
+      <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your server</a></p>
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
     {!withdrawalId && !cancellationId && loaded && (canRecover || request) && <button type="button" disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
