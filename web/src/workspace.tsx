@@ -30,20 +30,20 @@ export function Workspace() {
   }, []);
   const label = status.kind === 'ready' ? 'Service available' : status.kind === 'checking' ? 'Checking service' : 'Service unavailable';
   return <div className="workspace">
-    <header><a className="brand" href="/" aria-label="Prichal home"><BrandMark/>Prichal</a><span className="environment">Local workspace</span></header>
+    <header><a className="brand" href="/" aria-label="Prichal home"><BrandMark/>Prichal</a><span className="environment">Private preview</span></header>
     <main>
       <p className="eyebrow">ACCOUNT HOSTING</p>
       <h1>Your server.<br/>We keep it running.</h1>
-      <p className="intro">A home server for your account on the open social web, run for creators and organizations.</p>
+      <p className="intro">Every account on the open social web lives on a server somewhere. This workspace is where you set yours up. We do the maintenance.</p>
       <OwnerWorkspace/>
       <section className="service-card" aria-labelledby="service-title">
         <div className="card-heading"><h2 id="service-title">Workspace status</h2><span className={`indicator ${status.kind}`} aria-hidden="true"/></div>
         <p className="status" role="status" aria-live="polite">{label}</p>
-        <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'Service readiness could not be confirmed. This page will check again automatically.'}</p>
+        <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'The management service did not answer. This page checks again every few seconds.'}</p>
         <dl><div><dt>Environment</dt><dd>Local development</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unverified'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
       </section>
-      <aside className="next"><span>UP NEXT</span><p>Public ingress and account enrollment are the next steps. Public hosting is not available yet.</p></aside>
+      <aside className="next"><span>STATUS</span><p>Private preview. Public hosting is not available yet. We are still testing backups and recovery, so sign-up is closed.</p></aside>
     </main>
-    <footer>Prichal · Account hosting<span>Local foundation · Private alpha in progress</span></footer>
+    <footer>Prichal · Account hosting<span>Private preview · Not open for sign-up</span></footer>
   </div>;
 }
