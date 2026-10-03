@@ -1,22 +1,43 @@
-# pds-ass
+# Prichal
 
-Prichal is managed AT Protocol PDS hosting: a customer gets their account's home server on the open network Bluesky runs on, and we keep it running. It is a private preview and is not open for sign-up.
+> Private preview. Public account hosting and sign-up are not available.
 
-A customer signs in, names their server and deploys it on our infrastructure without administering a machine. Browser onboarding is the first delivery path; a CLI, qualified locally so far, uses the same management API.
+![Prichal: Your server. We keep it running. Docking-node mark on an engineering drawing.](docs/assets/readme/banner.png)
 
-`pds-ass` remains the repository name. Product messaging is in [brand/GUIDE.md](brand/GUIDE.md); logos and artwork come from the Prichal pack in SUBCULT Studio.
+**Your server. We keep it running.**
 
-The initial target is a usable PDS within 15 minutes on a provider-managed domain. This is a target to measure, not a verified service guarantee. Custom DNS and existing-account migration have separate completion criteria.
+Every account on the open social web lives on a server somewhere. Prichal is
+being built to give yours a server of its own, with the upkeep handled for
+you. You keep posting from Bluesky.
 
-## Planning
+**Status: private preview. Public account hosting and sign-up are not available.**
 
-- [Implementation plan](docs/implementation-plan.md)
-- [Roadmap and release gates](docs/roadmap.md)
-- [Issue index](docs/issues/README.md)
-- [Gitea issues](https://git.subcult.tv/PatrickFanella/pds-ass/issues)
+[Read about Prichal](https://subcult.tv/products/prichal) · [Follow the work](https://git.subcult.tv/subculture-collective/prichal/issues)
 
-The planned stack is Go, PostgreSQL, River jobs, React with TypeScript, the official Bluesky PDS container, Docker, Caddy, OpenTofu, and Ansible. PDS SQLite databases and blobs remain separate from the management database.
+## A home for your account
 
-The repository includes a local Go API, React interface, PostgreSQL schema, OIDC owner sign-in, organization isolation and smoke checks. See [local development](docs/local-development.md) for startup and verification, and [local PDS qualification](docs/local-pds-runtime.md) for the separate upstream runtime. A [hosted preview](docs/hosted-preview.md) serves the landing page and the management interface; it does not host accounts. Public PDS hosting is not available yet.
+The intended service has one job: run your account's home server. Browser
+onboarding is the first delivery path. A separate management interface handles
+the hosting work; the account server holds the public records and media.
 
-Earlier research explored hosting Subcult OS and Patchwork applications. The implementation plan supersedes that scope: this service has its own codebase, authentication, database and deployment lifecycle.
+Posts on the network are public wherever the server runs. Hosting an account
+does not make its posts private, and each app still decides what it shows.
+
+## The door is closed while we test
+
+The repository includes the management application, owner sign-in and local
+runtime checks. The hosted preview serves the landing page and management
+interface; it does not host public accounts. Backups, recovery, public
+federation, domains and account migration have their own qualification gates.
+
+Dock your account. We handle the rest. That is the offer we're working toward,
+not an invitation to sign up today.
+
+For the implementation and release gates, read the
+[roadmap](docs/roadmap.md). For local setup and the preserved technical
+overview, read [DEVELOPMENT.md](DEVELOPMENT.md). The
+[product brand guide](brand/GUIDE.md) records the messaging rules.
+
+Prichal is built by [SUBCULT](https://subcult.tv). The repository is now
+`subculture-collective/prichal`; some internal service identifiers retain
+`pds-ass`.
