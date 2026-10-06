@@ -145,7 +145,7 @@ func run() error {
 			return errors.New("unsupported enrollment CA key")
 		}
 		store.Key = signer
-		certificate, err := tls.LoadX509KeyPair(os.Getenv("PDS_ENROLLMENT_CERT_FILE"), os.Getenv("PDS_ENROLLMENT_KEY_FILE"))
+		certificate, err := tls.LoadX509KeyPair(os.Getenv("PDS_ENROLLMENT_CERT_FILE"), enrollmentListenerKeyFile())
 		if err != nil {
 			return errors.New("enrollment listener certificate required")
 		}
@@ -169,4 +169,12 @@ func run() error {
 	default:
 		return errors.New("unknown node administration command")
 	}
+}
+
+// The old name remains accepted for direct operator scripts during transition.
+func enrollmentListenerKeyFile() string {
+	if path := os.Getenv("PDS_ENROLLMENT_LISTENER_KEY_FILE"); path != "" {
+		return path
+	}
+	return os.Getenv("PDS_ENROLLMENT_KEY_FILE")
 }

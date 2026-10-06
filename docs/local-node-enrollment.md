@@ -8,9 +8,11 @@ Initialize the local agent PKI first with `./scripts/agent-local.sh init`. In a 
 PDS_ENROLLMENT_CA_FILE="$PWD/.local/node-agent/certs/ca.crt" \
 PDS_ENROLLMENT_CA_KEY_FILE="$PWD/.local/node-agent/certs/ca.key" \
 PDS_ENROLLMENT_CERT_FILE="$PWD/.local/node-agent/certs/agent.crt" \
-PDS_ENROLLMENT_KEY_FILE="$PWD/.local/node-agent/certs/agent.key" \
+PDS_ENROLLMENT_LISTENER_KEY_FILE="$PWD/.local/node-agent/certs/agent.key" \
 ./scripts/dev.sh node-admin serve
 ```
+
+`PDS_ENROLLMENT_LISTENER_KEY_FILE` selects only the HTTPS listener TLS key. `PDS_ENROLLMENT_KEY_FILE` remains the management invitation-code encryption key. Older listener scripts using `PDS_ENROLLMENT_KEY_FILE` still work through `dev.sh node-admin serve` and direct `node-admin serve`; the listener-specific setting takes precedence. Update those scripts to the listener-specific name.
 
 Create a one-time bootstrap file for a private local endpoint. Paths passed through dev.sh must be absolute because it changes directory to backend:
 
