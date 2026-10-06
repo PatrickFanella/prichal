@@ -14,6 +14,10 @@ node scripts/init-enrollment-key.mjs
 node scripts/init-export-store.mjs
 export PDS_LOCAL_EXPORT_DIRECTORY="$PWD/.local/exports"
 export PDS_LOCAL_EXPORT_KEY_FILE="$PWD/.local/export.key"
+# Preserve the legacy listener setting before exporting the invitation encryption key.
+if [[ "${1:-}" == node-admin && "${2:-}" == serve ]]; then
+  export PDS_ENROLLMENT_LISTENER_KEY_FILE="${PDS_ENROLLMENT_LISTENER_KEY_FILE:-${PDS_ENROLLMENT_KEY_FILE:-}}"
+fi
 export PDS_ENROLLMENT_KEY_FILE="$PWD/.local/enrollment.key"
 export PDS_MODE=local
 export PDS_OIDC_ISSUER=http://localhost:5556
