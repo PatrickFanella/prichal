@@ -175,6 +175,7 @@ type inspected struct {
 	}
 	ID     string
 	Config struct {
+		User   string
 		Image  string
 		Labels map[string]string
 		Env    []string

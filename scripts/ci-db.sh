@@ -7,8 +7,17 @@ case "${1:-}" in
   start)
     : "${GITHUB_ENV:?This helper is for a CI job}"
     test ! -e .local/ci-db.id
+    # Nested Docker containers cannot cross isolated bridge networks. Follow the
+    # actual Actions job network rather than assuming the default bridge.
+    database_network=bridge
+    if job_network=$(docker inspect --format '{{.HostConfig.NetworkMode}}' "${HOSTNAME:-}" 2>/dev/null); then
+      database_network="$job_network"
+    fi
+    [[ $(docker network inspect --format '{{.Driver}}' "$database_network") == bridge ]] || {
+      printf 'CI PostgreSQL requires a bridge-backed job network\n' >&2; exit 1;
+    }
     docker run --detach --rm --cidfile .local/ci-db.id \
-      --network bridge --label pds-ass.disposable-ci=true \
+      --network "$database_network" --label pds-ass.disposable-ci=true \
       --tmpfs /var/lib/postgresql/data:rw,size=256m \
       --memory 512m --cpus 1 \
       -e POSTGRES_USER=pds_ci -e POSTGRES_DB=pds_ci -e POSTGRES_PASSWORD=disposable-ci-only \
@@ -19,8 +28,19 @@ case "${1:-}" in
       if [[ "$attempt" == 30 ]]; then printf 'CI PostgreSQL did not become ready\n' >&2; exit 1; fi
       sleep 1
     done
-    database_host=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container_id")
+    database_host=$(docker inspect --format "{{(index .NetworkSettings.Networks \"$database_network\").IPAddress}}" "$container_id")
     test -n "$database_host"
+    node - "$database_host" <<'JS'
+const socket = require('node:net').connect(5432, process.argv[2]);
+socket.setTimeout(5000);
+socket.on('connect', () => socket.destroy());
+function fail() {
+  console.error('CI job cannot reach its disposable PostgreSQL; inspect the job network');
+  socket.destroy(); process.exitCode = 1;
+}
+socket.on('timeout', fail);
+socket.on('error', fail);
+JS
     printf 'PDS_DATABASE_URL=postgres://pds_ci:disposable-ci-only@%s:5432/pds_ci?sslmode=disable\n' "$database_host" >> "$GITHUB_ENV"
     ;;
   stop)
