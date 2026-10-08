@@ -141,12 +141,26 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
 	}
+	edge := configurations["pds-ass-edge-"+id]
+	if edge["User"] != privateFileUser() || !strings.Contains(docker.ingressConfiguration(id), ":8443 {") {
+		t.Fatal("private ingress does not use the agent identity and unprivileged listener")
+	}
+	if caps := edge["HostConfig"].(map[string]any)["CapAdd"].([]any); len(caps) != 1 || caps[0] != "NET_BIND_SERVICE" {
+		t.Fatal("private ingress changes the pinned executable capability")
+	}
 	readOnly = true
 	docker.healthProbe = func(context.Context, string) bool { return true }
 	result, err := docker.Status(context.Background(), id)
 	if err != nil || !result.Healthy {
 		t.Fatalf("inspection: %+v %v", result, err)
 	}
+	for _, user := range []string{"", "0", "12345:12345"} {
+		edge["User"] = user
+		if _, err = docker.Status(context.Background(), id); err == nil {
+			t.Fatal("inspection accepted a changed private-file reader")
+		}
+	}
+	edge["User"] = privateFileUser()
 	running["pds-ass-tenant-"+id] = false
 	result, err = docker.Status(context.Background(), id)
 	if err != nil || result.Healthy || result.State != "starting" {

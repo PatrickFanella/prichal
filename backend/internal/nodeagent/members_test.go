@@ -163,13 +163,13 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 		"NetworkSettings": map[string]any{"Networks": map[string]any{network: map[string]any{}}},
 	}
 	edge := map[string]any{
-		"Config":     map[string]any{"Image": CaddyImage, "Labels": map[string]string{label: id, roleLabel: "ingress"}},
+		"Config":     map[string]any{"Image": CaddyImage, "User": privateFileUser(), "Env": ingressEnvironment(), "Labels": map[string]string{label: id, roleLabel: "ingress"}},
 		"HostConfig": map[string]any{"Memory": 128 << 20, "NanoCpus": 250000000, "PidsLimit": 64, "NetworkMode": network, "CapDrop": []string{"ALL"}, "CapAdd": []string{"NET_BIND_SERVICE"}, "SecurityOpt": []string{"no-new-privileges:true"}, "Binds": []string{configPath + ":/etc/caddy/Caddyfile:ro", tlsPath + ":/etc/pds-tls.pem:ro"}},
 		"Mounts":     []map[string]any{{"Type": "bind", "Source": configPath, "Destination": "/etc/caddy/Caddyfile"}, {"Type": "bind", "Source": tlsPath, "Destination": "/etc/pds-tls.pem"}},
 		"State":      map[string]any{"Running": true}, "NetworkSettings": map[string]any{"Networks": map[string]any{network: map[string]any{}, "pds-ass-agent-ingress": map[string]any{}}},
 	}
 	guard := map[string]any{
-		"Config":     map[string]any{"Image": PDSImage, "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": []string{"PDS_GUARD_INSTANCE=" + id}},
+		"Config":     map[string]any{"Image": PDSImage, "User": privateFileUser(), "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": []string{"PDS_GUARD_INSTANCE=" + id}},
 		"HostConfig": map[string]any{"Memory": 64 << 20, "NanoCpus": 125000000, "PidsLimit": 32, "ReadonlyRootfs": true, "NetworkMode": network, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "Binds": []string{enrollmentDirectory + ":/enrollment:ro"}},
 		"Mounts":     []map[string]any{{"Type": "bind", "Source": enrollmentDirectory, "Destination": "/enrollment"}},
 		"State":      map[string]any{"Running": true}, "NetworkSettings": map[string]any{"Networks": map[string]any{network: map[string]any{}}},
