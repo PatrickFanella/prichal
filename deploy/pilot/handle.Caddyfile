@@ -1,0 +1,10 @@
+# Installed as an additional block in Almaz's imported prichal.Caddyfile.
+http://prichal-test.subcult.tv {
+ handle /.well-known/atproto-did {
+  header Content-Type text/plain
+  respond "did:plc:gh4owm5uqgahod5wzoxqebhk" 200
+ }
+ handle {
+  respond "Prichal disposable PDS pilot handle" 200
+ }
+}

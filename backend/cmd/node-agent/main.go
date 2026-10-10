@@ -34,6 +34,9 @@ func run() error {
 	if mode == "local" && os.Getenv("PDS_AGENT_PILOT_POLICY_FILE") != "" {
 		return errors.New("pilot policy requires explicit pilot mode")
 	}
+	if value := os.Getenv("PDS_AGENT_PILOT_ENROLLMENT"); value != "" && (mode != "pilot" || value != "true") {
+		return errors.New("pilot enrollment requires explicit pilot mode and true opt-in")
+	}
 	address := os.Getenv("PDS_AGENT_LISTEN")
 	if address == "" {
 		address = "127.0.0.1:9091"
@@ -91,6 +94,11 @@ func run() error {
 	if mode == "pilot" {
 		if err := runtime.EnablePilot(os.Getenv("PDS_AGENT_PILOT_POLICY_FILE")); err != nil {
 			return err
+		}
+		if os.Getenv("PDS_AGENT_PILOT_ENROLLMENT") == "true" {
+			if err := runtime.EnablePilotEnrollment(); err != nil {
+				return err
+			}
 		}
 		handler = nodeagent.PilotHandler(runtime)
 	}

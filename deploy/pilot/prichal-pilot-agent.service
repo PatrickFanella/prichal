@@ -1,0 +1,15 @@
+[Unit]
+Description=Prichal restricted fresh PDS pilot agent
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/prichal/pilot/agent.env
+ExecStart=/srv/apps/prichal/pilot/release-b493acad6d69f9bbe7528d87d6988c0afd426b88/node-agent
+UMask=0077
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+
+[Install]
+WantedBy=default.target

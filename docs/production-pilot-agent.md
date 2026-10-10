@@ -36,9 +36,9 @@ PDS_AGENT_CERT_FILE=/etc/prichal/pilot/agent.pem
 PDS_AGENT_KEY_FILE=/etc/prichal/pilot/agent-key.pem
 ```
 
-The paths illustrate the intended separation; this delivery does not install them. The agent listener must be a loopback IP. Its dedicated CA must verify the client certificate with common name `pds-ass-worker`; TLS 1.3 and mutual certificate authentication remain required. Do not give the API the socket, host credentials, policy file or client private key.
+The paths illustrate the intended separation. The installed Dozor pilot uses a private `pki/` directory as recorded in [live bootstrap evidence](live-dozor-pilot.md). The agent listener must be a loopback IP. Its dedicated CA must verify the client certificate with common name `pds-ass-worker`; TLS 1.3 and mutual certificate authentication remain required. Do not give the API the socket, host credentials, policy file or client private key.
 
-The pilot handler accepts only `PUT /v1/instances/APPROVED_UUID` with `{}` and `GET /v1/instances/APPROVED_UUID`. Other UUIDs, runtime configuration, query parameters, enrollment, member invitations, moderation, export and service mutations are unavailable. A host-side controller can use the dedicated client certificate to exercise these two routes. Existing management clients still validate local endpoints and cannot drive this pilot.
+The pilot handler accepts only `PUT /v1/instances/APPROVED_UUID` with `{}` and `GET /v1/instances/APPROVED_UUID`. Other UUIDs, runtime configuration, query parameters, member invitations, moderation, export and service mutations are unavailable. Enrollment is unavailable by default; the explicit host opt-in below enables only fixed first-account enrollment and withdrawal routes. A host-side controller can use the dedicated client certificate to exercise these two routes. Existing management clients still validate local endpoints and cannot drive this pilot.
 
 ## Runtime and ingress
 
@@ -46,12 +46,22 @@ The agent retains the pinned PDS and Caddy images, separate labeled data/blob vo
 
 The PDS uses the selected public hostname and service DID, `PDS_DEV_MODE=false`, required invitations, real PLC, Bluesky relay, AppView and report-service configuration. The PLC, relay, AppView and report-service values follow the [official PDS installer](https://github.com/bluesky-social/pds/blob/main/installer.sh). A configured service is not evidence that a request succeeded.
 
-Caddy listens inside its container on 8443 and publishes only to `127.0.0.1` on the UUID-derived qualification port. Pilot validation refuses a changed host binding. It accepts the selected hostname and the private UUID localhost name, rejects unknown hosts with 421, and returns 403 for native account creation and OAuth signup. The PDS itself has no published port.
+Caddy listens inside its container on 8443 and publishes only to `127.0.0.1` on the UUID-derived qualification port. Pilot validation refuses a changed host binding. It accepts the selected hostname and the private UUID localhost name, rejects unknown hosts with 421, and returns 403 for native account creation and OAuth signup unless a current first-account lease admits the request. The PDS itself has no published port.
 
 The agent's health probe uses the retained private localhost TLS identity. The returned instance endpoint is the public hostname, but `healthy=true` proves only private ingress and native process health. It does not prove DNS, public TLS, mail or federation. The private certificate still has the existing seven-day qualification lifetime; renewal is not implemented here.
 
 ## Deployment boundary
 
-This slice has no public edge route, private cross-host transport, production node enrollment, systemd installation, operator account bootstrap or production worker placement. Prepare and verify those against a fixed Dozor instance before publishing the hostname. Preserve the NUC route and service throughout.
+The fresh Dozor pilot now has a dedicated user service, private SSH edge tunnel and public route. See [live bootstrap evidence](live-dozor-pilot.md). Production node enrollment and worker placement remain closed. Preserve the NUC route and service throughout.
 
-Before account creation can open, add a bounded enrollment lease and real mail qualification. Then verify a native account, email confirmation, signed record/media and downstream visibility. Prove identity custody and a native restore before important accounts or invitations. Keep the pilot's policy, credentials, TLS identity and volumes together for recovery; rolling back code does not justify regenerating its keys or starting a second writer.
+With bounded first-account enrollment enabled, verify a native account, email confirmation, signed record/media and downstream visibility. Prove identity custody and a native restore before important accounts or invitations. Keep the pilot's policy, credentials, TLS identity and volumes together for recovery; rolling back code does not justify regenerating its keys or starting a second writer.
+
+## First-account host opt-in
+
+`PDS_AGENT_PILOT_ENROLLMENT=true` enables only `POST /v1/instances/APPROVED_UUID/enrollment` and `/enrollment/withdraw`, with a body containing one UUID `ticket`. The setting is refused outside pilot mode and accepts only the literal `true`. The existing mutual TLS and worker certificate checks still apply. It does not enable the management worker, general invitations, account administration or runtime configuration.
+
+Enrollment uses the existing fifteen-minute lease, single-use native invitation, retained ticket replay and drained replacement/withdrawal flow. The production helper checks the exact pilot hostname, service DID, real PLC, disabled development mode and TLS SMTP before touching invitations. Native passwords and verification tokens go directly to the PDS. The guard ignores all member admission policies in pilot mode and refuses signup once native repository inventory is populated. A configured lease is not proof of a completed account or delivered mail.
+
+An existing closed pilot ingress fails reconciliation against the new guard policy. Stop the pilot agent, then run `node scripts/prepare-pilot-enrollment.mjs ABSOLUTE_STATE_PATH ABSOLUTE_POLICY_PATH` as the agent's host user. The helper verifies the policy receipt, pinned tenant/edge images, production configuration, private mounts and loopback port. It stops and retains only the pilot edge container and its Caddyfile. It leaves the native PDS, data/blob volumes, credentials and TLS identity in place. Enable the host setting, start the chosen agent revision and reconcile the same UUID. Without a lease the new guard must return 403 on both signup paths.
+
+For rollback, stop the agent and new pilot edge/guard. Retain those containers under distinct names, retain the new Caddyfile, restore `Caddyfile.before-pilot-enrollment` and the edge container named `pds-ass-edge-UUID-before-pilot-enrollment`, remove the host opt-in, and start the preceding pinned agent revision. Restore the original edge name and start it. Verify both signup paths remain closed and health recovers. Never restore a second native PDS writer or regenerate keys. The inspection receipt is private host state; it must not be committed.

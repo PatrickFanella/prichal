@@ -231,7 +231,7 @@ func (d *Docker) validateIngress(id string, current inspected) error {
 
 func (d *Docker) ingressConfiguration(id string) string {
 	guard := ""
-	if d.localIdentity {
+	if d.guardEnabled() {
 		guard = fmt.Sprintf(`  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
   forward_auth @registration pds-ass-enrollment-%s:2727 {
    uri /registration
@@ -241,10 +241,11 @@ func (d *Docker) ingressConfiguration(id string) string {
 	host := id + ".localhost"
 	if d.pilot != nil {
 		host += " " + d.pilot.Hostname
-		// No enrollment leases are accepted in this first production slice.
-		guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+		if !d.pilotEnrollment {
+			guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
   respond @registration "Pilot account creation is closed" 403
 `
+		}
 	}
 	return fmt.Sprintf(`{
  auto_https off

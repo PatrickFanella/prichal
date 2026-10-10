@@ -27,14 +27,15 @@ const label = "tv.subcult.pds-ass.instance"
 
 // Docker reconciles isolated local qualification runtimes through a Unix socket.
 type Docker struct {
-	client        *http.Client
-	directory     string
-	mutex         sync.Mutex
-	healthProbe   func(context.Context, string) bool
-	localIdentity bool
-	maximumSlots  int
-	memberCeiling int
-	pilot         *PilotPolicy
+	client          *http.Client
+	directory       string
+	mutex           sync.Mutex
+	healthProbe     func(context.Context, string) bool
+	localIdentity   bool
+	maximumSlots    int
+	memberCeiling   int
+	pilot           *PilotPolicy
+	pilotEnrollment bool
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -268,6 +269,8 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 			if err := d.connectLocalIdentity(ctx, id); err != nil {
 				return Instance{}, err
 			}
+		}
+		if d.guardEnabled() {
 			if err := d.enrollmentGuard(ctx, id); err != nil {
 				return Instance{}, err
 			}
@@ -299,6 +302,8 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 		if err := d.connectLocalIdentity(ctx, id); err != nil {
 			return Instance{}, err
 		}
+	}
+	if d.guardEnabled() {
 		if err := d.enrollmentGuard(ctx, id); err != nil {
 			return Instance{}, err
 		}

@@ -15,13 +15,13 @@ Use one operator-controlled test account and one fixed hosting slot. A first-lev
 Required deliveries, in order:
 
 1. Fix the native Linux private-file readers and verify first-account/member journeys locally (#125).
-2. Add an explicit production node policy and private enrollment/bootstrap for Dozor (#3, #6). Bind it to the designated hostname, storage namespace, image, capacity and host identity. The worker still requires local mode. The agent now has a separate, restricted pilot mode described in [the pilot agent contract](production-pilot-agent.md); host installation and production node enrollment remain open. Removing local guards alone is not a production implementation.
+2. Add an explicit production node policy and private enrollment/bootstrap for Dozor (#3, #6). Bind it to the designated hostname, storage namespace, image, capacity and host identity. The worker still requires local mode. The agent now has a separate, restricted pilot mode described in [the pilot agent contract](production-pilot-agent.md); the fresh host installation is recorded in [live bootstrap evidence](live-dozor-pilot.md), while production node enrollment remains open. Removing local guards alone is not a production implementation.
 3. Add the selected public endpoint and fixed ingress route, verify DNS/TLS and reject unknown hosts (#7, #126). The current runtime derives localhost endpoints and local TLS identities.
 4. Enable a bounded operator enrollment path with real `plc.directory` and the configured mail sender (#8). Management retains invitation state; native passwords and email tokens continue to go directly to the PDS.
 5. Verify native login, email receipt/confirmation, a signed record and media, then downstream visibility in Bluesky (#9). Record the actual operation and account identifiers and all failed attempts. A public container health check does not complete this gate.
 6. Prove identity-key custody and a complete native restore before using an important account or inviting other people (#11, #12). Harden the management preview's backups, admission and monitoring alongside this work (#127).
 
-The deployed management preview disables production deployment/enrollment, and the worker requires local mode. The new host-only pilot agent is not deployed and has no existing-PDS adoption path. A separately started official PDS would test public hosting, but it would not prove that Prichal provisioned and manages it. Preserve that distinction in the next delivery.
+The deployed management preview disables production deployment/enrollment, and the worker requires local mode. The host-only pilot agent is deployed for the separate fresh Dozor instance and has no existing-PDS adoption path. A separately started official PDS would test public hosting, but it would not prove that Prichal provisioned and manages it. Preserve that distinction in the next delivery.
 
 ## Later use of the SUBCULT identity
 

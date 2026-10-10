@@ -48,7 +48,7 @@ if (process.env.PDS_GUARD_INSTANCE) {
     let allowed = false;
     if (request.method === 'GET' && request.url === '/registration') {
       const first = enrollmentAdmission(instance, '/enrollment');
-      const ceiling = first ? 0 : memberAdmission(instance, '/enrollment');
+      const ceiling = first || process.env.PDS_GUARD_FIRST_ACCOUNT_ONLY === 'true' ? 0 : memberAdmission(instance, '/enrollment');
       if (first || ceiling) {
         try {
           const native = await fetch(`http://pds-ass-tenant-${instance}:2583/xrpc/com.atproto.sync.listRepos?limit=${first ? 1 : ceiling + 1}`, { signal: AbortSignal.timeout(2000) });

@@ -19,7 +19,7 @@ import (
 )
 
 // PilotPolicy is host configuration, never configuration supplied by an API caller.
-// The first pilot exposes reconciliation and inspection only; account creation stays closed.
+// Account creation stays closed unless the host explicitly enables first-account leases.
 type PilotPolicy struct {
 	InstanceID string `json:"instanceId"`
 	Hostname   string `json:"hostname"`
@@ -210,7 +210,7 @@ func (d *Docker) validatePilotNetwork(ctx context.Context, id string) error {
 	return nil
 }
 
-// PilotHandler deliberately omits account, enrollment, export and lifecycle mutations.
+// PilotHandler permits only fixed pilot operations; general management mutations stay unavailable.
 // The agent still requires Authenticate and mutual TLS outside this handler.
 func PilotHandler(runtime *Docker) http.Handler {
 	next := Handler(runtime)
@@ -220,10 +220,31 @@ func PilotHandler(runtime *Docker) http.Handler {
 			return
 		}
 		path := "/v1/instances/" + runtime.pilot.InstanceID
+		if runtime.pilotEnrollment && r.Method == "POST" && (r.URL.Path == path+"/enrollment" || r.URL.Path == path+"/enrollment/withdraw") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if (r.Method == "GET" || r.Method == "PUT") && r.URL.Path == path {
 			next.ServeHTTP(w, r)
 			return
 		}
 		http.NotFound(w, r)
 	})
+}
+
+// EnablePilotEnrollment is an explicit host opt-in to first-account leases only.
+// Existing closed ingress must be retained and replaced before reconciliation.
+func (d *Docker) EnablePilotEnrollment() error {
+	if d.pilot == nil || d.localIdentity {
+		return errors.New("pinned pilot policy required for enrollment")
+	}
+	d.pilotEnrollment = true
+	return nil
+}
+func (d *Docker) enrollmentArguments(action string) []string {
+	args := []string{action}
+	if d.pilotEnrollment {
+		args = append(args, d.pilot.Hostname)
+	}
+	return args
 }

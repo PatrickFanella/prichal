@@ -133,10 +133,10 @@ func (d *Docker) publishGuardPolicy(ctx context.Context, id, file string, data [
 	return errors.New("enrollment policy publication could not be confirmed")
 }
 
-// Enroll is local-only. It never accepts passwords or arbitrary native administrator actions.
+// Enroll issues a bounded first-account lease. It never accepts passwords or arbitrary administrator actions.
 func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, error) {
 	result := Enrollment{InstanceID: id, Ticket: ticket}
-	if !d.localIdentity || !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+	if !d.guardEnabled() || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
 		return result, errors.New("isolated instance and enrollment ticket required")
 	}
 	d.mutex.Lock()
@@ -150,14 +150,14 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 	}
 	current, err := d.status(ctx, id)
 	if err != nil {
-		return result, errors.New("guarded local PDS policy could not be confirmed")
+		return result, errors.New("guarded PDS policy could not be confirmed")
 	}
 	if current.State == "suspended" {
 		return result, errors.New("service is suspended")
 	}
 	if !current.Healthy {
 		if lease.Ticket != ticket || lease.State != "preparing" {
-			return result, errors.New("healthy guarded local PDS required")
+			return result, errors.New("healthy guarded PDS required")
 		}
 		if _, err = d.call(ctx, "POST", "/containers/pds-ass-tenant-"+id+"/start", nil, nil); err != nil {
 			return result, err
@@ -167,7 +167,7 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 		}
 	}
 	var native nativeEnrollment
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"inventory"}, &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("inventory"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {
@@ -225,7 +225,7 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 		return result, err
 	}
 	native = nativeEnrollment{}
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"invitation"}, &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("invitation"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {
@@ -266,7 +266,7 @@ func validInvitationCode(code string) bool {
 // deletes an account, suspends service, or replaces an invitation.
 func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enrollment, error) {
 	result := Enrollment{InstanceID: id, Ticket: ticket}
-	if !d.localIdentity || !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+	if !d.guardEnabled() || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
 		return result, errors.New("isolated instance and enrollment ticket required")
 	}
 	d.mutex.Lock()
@@ -277,12 +277,12 @@ func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enr
 	}
 	current, err := d.status(ctx, id)
 	if err != nil || current.State == "suspended" || (!current.Healthy && lease.State != "withdrawing") {
-		return result, errors.New("guarded local PDS policy could not be confirmed")
+		return result, errors.New("guarded PDS policy could not be confirmed")
 	}
 	// A retry after an interrupted drain must finish the drain before inventory.
 	if lease.State != "withdrawing" {
 		var native nativeEnrollment
-		if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"inventory"}, &native); err != nil {
+		if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("inventory"), &native); err != nil {
 			return result, err
 		}
 		if native.Count == 1 {
@@ -316,7 +316,7 @@ func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enr
 		return result, err
 	}
 	var native nativeEnrollment
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, []string{"withdraw"}, &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("withdraw"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {
