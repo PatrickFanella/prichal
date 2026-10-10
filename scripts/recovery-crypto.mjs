@@ -1,4 +1,4 @@
-// Operator-only local recovery files. API and job processes must not load recovery keys.
+// Operator-only recovery files. API and job processes must not load recovery keys.
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { createReadStream, lstatSync, readFileSync, openSync, readSync, writeSync, fsyncSync, closeSync, linkSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -16,7 +16,7 @@ function source(path) {
 }
 function metadataValid(value) {
   return value?.version === 1 && /^[a-f0-9-]{36}$/.test(value.id) &&
-    ['pds-local', 'management-local', 'export-local'].includes(value.scope) &&
+    ['pds-local', 'management-local', 'export-local', 'pds-pilot'].includes(value.scope) &&
     typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) &&
     Object.keys(value).sort().join(',') === 'createdAt,id,scope,version';
 }
@@ -56,7 +56,7 @@ export async function sealRecovery(input, output, keyPath, metadata) {
     write(fd, cipher.final()); write(fd, cipher.getAuthTag());
   });
 }
-export async function openRecovery(input, output, keyPath) {
+export async function openRecovery(input, output, keyPath, expected) {
   const size = source(input);
   if (size < 40) throw new Error('Invalid local recovery envelope');
   const inputFD = openSync(input, 'r');
@@ -70,6 +70,7 @@ export async function openRecovery(input, output, keyPath) {
     if (readSync(inputFD, description, 0, length, 24) !== length) throw new Error('Incomplete local recovery metadata');
     metadata = JSON.parse(description.toString());
     if (!metadataValid(metadata)) throw new Error('Invalid local recovery metadata');
+    if (expected && (metadata.scope !== expected.scope || metadata.id !== expected.id)) throw new Error('Recovery scope differs from expected identity');
     header = Buffer.concat([prefix, description]);
     tag = Buffer.alloc(16);
     if (readSync(inputFD, tag, 0, 16, size - 16) !== 16) throw new Error('Incomplete local recovery authentication tag');

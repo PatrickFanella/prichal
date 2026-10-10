@@ -45,3 +45,19 @@ test('Empty backups round trip and nonce reuse does not occur across encryptions
     const restored = join(directory, 'restored'); await openRecovery(first, restored, key); assert.equal(readFileSync(restored).length, 0);
   } finally { rmSync(directory, { recursive: true }); }
 });
+
+test('Pilot recovery rejects a different scope or instance before plaintext publication', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'pds-pilot-recovery-'));
+  try {
+    const input = join(directory, 'input'); const encrypted = join(directory, 'encrypted'); const key = join(directory, 'key');
+    writeFileSync(input, 'pilot native snapshot', { mode: 0o600 }); writeFileSync(key, randomBytes(32), { mode: 0o600 });
+    const expected = { scope: 'pds-pilot', id: randomUUID() };
+    const metadata = { version: 1, ...expected, createdAt: new Date().toISOString() };
+    await sealRecovery(input, encrypted, key, metadata);
+    const rejected = join(directory, 'rejected');
+    await assert.rejects(openRecovery(encrypted, rejected, key, { ...expected, scope: 'pds-local' }));
+    await assert.rejects(openRecovery(encrypted, rejected, key, { ...expected, id: randomUUID() }));
+    assert.equal(existsSync(rejected), false);
+    assert.deepEqual(await openRecovery(encrypted, join(directory, 'restored'), key, expected), metadata);
+  } finally { rmSync(directory, { recursive: true }); }
+});
