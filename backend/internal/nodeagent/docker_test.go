@@ -42,8 +42,13 @@ func TestCredentialsSurviveReconstruction(t *testing.T) {
 	}
 }
 func TestFixedRuntimeAndRetry(t *testing.T) {
+	t.Run("local", func(t *testing.T) { testFixedRuntimeAndRetry(t, false) })
+	t.Run("pilot", func(t *testing.T) { testFixedRuntimeAndRetry(t, true) })
+}
+func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 	id := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	configurations := map[string]map[string]any{}
+	networks := map[string]map[string]any{}
 	running := map[string]bool{}
 	creates := map[string]int{}
 	readOnly := false
@@ -88,6 +93,21 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 				}
 				return map[string]any{host["NetworkMode"].(string): map[string]any{}}
 			}(), "Ports": map[string]any{}}})
+		case r.Method == "GET" && strings.HasPrefix(path, "/networks/"):
+			network, ok := networks[strings.TrimPrefix(path, "/networks/")]
+			if !ok {
+				w.WriteHeader(404)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(network)
+		case path == "/networks/create":
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			payload["Driver"] = "bridge"
+			networks[payload["Name"].(string)] = payload
+			w.WriteHeader(201)
 		case r.Method == "GET":
 			w.WriteHeader(404)
 		case path == "/containers/create":
@@ -132,14 +152,36 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	docker := &Docker{client: &http.Client{Transport: &rewriteTransport{base: server.URL, transport: http.DefaultTransport}}, directory: directory}
+	if pilot {
+		policy := testPilotPolicy()
+		policy.InstanceID = id
+		if err := docker.EnablePilot(writePilotPolicy(t, policy)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for i := 0; i < 2; i++ {
 		result, err := docker.Ensure(context.Background(), id)
-		if err != nil || result.State != "running" || result.Endpoint != LocalEndpoint(id) {
+		if err != nil || result.State != "running" || result.Endpoint != docker.endpoint(id) {
 			t.Fatalf("reconciliation: %+v %v", result, err)
 		}
 	}
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
+	}
+	if pilot {
+		network := networks["pds-ass-tenant-"+id+"-network"]
+		if network["Internal"] != false {
+			t.Fatal("pilot cannot reach real PLC or SMTP")
+		}
+		network["Internal"] = true
+		if _, err := docker.Status(context.Background(), id); err == nil {
+			t.Fatal("accepted network policy drift")
+		}
+		network["Internal"] = false
+		configuration := docker.ingressConfiguration(id)
+		if !strings.Contains(configuration, "Pilot account creation is closed") || !strings.Contains(configuration, docker.pilot.Hostname) {
+			t.Fatal("pilot ingress lacks closed registration and public hostname")
+		}
 	}
 	edge := configurations["pds-ass-edge-"+id]
 	if edge["User"] != privateFileUser() || !strings.Contains(docker.ingressConfiguration(id), ":8443 {") {

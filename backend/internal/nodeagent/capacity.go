@@ -25,6 +25,9 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 		return Capacity{}, err
 	}
 	maximum := d.maximumSlots
+	if d.pilot != nil {
+		maximum = 1
+	}
 	if maximum == 0 {
 		maximum = 2
 	}

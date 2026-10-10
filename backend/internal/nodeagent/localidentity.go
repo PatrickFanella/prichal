@@ -14,7 +14,7 @@ import (
 var enrollmentGuardScript string
 
 // EnableLocalIdentityFixtures permits only the fixed, isolated qualification services.
-// Production identity and SMTP configuration are deliberately unavailable.
+// Pilot mode uses its separately pinned real identity and SMTP configuration.
 func (d *Docker) EnableLocalIdentityFixtures() { d.localIdentity = true }
 
 func (d *Docker) connectLocalIdentity(ctx context.Context, id string) error {
