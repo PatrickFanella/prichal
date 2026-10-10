@@ -42,3 +42,6 @@ The PDS, edge and guard use restart policy `no`. User units restart the agent/tu
 
 
 The dedicated pilot certificates have passed a manual renewal with retained keys and live consumer checks; see [certificate evidence and remaining automation](live-pilot-certificates.md). Short-lived leaf renewal still needs automation and another run before October 17.
+
+
+Certificate automation and expiry monitoring now pass bounded live qualification; see [automation and remaining natural-run gates](live-pilot-certificate-automation.md). Reboot reconciliation remains separate.

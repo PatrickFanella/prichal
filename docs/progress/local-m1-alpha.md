@@ -921,3 +921,12 @@ PR #138 is merged at `84aea8b`. The fixed operator staging tool renewed the dedi
 A second stage run passed, and an existing output directory was refused without live identity changes. Private previous/candidate identities and reports remain on their owner hosts. Manual renewal is qualified; cross-host automation, expiry alerts and natural scheduled renewal remain open. The independent snapshot contains preceding certificate validity and needs a fresh TLS check before later recovery. See [certificate procedure and evidence](../live-pilot-certificates.md).
 
 Post-renewal native login, confirmed email, record/blob and CAR hash matched. Full smoke passed 44 Node checks, web build, Go vet and all race packages; Python syntax, diff checks and canonical registry audit passed.
+
+
+## Pilot certificate automation and expiry monitoring, October 9
+
+PR #139 merged at `765a301`. Kvant's bounded hourly coordinator renews the fixed pilot when any certificate has three days remaining; it sends only public ingress certificates to Almaz's pinned-key trust helper. Dozor verifies retained keys, source hashes and native custody before activating certificates, and restarts only pilot edge/agent. A forced renewal passed. Injected post-activation failure passed local and Almaz rollback; unrelated ingress keys were rejected. Lost-response and post-activation public-failure tests retain overlapping trust until local state is verified. Native/edge/guard identities, storage, credentials/policy and verified enrollment were preserved.
+
+Dozor's fifteen-minute expiry collector uses the existing Node Exporter textfile collector without a new listener or exporter recreation. Full Prometheus validation/reload passed, all four role metrics and the operator heartbeat are ingested, and four pilot alerts are healthy/inactive. Five coordinator tests and rule fixtures passed. Both timers completed natural successful runs; the coordinator correctly skipped fresh certificates. Naturally due renewal, hard-interruption recovery and notification delivery remain unverified. Live leaf expiry is October 17 at 03:27:48 UTC. See [automation evidence](../live-pilot-certificate-automation.md). No API/job receives private host keys or Docker access, and no node-agent/management binary changed.
+
+Full smoke exited 0 with 44 Node checks, web build, vet and all Go race packages. Python syntax, coordinator tests, alert fixtures and diff checks passed.

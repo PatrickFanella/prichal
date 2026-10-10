@@ -1,0 +1,32 @@
+groups:
+- name: prichal-pilot-certificates
+  rules:
+  - alert: PrichalPilotCertificateExpiring
+    expr: prichal_pilot_certificate_not_after_seconds{host="dozor"} - time() < 2 * 86400
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Prichal pilot private certificate expires within two days
+      description: Inspect the bounded Kvant coordinator and Dozor/Almaz renewal receipts before expiry.
+  - alert: PrichalPilotCertificateInspectionFailed
+    expr: prichal_pilot_certificate_inspection_ok{host="dozor"} != 1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Prichal pilot private certificate inspection failed
+  - alert: PrichalPilotCertificateMetricsMissing
+    expr: absent(prichal_pilot_certificate_inspected_seconds{host="dozor"}) or time() - prichal_pilot_certificate_inspected_seconds{host="dozor"} > 1800
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Prichal pilot certificate telemetry is missing or stale
+  - alert: PrichalPilotCertificateRenewalFailed
+    expr: prichal_pilot_certificate_operator_success{host="dozor"} != 1 or time() - prichal_pilot_certificate_operator_last_success_seconds{host="dozor"} > 7200
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Prichal pilot certificate operator failed or missed its heartbeat

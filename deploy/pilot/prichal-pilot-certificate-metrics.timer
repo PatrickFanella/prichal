@@ -1,0 +1,11 @@
+[Unit]
+Description=Inspect private pilot certificate validity every fifteen minutes
+
+[Timer]
+OnActiveSec=10s
+OnUnitActiveSec=15min
+AccuracySec=5s
+Unit=prichal-pilot-certificate-metrics.service
+
+[Install]
+WantedBy=timers.target

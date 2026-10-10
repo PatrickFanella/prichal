@@ -36,3 +36,8 @@ The fixed one-off activation runners remain in private host operation directorie
 Manual certificate renewal is qualified. Automated issuance, cross-host trust distribution/reload, expiry alerts and a natural scheduled renewal remain open. These short-lived leaves still require another renewal before October 17; renewing shortly after bootstrap demonstrated the procedure and only moved leaf expiry by about two hours. A successful one-off renewal is not unattended lifecycle support.
 
 The independently encrypted snapshot captured the preceding certificates. It retains the same keys, but its restored TLS validity must be checked and renewed before any later public recovery. Backup scheduling, key redundancy, reboot reconciliation, authenticated browser login, full public cutover and production management integration remain open. Local smoke, canonical registry integrity and live TLS/public checks are separate evidence.
+
+
+## Automation follow-up
+
+The bounded cross-host coordinator and expiry monitoring are now installed and qualified through forced renewal, verified rollback and natural timer inspections. This supersedes the preceding unimplemented issuance/distribution/expiry-alert observations. A naturally due renewal and notification delivery remain unverified; see [automation evidence](live-pilot-certificate-automation.md).

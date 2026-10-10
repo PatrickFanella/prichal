@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly disposable Prichal certificate inspection and renewal
+
+[Timer]
+OnActiveSec=20s
+OnUnitActiveSec=1h
+AccuracySec=5s
+Unit=prichal-pilot-certificates.service
+
+[Install]
+WantedBy=timers.target
