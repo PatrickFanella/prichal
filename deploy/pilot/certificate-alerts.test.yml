@@ -1,0 +1,56 @@
+rule_files:
+- certificate-alerts.yml
+evaluation_interval: 1m
+tests:
+- name: nearing expiry retains the certificate role
+  interval: 1m
+  input_series:
+  - series: prichal_pilot_certificate_not_after_seconds{host="dozor",role="worker"}
+    values: '86400+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalPilotCertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        host: dozor
+        role: worker
+        severity: warning
+      exp_annotations:
+        summary: Prichal pilot private certificate expires within two days
+        description: Inspect the bounded Kvant coordinator and Dozor/Almaz renewal receipts before expiry.
+- name: fresh validity does not alert
+  interval: 1m
+  input_series:
+  - series: prichal_pilot_certificate_not_after_seconds{host="dozor",role="ingress"}
+    values: '604800+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalPilotCertificateExpiring
+    exp_alerts: []
+- name: stale operator heartbeat alerts despite previous success
+  interval: 1m
+  input_series:
+  - series: prichal_pilot_certificate_operator_success{host="dozor"}
+    values: '1+0x150'
+  - series: prichal_pilot_certificate_operator_last_success_seconds{host="dozor"}
+    values: '0+0x150'
+  alert_rule_test:
+  - eval_time: 132m
+    alertname: PrichalPilotCertificateRenewalFailed
+    exp_alerts:
+    - exp_labels:
+        host: dozor
+        severity: warning
+      exp_annotations:
+        summary: Prichal pilot certificate operator failed or missed its heartbeat
+- name: missing telemetry cannot silently appear healthy
+  interval: 1m
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PrichalPilotCertificateMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        host: dozor
+        severity: warning
+      exp_annotations:
+        summary: Prichal pilot certificate telemetry is missing or stale

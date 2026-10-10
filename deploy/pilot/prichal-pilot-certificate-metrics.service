@@ -1,0 +1,9 @@
+[Unit]
+Description=Export private pilot certificate expiry and renewal health
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python /srv/apps/prichal/pilot/certificate-tools/certificate-host.py metrics
+TimeoutStartSec=1min
+UMask=0077
+NoNewPrivileges=true

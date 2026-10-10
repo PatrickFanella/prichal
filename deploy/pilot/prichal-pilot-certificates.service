@@ -1,0 +1,9 @@
+[Unit]
+Description=Bounded disposable Prichal certificate coordinator
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python /home/onnwee/.local/state/prichal-pilot-certificates/release/certificate-coordinate.py
+TimeoutStartSec=8min
+UMask=0077
+NoNewPrivileges=true
