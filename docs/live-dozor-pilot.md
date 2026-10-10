@@ -22,7 +22,17 @@ Authenticated ensure/status succeeded for the approved UUID. A wrong UUID and en
 
 Private reports are retained under `/srv/apps/prichal/pilot/` on Dozor and ignored `.local/pilot-artifacts/` in the development checkout. Almaz retains its route backup, candidate and validation receipt under `~/.local/state/prichal-pilot-edge/`. These directories contain runtime or private state and must not be committed.
 
-The next source slice adds the explicit first-account host opt-in in [the agent contract](production-pilot-agent.md). The installed bootstrap above remains closed until that revision is selected and its guarded ingress is reconciled. No pilot account was created during bootstrap.
+## First-account live qualification
+
+PR #137 candidate source `1d64932e4c9496b55834ccc62e06cf1268117e27` was built with the pinned toolchain and installed for the disposable live test. The binary SHA-256 is `bee0eeb925a9d4326d87f342dc76795ea58eba84edc2098ff5a934c08315abee`. The [enrollment drop-in](../deploy/pilot/enrollment.conf) selects that pinned release and literal host opt-in; the base unit still retains the preceding merged bootstrap. This candidate deployment does not establish a merge to main or a management deployment.
+
+The preparation helper successfully retained the closed edge under its `-before-pilot-enrollment` name and the preceding Caddyfile. Reconciliation created the first-account-only guard and replacement edge. The native PDS container ID and credential, policy and TLS hashes remained identical to the bootstrap custody receipt. Agent restart and authenticated ensure retained healthy status.
+
+A private host controller opened a fifteen-minute invitation lease. The public native createAccount endpoint created `pilot.prichal-pds.subcult.tv` with DID `did:plc:gh4owm5uqgahod5wzoxqebhk`. The real PLC directory returned its document with service endpoint `https://prichal-pds.subcult.tv`, and the public repository inventory returned exactly this active account. XRPC and OAuth signup returned 403 afterward, and enrollment replay returned the existing account without an invitation. The initial default Python client received a non-JSON 403; the explicit qualification client succeeded. Interactive browser and other clients still need verification.
+
+The owner selected a recipient privately in the development thread. The PDS accepted `requestEmailConfirmation` after account creation. Native `emailConfirmed` remains false; inbox delivery and confirmation are pending. The recipient, generated password, session tokens and verification code are absent from tracked documentation. Private account state is mode 0600 under `/srv/apps/prichal/pilot/`, with an operator-only `confirm-email.py` that reads a hidden terminal input and submits the code directly to the public PDS. It checks native `emailConfirmed=true` after confirmation. No code is logged or sent through management.
+
+The handle uses the PDS's default service domain. Its independent public DNS/TLS discovery remains unqualified; PLC document existence alone does not prove handle resolution or federation.
 
 ## Recovery and remaining gates
 
