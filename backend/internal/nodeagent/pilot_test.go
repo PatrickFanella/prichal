@@ -190,3 +190,41 @@ func TestPilotUsesRealProtocolConfiguration(t *testing.T) {
 		t.Fatal("pilot uses local development protocol")
 	}
 }
+
+func TestPilotEnrollmentNeedsExplicitOptInAndKeepsOtherMutationsClosed(t *testing.T) {
+	if (&Docker{}).EnablePilotEnrollment() == nil {
+		t.Fatal("enrollment accepted without pinned pilot")
+	}
+	d := pilotRuntime(t, t.TempDir())
+	if err := d.EnablePilot(writePilotPolicy(t, testPilotPolicy())); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.EnablePilotEnrollment(); err != nil {
+		t.Fatal(err)
+	}
+	if !d.guardEnabled() || !strings.Contains(d.ingressConfiguration(d.pilot.InstanceID), "forward_auth @registration") || strings.Contains(d.ingressConfiguration(d.pilot.InstanceID), "respond @registration") {
+		t.Fatal("pilot does not require lease admission")
+	}
+	if !strings.Contains(strings.Join(d.guardEnvironment(d.pilot.InstanceID), "\n"), "PDS_GUARD_FIRST_ACCOUNT_ONLY=true") {
+		t.Fatal("pilot allows member leases")
+	}
+	if validGuardEnvironment([]string{"PDS_GUARD_INSTANCE=" + d.pilot.InstanceID, "PDS_GUARD_FIRST_ACCOUNT_ONLY=false"}, d.guardEnvironment(d.pilot.InstanceID)) {
+		t.Fatal("accepted member admission drift")
+	}
+	handler := PilotHandler(d)
+	base := "/v1/instances/" + d.pilot.InstanceID
+	for _, suffix := range []string{"/enrollment", "/enrollment/withdraw"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("POST", base+suffix, strings.NewReader(`{"ticket":"invalid"}`)))
+		if w.Code != http.StatusBadRequest {
+			t.Fatal("enrollment route does not validate retained ticket")
+		}
+	}
+	for _, suffix := range []string{"/members/invitation", "/account", "/service", "/export"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("POST", base+suffix, strings.NewReader("{}")))
+		if w.Code != http.StatusNotFound {
+			t.Fatal("pilot opened general management mutation")
+		}
+	}
+}

@@ -1,5 +1,5 @@
 // Fixed operator helper runs inside the isolated PDS; its administrator key stays there.
-const [action] = process.argv.slice(1);
+const [action, pilotHostname] = process.argv.slice(1);
 async function call(method, body) {
   const response = await fetch('http://127.0.0.1:2583/xrpc/' + method, {
     method: body === undefined ? 'GET' : 'POST',
@@ -20,7 +20,9 @@ async function inventory() {
   return { count: 1, did: info.did, handle: info.handle, emailConfirmed: !!info.emailConfirmedAt };
 }
 (async () => {
-  if (process.env.PDS_DEV_MODE !== 'true' || process.env.PDS_DID_PLC_URL !== 'http://pds-ass-protocol-fixtures:2582') throw new Error('Isolated native PDS required');
+  if (pilotHostname) {
+    if (process.env.PDS_DEV_MODE !== 'false' || process.env.PDS_DID_PLC_URL !== 'https://plc.directory' || process.env.PDS_HOSTNAME !== pilotHostname || process.env.PDS_SERVICE_DID !== 'did:web:' + pilotHostname || !process.env.PDS_EMAIL_SMTP_URL?.startsWith('smtps://')) throw new Error('Pinned pilot PDS required');
+  } else if (process.env.PDS_DEV_MODE !== 'true' || process.env.PDS_DID_PLC_URL !== 'http://pds-ass-protocol-fixtures:2582') throw new Error('Isolated native PDS required');
   if (action === 'inventory') return inventory();
   if (action !== 'invitation' && action !== 'withdraw') throw new Error('Unsupported native enrollment action');
   const account = await inventory();

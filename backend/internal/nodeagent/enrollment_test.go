@@ -16,6 +16,10 @@ import (
 )
 
 func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *testing.T) {
+	t.Run("local", func(t *testing.T) { testEnrollmentReplay(t, false) })
+	t.Run("pilot", func(t *testing.T) { testEnrollmentReplay(t, true) })
+}
+func testEnrollmentReplay(t *testing.T, pilot bool) {
 	id := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	ticket := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 	directory := t.TempDir()
@@ -26,17 +30,34 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime.EnableLocalIdentityFixtures()
+	if pilot {
+		if err := runtime.EnablePilot(writePilotPolicy(t, testPilotPolicy())); err != nil {
+			t.Fatal(err)
+		}
+		if err := runtime.EnablePilotEnrollment(); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		runtime.EnableLocalIdentityFixtures()
+	}
 	for _, args := range [][2]string{{"invalid", ticket}, {id, "invalid"}, {id, ticket}} {
 		if _, err := runtime.WithdrawEnrollment(context.Background(), args[0], args[1]); err == nil {
 			t.Fatal("unsafe or absent retained lease accepted")
 		}
 	}
-	runtime.localIdentity = false
-	if _, err := runtime.WithdrawEnrollment(context.Background(), id, ticket); err == nil {
-		t.Fatal("withdrawal accepted without explicit local fixtures")
+	if pilot {
+		runtime.pilotEnrollment = false
+	} else {
+		runtime.localIdentity = false
 	}
-	runtime.localIdentity = true
+	if _, err := runtime.WithdrawEnrollment(context.Background(), id, ticket); err == nil {
+		t.Fatal("withdrawal accepted without guard opt-in")
+	}
+	if pilot {
+		runtime.pilotEnrollment = true
+	} else {
+		runtime.localIdentity = true
+	}
 	secret, err := runtime.credentials(id)
 	if err != nil {
 		t.Fatal(err)
@@ -69,10 +90,13 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 	}
 	enrollmentDirectory := filepath.Join(directory, id+"-enrollment")
 	guard := map[string]any{
-		"Config":     map[string]any{"Image": PDSImage, "User": privateFileUser(), "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": []string{"PDS_GUARD_INSTANCE=" + id}},
+		"Config":     map[string]any{"Image": PDSImage, "User": privateFileUser(), "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": runtime.guardEnvironment(id)},
 		"HostConfig": map[string]any{"Memory": 64 << 20, "NanoCpus": 125000000, "PidsLimit": 32, "ReadonlyRootfs": true, "NetworkMode": network, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "Binds": []string{enrollmentDirectory + ":/enrollment:ro"}},
 		"Mounts":     []map[string]any{{"Type": "bind", "Source": enrollmentDirectory, "Destination": "/enrollment"}},
 		"State":      map[string]any{"Running": true}, "NetworkSettings": map[string]any{"Networks": map[string]any{network: map[string]any{}}},
+	}
+	if pilot {
+		edge["HostConfig"].(map[string]any)["PortBindings"] = map[string]any{"8443/tcp": []map[string]string{{"HostIP": "127.0.0.1", "HostPort": strings.Split(LocalEndpoint(id), ":")[2]}}}
 	}
 	running := true
 	helpers := map[string][]string{}
@@ -85,6 +109,8 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
+		case r.Method == "GET" && strings.HasPrefix(path, "/networks/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"Labels": map[string]string{label: id}, "Internal": false, "Driver": "bridge"})
 		case r.Method == "GET" && strings.HasPrefix(path, "/containers/"):
 			var value map[string]any
 			switch {
@@ -128,6 +154,9 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 			}
 			counter++
 			key := fmt.Sprint(counter)
+			if pilot && body.Cmd[3] == enrollmentHelperScript && (len(body.Cmd) != 6 || body.Cmd[5] != runtime.pilot.Hostname) {
+				t.Error("pilot helper lost pinned hostname")
+			}
 			helpers[key] = body.Cmd
 			_ = json.NewEncoder(w).Encode(map[string]string{"Id": key})
 		case strings.HasPrefix(path, "/exec/") && strings.HasSuffix(path, "/start"):
@@ -143,7 +172,7 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 				value = map[string]string{"hash": hex.EncodeToString(hash[:])}
 			} else if actors == 1 {
 				value = nativeEnrollment{Count: 1, DID: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa", Handle: "fixture.test", EmailConfirmed: true}
-			} else if args[len(args)-1] == "withdraw" {
+			} else if args[4] == "withdraw" {
 				withdrawals++
 				if loseWithdrawalResponse {
 					loseWithdrawalResponse = false
@@ -151,7 +180,7 @@ func TestEnrollmentReplaysLostResponseWithoutExtendingLeaseOrAddingAccount(t *te
 					return
 				}
 				value = nativeEnrollment{}
-			} else if args[len(args)-1] == "invitation" {
+			} else if args[4] == "invitation" {
 				invitations++
 				if loseInvitationResponse {
 					loseInvitationResponse = false

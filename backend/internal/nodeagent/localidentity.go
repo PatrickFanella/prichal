@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 //go:embed enrollment-guard.mjs
@@ -53,7 +54,7 @@ func (d *Docker) enrollmentGuard(ctx context.Context, id string) error {
 		return err
 	}
 	if status == 404 {
-		payload := map[string]any{"Image": PDSImage, "User": privateFileUser(), "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": []string{"PDS_GUARD_INSTANCE=" + id}, "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "HostConfig": map[string]any{"Binds": []string{directory + ":/enrollment:ro"}, "NetworkMode": "pds-ass-tenant-" + id + "-network", "Memory": int64(64 << 20), "NanoCpus": int64(125000000), "PidsLimit": 32, "ReadonlyRootfs": true, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "RestartPolicy": map[string]string{"Name": "no"}}}
+		payload := map[string]any{"Image": PDSImage, "User": privateFileUser(), "Cmd": []string{"node", "--input-type=module", "-e", enrollmentGuardScript}, "Env": d.guardEnvironment(id), "Labels": map[string]string{label: id, roleLabel: "enrollment-guard"}, "HostConfig": map[string]any{"Binds": []string{directory + ":/enrollment:ro"}, "NetworkMode": "pds-ass-tenant-" + id + "-network", "Memory": int64(64 << 20), "NanoCpus": int64(125000000), "PidsLimit": 32, "ReadonlyRootfs": true, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges:true"}, "RestartPolicy": map[string]string{"Name": "no"}}}
 		if _, err = d.call(ctx, "POST", "/containers/create?name="+name, payload, nil); err != nil {
 			return err
 		}
@@ -73,7 +74,7 @@ func (d *Docker) enrollmentGuard(ctx context.Context, id string) error {
 func (d *Docker) validateEnrollmentGuard(id string, current inspected) error {
 	network := "pds-ass-tenant-" + id + "-network"
 	directory := filepath.Join(d.directory, id+"-enrollment")
-	if current.Config.Image != PDSImage || current.Config.User != privateFileUser() || current.Config.Labels[label] != id || current.Config.Labels[roleLabel] != "enrollment-guard" || !slices.Equal(current.Config.Cmd, []string{"node", "--input-type=module", "-e", enrollmentGuardScript}) || !slices.Contains(current.Config.Env, "PDS_GUARD_INSTANCE="+id) || current.HostConfig.Privileged || !current.HostConfig.ReadonlyRootfs || current.HostConfig.Memory != 64<<20 || current.HostConfig.NanoCpus != 125000000 || current.HostConfig.PidsLimit != 32 || current.HostConfig.NetworkMode != network || !slices.Equal(current.HostConfig.CapDrop, []string{"ALL"}) || len(current.HostConfig.CapAdd) != 0 || !slices.Equal(current.HostConfig.SecurityOpt, []string{"no-new-privileges:true"}) || !slices.Equal(current.HostConfig.Binds, []string{directory + ":/enrollment:ro"}) {
+	if current.Config.Image != PDSImage || current.Config.User != privateFileUser() || current.Config.Labels[label] != id || current.Config.Labels[roleLabel] != "enrollment-guard" || !slices.Equal(current.Config.Cmd, []string{"node", "--input-type=module", "-e", enrollmentGuardScript}) || !validGuardEnvironment(current.Config.Env, d.guardEnvironment(id)) || current.HostConfig.Privileged || !current.HostConfig.ReadonlyRootfs || current.HostConfig.Memory != 64<<20 || current.HostConfig.NanoCpus != 125000000 || current.HostConfig.PidsLimit != 32 || current.HostConfig.NetworkMode != network || !slices.Equal(current.HostConfig.CapDrop, []string{"ALL"}) || len(current.HostConfig.CapAdd) != 0 || !slices.Equal(current.HostConfig.SecurityOpt, []string{"no-new-privileges:true"}) || !slices.Equal(current.HostConfig.Binds, []string{directory + ":/enrollment:ro"}) {
 		return errors.New("enrollment guard differs from policy")
 	}
 	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[network] == nil || len(current.Mounts) != 1 {
@@ -89,4 +90,31 @@ func (d *Docker) validateEnrollmentGuard(id string, current inspected) error {
 		}
 	}
 	return nil
+}
+
+func (d *Docker) guardEnabled() bool { return d.localIdentity || d.pilotEnrollment }
+func (d *Docker) guardEnvironment(id string) []string {
+	values := []string{"PDS_GUARD_INSTANCE=" + id}
+	if d.pilotEnrollment {
+		values = append(values, "PDS_GUARD_FIRST_ACCOUNT_ONLY=true")
+	}
+	return values
+}
+func validGuardEnvironment(actual, expected []string) bool {
+	for _, value := range expected {
+		key := strings.SplitN(value, "=", 2)[0] + "="
+		count := 0
+		for _, entry := range actual {
+			if strings.HasPrefix(entry, key) {
+				if entry != value {
+					return false
+				}
+				count++
+			}
+		}
+		if count != 1 {
+			return false
+		}
+	}
+	return true
 }

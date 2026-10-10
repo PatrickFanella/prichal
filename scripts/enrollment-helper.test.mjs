@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../backend/internal/nodeagent/enrollment-helper.cjs', import.meta.url), 'utf8');
-async function run(action, { accounts = 0, failDisable = false, failInventory = false } = {}) {
+async function run(action, { accounts = 0, failDisable = false, failInventory = false, pilotHostname, envOverrides = {} } = {}) {
   const calls = [];
   let stdout = '', stderr = '', exitCode;
   await runInNewContext(source, {
     process: {
-      argv: ['helper', action], env: { PDS_DEV_MODE: 'true', PDS_DID_PLC_URL: 'http://pds-ass-protocol-fixtures:2582', PDS_ADMIN_PASSWORD: 'private-fixture-admin' },
+      argv: ['helper', action, ...(pilotHostname ? [pilotHostname] : [])], env: { ...((pilotHostname) ? { PDS_DEV_MODE: 'false', PDS_DID_PLC_URL: 'https://plc.directory', PDS_HOSTNAME: pilotHostname, PDS_SERVICE_DID: 'did:web:' + pilotHostname, PDS_EMAIL_SMTP_URL: 'smtps://fixture:password@fixture.invalid:465' } : { PDS_DEV_MODE: 'true', PDS_DID_PLC_URL: 'http://pds-ass-protocol-fixtures:2582', PDS_ADMIN_PASSWORD: 'private-fixture-admin' }), PDS_ADMIN_PASSWORD: 'private-fixture-admin', ...envOverrides },
       stdout: { write(value) { stdout += value; } }, stderr: { write(value) { stderr += value; } },
       set exitCode(value) { exitCode = value; },
     }, Buffer, AbortSignal,
@@ -66,4 +66,17 @@ test('Withdrawal preserves an existing native account and fails closed on unavai
     assert.equal(failed.stderr, 'Native enrollment operation failed');
     assert.ok(!failed.calls.some(value => value.method === 'com.atproto.server.createInviteCode'));
   }
+});
+
+test('Pilot native enrollment requires pinned public hostname and real protocol configuration', async () => {
+ const pilotHostname = 'prichal-pds.subcult.tv';
+ const result = await run('invitation', { pilotHostname });
+ assert.equal(result.exitCode, undefined);
+ assert.equal(JSON.parse(result.stdout).code, 'replacement');
+ for (const envOverrides of [{PDS_HOSTNAME:'other.subcult.tv'}, {PDS_DEV_MODE:'true'}, {PDS_DID_PLC_URL:'http://pds-ass-protocol-fixtures:2582'}, {PDS_SERVICE_DID:'did:web:other.subcult.tv'}, {PDS_EMAIL_SMTP_URL:'smtp://fixture:25'}]) {
+  const rejected = await run('invitation', {pilotHostname,envOverrides});
+  assert.equal(rejected.exitCode, 1); assert.equal(rejected.stdout, ''); assert.equal(rejected.calls.length, 0);
+ }
+ const local = await run('invitation', {envOverrides:{PDS_DEV_MODE:'false',PDS_DID_PLC_URL:'https://plc.directory'}});
+ assert.equal(local.exitCode, 1); assert.equal(local.calls.length, 0);
 });

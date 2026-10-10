@@ -33,7 +33,7 @@ func (d *Docker) Capacity(ctx context.Context) (Capacity, error) {
 	}
 	memoryPerSlot := int64(896 << 20)
 	cpuUnits, cpuCost := 4, 5
-	if d.localIdentity {
+	if d.guardEnabled() {
 		memoryPerSlot = 960 << 20
 		cpuUnits, cpuCost = 8, 11
 	}

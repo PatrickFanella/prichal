@@ -59,7 +59,7 @@ func (d *Docker) runtimeStatus(ctx context.Context, id string) (Instance, error)
 	if err := d.validateIngress(id, edge); err != nil {
 		return Instance{}, err
 	}
-	if d.localIdentity {
+	if d.guardEnabled() {
 		var guard inspected
 		if _, err := d.call(ctx, "GET", "/containers/pds-ass-enrollment-"+id+"/json", nil, &guard); err != nil {
 			return Instance{}, err
