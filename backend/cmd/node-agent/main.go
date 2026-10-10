@@ -23,9 +23,16 @@ func main() {
 	}
 }
 func run() error {
-	// Public production placement is intentionally unavailable until node registration and policy exist.
-	if os.Getenv("PDS_MODE") != "local" {
-		return errors.New("node qualification requires explicit local mode")
+	// Pilot mode is a host-only slice; the management worker remains local-only.
+	mode := os.Getenv("PDS_MODE")
+	if mode != "local" && mode != "pilot" {
+		return errors.New("node agent requires explicit local or pilot mode")
+	}
+	if mode == "pilot" && (os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") != "" || os.Getenv("PDS_AGENT_MAXIMUM_SLOTS") != "" || os.Getenv("PDS_AGENT_MEMBER_CEILING") != "") {
+		return errors.New("pilot does not accept local fixtures or capacity overrides")
+	}
+	if mode == "local" && os.Getenv("PDS_AGENT_PILOT_POLICY_FILE") != "" {
+		return errors.New("pilot policy requires explicit pilot mode")
 	}
 	address := os.Getenv("PDS_AGENT_LISTEN")
 	if address == "" {
@@ -33,7 +40,7 @@ func run() error {
 	}
 	host, _, err := net.SplitHostPort(address)
 	if err != nil || !net.ParseIP(host).IsLoopback() {
-		return errors.New("local agent must listen on a loopback IP")
+		return errors.New("agent must listen on a loopback IP")
 	}
 	caPath := os.Getenv("PDS_AGENT_CA_FILE")
 	certPath := os.Getenv("PDS_AGENT_CERT_FILE")
@@ -53,6 +60,11 @@ func run() error {
 	runtime, err := nodeagent.NewDocker(os.Getenv("PDS_AGENT_DOCKER_SOCKET"), os.Getenv("PDS_AGENT_STATE_DIRECTORY"))
 	if err != nil {
 		return err
+	}
+	if mode == "local" {
+		if err := runtime.ValidateLocalState(); err != nil {
+			return err
+		}
 	}
 	if value := os.Getenv("PDS_AGENT_MAXIMUM_SLOTS"); value != "" {
 		ceiling, parseErr := strconv.Atoi(value)
@@ -75,12 +87,19 @@ func run() error {
 	if os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") == "true" {
 		runtime.EnableLocalIdentityFixtures()
 	}
-	server := &http.Server{Addr: address, Handler: nodeagent.Authenticate(nodeagent.Handler(runtime)), TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{certificate}}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, ErrorLog: log.New(os.Stderr, "agent TLS: ", 0)}
+	handler := nodeagent.Handler(runtime)
+	if mode == "pilot" {
+		if err := runtime.EnablePilot(os.Getenv("PDS_AGENT_PILOT_POLICY_FILE")); err != nil {
+			return err
+		}
+		handler = nodeagent.PilotHandler(runtime)
+	}
+	server := &http.Server{Addr: address, Handler: nodeagent.Authenticate(handler), TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: roots, Certificates: []tls.Certificate{certificate}}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192, ErrorLog: log.New(os.Stderr, "agent TLS: ", 0)}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)
 	go func() {
-		log.Printf("local node agent listening on %s with mutual TLS", address)
+		log.Printf("%s node agent listening on %s with mutual TLS", mode, address)
 		done <- server.ListenAndServeTLS("", "")
 	}()
 	select {

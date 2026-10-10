@@ -202,6 +202,13 @@ func validIngressMounts(current inspected, configPath, tlsPath string) bool {
 }
 
 func (d *Docker) validateIngress(id string, current inspected) error {
+	if d.pilot != nil {
+		bindings := current.HostConfig.PortBindings["8443/tcp"]
+		endpoint, _ := url.Parse(LocalEndpoint(id))
+		if len(current.HostConfig.PortBindings) != 1 || len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" || bindings[0].HostPort != endpoint.Port() {
+			return errors.New("pilot ingress must retain its loopback binding")
+		}
+	}
 	network := "pds-ass-tenant-" + id + "-network"
 	configPath := filepath.Join(d.directory, id+"-edge", "Caddyfile")
 	tlsPath := filepath.Join(d.directory, id+"-tls.pem")
@@ -231,13 +238,21 @@ func (d *Docker) ingressConfiguration(id string) string {
   }
 `, id)
 	}
+	host := id + ".localhost"
+	if d.pilot != nil {
+		host += " " + d.pilot.Hostname
+		// No enrollment leases are accepted in this first production slice.
+		guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+  respond @registration "Pilot account creation is closed" 403
+`
+	}
 	return fmt.Sprintf(`{
  auto_https off
  admin off
 }
 :8443 {
  tls /etc/pds-tls.pem /etc/pds-tls.pem
- @allowed host %s.localhost
+ @allowed host %s
  handle @allowed {
 %s  reverse_proxy pds-ass-tenant-%s:2583
  }
@@ -245,5 +260,5 @@ func (d *Docker) ingressConfiguration(id string) string {
   respond "Unknown PDS host" 421
  }
 }
-`, id, guard, id)
+`, host, guard, id)
 }

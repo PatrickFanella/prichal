@@ -34,6 +34,7 @@ type Docker struct {
 	localIdentity bool
 	maximumSlots  int
 	memberCeiling int
+	pilot         *PilotPolicy
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -165,6 +166,7 @@ type inspected struct {
 		CapAdd         []string
 		SecurityOpt    []string
 		Binds          []string
+		PortBindings   map[string][]struct{ HostIP, HostPort string }
 	}
 	Mounts []struct {
 		Type        string
@@ -193,8 +195,8 @@ type inspected struct {
 
 // Ensure creates only fixed, labeled resources, then reconciles an existing container by ID.
 func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
-	if !instanceID.MatchString(id) {
-		return Instance{}, errors.New("invalid instance ID")
+	if !d.allowedInstance(id) {
+		return Instance{}, errors.New("instance is outside agent policy")
 	}
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -212,6 +214,9 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 		return Instance{}, err
 	}
 	if status == 404 {
+		if err := d.fenceFreshPilot(ctx, id); err != nil {
+			return Instance{}, err
+		}
 		capacity, capacityErr := d.Capacity(ctx)
 		if capacityErr != nil {
 			return Instance{}, capacityErr
@@ -248,14 +253,14 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 			Internal bool
 		}
 		status, err = d.call(ctx, "GET", "/networks/"+network, nil, &existing)
-		if err == nil && (existing.Labels[label] != id || !existing.Internal) {
+		if err == nil && (existing.Labels[label] != id || existing.Internal != (d.pilot == nil)) {
 			return Instance{}, errors.New("foreign network name conflict")
 		}
 		if err != nil && status != 404 {
 			return Instance{}, err
 		}
 		if status == 404 {
-			if _, err = d.call(ctx, "POST", "/networks/create", map[string]any{"Name": network, "Internal": true, "Labels": map[string]string{label: id}}, nil); err != nil {
+			if _, err = d.call(ctx, "POST", "/networks/create", map[string]any{"Name": network, "Internal": d.pilot == nil, "Labels": map[string]string{label: id}}, nil); err != nil {
 				return Instance{}, err
 			}
 		}
@@ -279,6 +284,9 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	if err := d.validateRuntime(id, current); err != nil {
 		return Instance{}, err
 	}
+	if err := d.validatePilotNetwork(ctx, id); err != nil {
+		return Instance{}, err
+	}
 	if !current.State.Running {
 		if _, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil); err != nil {
 			return Instance{}, err
@@ -298,7 +306,7 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 	if err = d.ingress(ctx, id); err != nil {
 		return Instance{}, err
 	}
-	result := Instance{ID: id, State: "starting", Endpoint: LocalEndpoint(id)}
+	result := Instance{ID: id, State: "starting", Endpoint: d.endpoint(id)}
 	if current.State.Running {
 		result.State = "running"
 		result.Healthy = current.State.Health.Status == "healthy" && d.healthProbe != nil && d.healthProbe(ctx, id)
@@ -319,6 +327,26 @@ func (d *Docker) runtimeEnvironment(id string, secret secrets) []string {
 			}
 		}
 		environment = append(environment, "PDS_EMAIL_FROM_ADDRESS=noreply@fixture.invalid", "PDS_EMAIL_SMTP_URL=smtp://pds-ass-protocol-fixtures:2525")
+	}
+	if d.pilot != nil {
+		values := map[string]string{
+			"PDS_HOSTNAME":               d.pilot.Hostname,
+			"PDS_SERVICE_DID":            "did:web:" + d.pilot.Hostname,
+			"PDS_DEV_MODE":               "false",
+			"PDS_SERVICE_HANDLE_DOMAINS": "." + d.pilot.Hostname,
+			"PDS_DID_PLC_URL":            "https://plc.directory",
+			"PDS_CRAWLERS":               "https://bsky.network",
+		}
+		for i, entry := range environment {
+			key, _, _ := strings.Cut(entry, "=")
+			if value, ok := values[key]; ok {
+				environment[i] = key + "=" + value
+			}
+		}
+		environment = append(environment, "PDS_EMAIL_FROM_ADDRESS="+d.pilot.EmailFrom, "PDS_EMAIL_SMTP_URL="+d.pilot.SMTPURL)
+		environment = append(environment,
+			"PDS_BSKY_APP_VIEW_URL=https://api.bsky.app", "PDS_BSKY_APP_VIEW_DID=did:web:api.bsky.app",
+			"PDS_REPORT_SERVICE_URL=https://mod.bsky.app", "PDS_REPORT_SERVICE_DID=did:plc:ar7c4by46qjdydhdevvrndac")
 	}
 	return environment
 }
@@ -357,6 +385,9 @@ func (d *Docker) validateRuntime(id string, current inspected) error {
 	for _, entry := range current.Config.Env {
 		key, value, ok := strings.Cut(entry, "=")
 		if ok {
+			if _, duplicate := environment[key]; duplicate && strings.HasPrefix(key, "PDS_") {
+				return errors.New("duplicate runtime environment setting")
+			}
 			environment[key] = value
 		}
 	}
