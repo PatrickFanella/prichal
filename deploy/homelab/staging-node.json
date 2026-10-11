@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "purpose": "issue-3-staging-host-selection",
+  "status": "selected-not-provisioned",
+  "provider": "owned-homelab",
+  "region": "home-lan",
+  "incrementalMonthlyProviderSpendCeilingUSD": 0,
+  "host": "kvant",
+  "isolation": "dedicated-ubuntu-kvm-guest",
+  "nodeName": "prichal-staging-01",
+  "resources": {
+    "vcpus": 2,
+    "memoryMiB": 4096,
+    "diskGiB": 40,
+    "initialPdsSlotCeiling": 1
+  },
+  "storage": {
+    "proposedDirectory": "/mnt/fast1/apps/prichal-staging",
+    "requiredMountUUID": "6d24966a-f7db-42e5-b136-e3a6f6c3ac01"
+  },
+  "network": {
+    "mode": "user-nat",
+    "administration": "loopback-forward-over-pinned-ssh",
+    "agentExposure": "private-mtls-only",
+    "publicPortsOnGuest": [],
+    "publicEdgeHost": "almaz"
+  },
+  "domains": {
+    "newManagementDomain": null,
+    "newPdsDomain": null,
+    "existingPilotPdsDomain": "prichal-pds.subcult.tv",
+    "preservedExistingPdsDomain": "pds.subcult.tv"
+  },
+  "backup": {
+    "destinationHost": "dozor",
+    "proposedDirectory": "/srv/recovery/kvant/prichal-staging",
+    "encrypted": true,
+    "restoreQualificationRequiredBeforePublicUse": true
+  },
+  "remainingBeforeProvisioning": [
+    "Select and pin Ubuntu image, verify published checksum and image provenance",
+    "Review versioned VM resource plan and idempotent guest configuration",
+    "Reserve unique loopback SSH and agent forwards without changing Kuznya",
+    "Confirm storage allocation and encrypted backup/key custody",
+    "Qualify private node enrollment and inventory integration without bypassing local-only gates",
+    "Select distinct staging domains before any public routing or account creation"
+  ]
+}

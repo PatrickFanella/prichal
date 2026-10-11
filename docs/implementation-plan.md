@@ -47,7 +47,7 @@ flowchart LR
 
 Start with a small, prepared fleet in one region. Allocate a PDS container on an existing host rather than installing a machine during every customer request. This is managed container isolation, not a promise of a dedicated VM or automatic high availability. Capacity limits must come from measurements.
 
-DigitalOcean is the initial planning assumption. Confirm provider, region, purchased domains, budget, secret custody and backup destination in the infrastructure bootstrap issue before spending money. Keep provider operations behind adapters; build one real provider first. The homelab can support development and staging, but commercial operation must not depend on the workstation or on an unqualified home-network path.
+The owner selected existing homelab hardware for staging on October 11, 2026: a dedicated Ubuntu KVM guest on Kvant, with $0 incremental provider spending. See the [host assessment and remaining bootstrap gates](homelab-staging-node.md) and [versioned node selection](../deploy/homelab/staging-node.json). DigitalOcean is deferred; no VPS is provisioned. Confirm domain separation, secret custody, backup destination and repeatable private node enrollment before exposing the staging node. Keep provider operations behind adapters. Commercial hosting needs a separately qualified availability and recovery design; staging evidence does not establish that gate.
 
 ### Identity and domain boundaries
 
