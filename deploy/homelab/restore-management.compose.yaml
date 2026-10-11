@@ -1,0 +1,64 @@
+name: prichal-connection-restore
+services:
+  sandbox:
+    image: ${RESTORE_NODE_IMAGE:?pinned cached Node image required}
+    user: "1000:1000"
+    command: [node, -e, "setInterval(()=>{},3600000)"]
+    networks: [isolated]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 64m
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_USER: pds_staging
+      POSTGRES_DB: pds_local
+      POSTGRES_PASSWORD: ${PDS_DB_PASSWORD:?private restored registry password required}
+    volumes: ["restore-registry:/var/lib/postgresql/data"]
+    networks: [isolated]
+    cpus: 1
+    mem_limit: 512m
+  api:
+    image: sha256:15685feeb202b34af17583c3bbb0d7e3142093be422462f0fc31d1d6ebdbd21f
+    command: [/bin/api]
+    env_file: ["${RESTORE_ROOT:?}/api.env"]
+    network_mode: service:sandbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    volumes:
+      - "${RESTORE_MANAGEMENT_ROOT:?}/keys:/keys:ro"
+      - "${RESTORE_MANAGEMENT_ROOT}/artifacts:/artifacts"
+    cpus: 0.5
+    mem_limit: 256m
+  issuer:
+    image: sha256:15685feeb202b34af17583c3bbb0d7e3142093be422462f0fc31d1d6ebdbd21f
+    command: [/bin/test-issuer]
+    env_file: ["${RESTORE_MANAGEMENT_ROOT}/issuer.env"]
+    network_mode: service:sandbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 128m
+  web:
+    image: ${RESTORE_NODE_IMAGE:?pinned cached Node image required}
+    user: "1000:1000"
+    command: [node, /release/management-web.mjs]
+    network_mode: service:sandbox
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - "${RESTORE_MANAGEMENT_ROOT}/release:/release:ro"
+      - "${RESTORE_CHECK_ROOT:?}:/checks:ro"
+    cpus: 0.5
+    mem_limit: 256m
+networks:
+  isolated:
+    internal: true
+volumes:
+  restore-registry:
