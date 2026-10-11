@@ -76,6 +76,30 @@ func TestEnrollment(t *testing.T) {
 	if _, err = store.Enroll(ctx, bootstrap.NodeID, bootstrap.Token, csr); !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("replayed enrollment: %v", err)
 	}
+	renewedPEM, err := store.Renew(ctx, bootstrap.NodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewedBlock, _ := pem.Decode(renewedPEM)
+	renewed, err := x509.ParseCertificate(renewedBlock.Bytes)
+	if err != nil || !renewed.PublicKey.(*ecdsa.PublicKey).Equal(nodeKey.Public()) || renewed.SerialNumber.Cmp(cert.SerialNumber) == 0 || renewed.NotAfter.After(ca.NotAfter) {
+		t.Fatal("renewal changed identity or exceeded authority")
+	}
+	if _, err = renewed.Verify(x509.VerifyOptions{Roots: roots, DNSName: "127.0.0.1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Enroll(ctx, bootstrap.NodeID, bootstrap.Token, csr); !errors.Is(err, ErrUnauthorized) {
+		t.Fatal("renewal reopened bootstrap")
+	}
+	if _, err = store.Renew(ctx, "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"); !errors.Is(err, ErrUnauthorized) {
+		t.Fatal("unknown node renewed")
+	}
+	if _, err = pool.Exec(ctx, `UPDATE hosting_nodes SET public_key_hash=decode(repeat('00',32),'hex') WHERE id=$1`, bootstrap.NodeID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Renew(ctx, bootstrap.NodeID); !errors.Is(err, ErrUnauthorized) {
+		t.Fatal("registry key drift accepted")
+	}
 	expired, err := store.Issue(ctx, "https://127.0.0.1:9093", 1)
 	if err != nil {
 		t.Fatal(err)

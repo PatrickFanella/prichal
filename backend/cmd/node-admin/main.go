@@ -34,7 +34,7 @@ func run() error {
 		return errors.New("node administration requires explicit local mode")
 	}
 	if len(os.Args) < 2 {
-		return errors.New("usage: node-admin {issue --endpoint URL --slots N --out FILE|capacity --node UUID --slots N --reason REASON|serve}")
+		return errors.New("usage: node-admin {issue --endpoint URL --slots N --out FILE|renew --node UUID --out FILE|capacity --node UUID --slots N --reason REASON|serve}")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -110,41 +110,41 @@ func run() error {
 		}
 		fmt.Printf("Node %s bootstrap written to %s; expires in 15 minutes.\n", bootstrap.NodeID, *out)
 		return nil
-	case "serve":
-		caPEM, err := os.ReadFile(os.Getenv("PDS_ENROLLMENT_CA_FILE"))
-		if err != nil {
-			return errors.New("enrollment CA file required")
-		}
-		block, _ := pem.Decode(caPEM)
-		if block == nil {
-			return errors.New("invalid enrollment CA")
-		}
-		store.CA, err = x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return errors.New("invalid enrollment CA")
-		}
-		keyPath := os.Getenv("PDS_ENROLLMENT_CA_KEY_FILE")
-		info, err := os.Lstat(keyPath)
-		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-			return errors.New("enrollment CA key must be a private regular file")
-		}
-		keyPEM, err := os.ReadFile(keyPath)
-		if err != nil {
+	case "renew":
+		flags := flag.NewFlagSet("renew", flag.ContinueOnError)
+		node := flags.String("node", "", "existing active node UUID")
+		out := flags.String("out", "", "new private certificate output file")
+		if err = flags.Parse(os.Args[2:]); err != nil {
 			return err
 		}
-		block, _ = pem.Decode(keyPEM)
-		if block == nil {
-			return errors.New("invalid enrollment CA key")
+		if *node == "" || *out == "" || flags.NArg() != 0 {
+			return errors.New("renew requires --node UUID --out FILE")
 		}
-		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return errors.New("enrollment CA key must use PKCS8")
+		if err = loadAuthority(&store); err != nil {
+			return err
 		}
-		signer, ok := key.(crypto.Signer)
-		if !ok {
-			return errors.New("unsupported enrollment CA key")
+		file, openErr := os.OpenFile(*out, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if openErr != nil {
+			return errors.New("renewal output must be a new private file")
 		}
-		store.Key = signer
+		defer file.Close()
+		certificate, renewErr := store.Renew(startup, *node)
+		if renewErr != nil {
+			_ = os.Remove(*out)
+			return errors.New("node renewal rejected; inspect retained identity")
+		}
+		if _, err = file.Write(certificate); err != nil {
+			return err
+		}
+		if err = file.Sync(); err != nil {
+			return err
+		}
+		fmt.Println("Existing node certificate renewed; publish and verify on the retained node.")
+		return nil
+	case "serve":
+		if err = loadAuthority(&store); err != nil {
+			return err
+		}
 		certificate, err := tls.LoadX509KeyPair(os.Getenv("PDS_ENROLLMENT_CERT_FILE"), enrollmentListenerKeyFile())
 		if err != nil {
 			return errors.New("enrollment listener certificate required")
@@ -177,4 +177,42 @@ func enrollmentListenerKeyFile() string {
 		return path
 	}
 	return os.Getenv("PDS_ENROLLMENT_KEY_FILE")
+}
+
+func loadAuthority(store *fleet.Store) error {
+	caPEM, err := os.ReadFile(os.Getenv("PDS_ENROLLMENT_CA_FILE"))
+	if err != nil {
+		return errors.New("enrollment CA file required")
+	}
+	block, _ := pem.Decode(caPEM)
+	if block == nil {
+		return errors.New("invalid enrollment CA")
+	}
+	store.CA, err = x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return errors.New("invalid enrollment CA")
+	}
+	keyPath := os.Getenv("PDS_ENROLLMENT_CA_KEY_FILE")
+	info, err := os.Lstat(keyPath)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+		return errors.New("enrollment CA key must be a private regular file")
+	}
+	keyPEM, err := os.ReadFile(keyPath)
+	if err != nil {
+		return err
+	}
+	block, _ = pem.Decode(keyPEM)
+	if block == nil {
+		return errors.New("invalid enrollment CA key")
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return errors.New("enrollment CA key must use PKCS8")
+	}
+	signer, ok := key.(crypto.Signer)
+	if !ok {
+		return errors.New("unsupported enrollment CA key")
+	}
+	store.Key = signer
+	return nil
 }

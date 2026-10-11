@@ -1,0 +1,11 @@
+[Unit]
+Description=Inspect Prichal staging certificates hourly
+
+[Timer]
+OnActiveSec=20s
+OnUnitActiveSec=1h
+AccuracySec=1min
+Unit=prichal-staging-certificates.service
+
+[Install]
+WantedBy=timers.target

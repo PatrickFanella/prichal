@@ -26,7 +26,7 @@ An SSH reverse forward temporarily connected the guest's loopback enrollment cli
 
 Authenticated agent capacity succeeded; a client without a certificate failed at TLS. A Python verification probe encountered stricter certificate-extension requirements, so the live enrollment rejection probes used curl's verified HTTPS transport rather than disabling TLS verification. The existing Go enrollment/agent paths and curl verified the dedicated trust root. PKI profile/rotation compatibility remains part of subsequent staging enrollment work.
 
-**The node certificate expires October 12, 2026 at 18:48:30 UTC.** The qualification authority/worker credentials have seven-day lifetimes. Certificate renewal is not installed for this node. Do not call this unattended hosting or connect public accounts while those lifecycle gates remain open. No production management UI was redeployed or made capable of provisioning this guest; inventory verification is against the separate qualification registry.
+**Initial bootstrap observation:** the node certificate was set to expire October 12, 2026 at 18:48:30 UTC, with seven-day authority/workload credentials. Retained-key renewal and strict profile repair are now installed; see [current renewal evidence](live-staging-certificate-renewal.md). Do not call this unattended hosting or connect public accounts while those lifecycle gates remain open. No production management UI was redeployed or made capable of provisioning this guest; inventory verification is against the separate qualification registry.
 
 ## Independent encrypted recovery
 
