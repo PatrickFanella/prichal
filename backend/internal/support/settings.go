@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 )
 
@@ -16,16 +17,25 @@ type Identity struct {
 	Role    string `json:"role"`
 }
 
-// Settings enables only explicit local qualification. Live operator policy remains unconfigured.
+// Settings binds inspection rights to verified management identities.
 type Settings struct{ Identities []Identity }
 
-// LoadSettings reads private local qualification identities. Empty configuration disables access.
+// LoadSettings separates local mutation policy from production inspection policy.
 func LoadSettings(local bool, issuer string) (Settings, error) {
 	path := os.Getenv("PDS_LOCAL_OPERATOR_FILE")
+	productionPath := os.Getenv("PDS_OPERATOR_FILE")
+	production := productionPath != ""
+	if production {
+		u, err := url.Parse(issuer)
+		if local || path != "" || err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return Settings{}, errors.New("production inspection policy requires an exclusive HTTPS issuer configuration")
+		}
+		path = productionPath
+	}
 	if path == "" {
 		return Settings{}, nil
 	}
-	if !local {
+	if !local && !production {
 		return Settings{}, errors.New("local operator policy requires local mode")
 	}
 	info, err := os.Lstat(path)
@@ -47,6 +57,9 @@ func LoadSettings(local bool, issuer string) (Settings, error) {
 		key := identity.Issuer + "\x00" + identity.Subject
 		if identity.Issuer != issuer || identity.Subject == "" || len(identity.Subject) > 255 || seen[key] || (identity.Role != "inspect" && identity.Role != "operate") {
 			return Settings{}, errors.New("invalid local operator identity or role")
+		}
+		if production && identity.Role != "inspect" {
+			return Settings{}, errors.New("production operator policy permits inspection only")
 		}
 		seen[key] = true
 	}

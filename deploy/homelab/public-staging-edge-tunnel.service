@@ -1,0 +1,13 @@
+[Unit]
+Description=Private SSH path to Kvant Prichal staging dashboard
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -N -T -o ControlMaster=no -o ControlPath=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 172.20.0.1:34944:127.0.0.1:5178 kvant
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
