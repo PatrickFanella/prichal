@@ -40,7 +40,7 @@ export function Workspace() {
         <div className="card-heading"><h2 id="service-title">Workspace status</h2><span className={`indicator ${status.kind}`} aria-hidden="true"/></div>
         <p className="status" role="status" aria-live="polite">{label}</p>
         <p className="status-detail">{status.kind === 'ready' ? 'The management service and database are responding.' : status.kind === 'checking' ? 'Connecting to the management service…' : 'The management service did not answer. This page checks again every few seconds.'}</p>
-        <dl><div><dt>Environment</dt><dd>Local development</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unverified'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
+        <dl><div><dt>Environment</dt><dd>Private preview</dd></div><div><dt>Database</dt><dd>{status.kind === 'ready' ? 'Connected' : status.kind === 'checking' ? 'Checking' : 'Unverified'}</dd></div><div><dt>Schema</dt><dd>{status.kind === 'ready' ? `Version ${status.schemaVersion}` : 'Unverified'}</dd></div></dl>
       </section>
       <aside className="next"><span>STATUS</span><p>Private preview. Public hosting is not available yet. We are still testing backups and recovery, so sign-up is closed.</p></aside>
     </main>
