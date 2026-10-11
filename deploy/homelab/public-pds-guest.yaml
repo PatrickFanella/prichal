@@ -1,0 +1,55 @@
+- name: Converge the dedicated public PDS guest
+  hosts: prichal_public_pds
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Verify the intended Ubuntu guest
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.hostname == 'prichal-public-pds-01'
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - ansible_facts.processor_vcpus == 3
+    - name: Install Docker and the private firewall
+      ansible.builtin.apt:
+        name: [docker.io, ufw, ca-certificates]
+        state: present
+        update_cache: true
+        cache_valid_time: 86400
+    - name: Enable Docker inside this guest only
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+    - name: Create a non-login restricted agent account
+      ansible.builtin.user:
+        name: prichal-agent
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
+        groups: docker
+        append: true
+    - name: Inspect firewall state
+      ansible.builtin.command: ufw status verbose
+      register: firewall
+      changed_when: false
+    - name: Configure private guest firewall once
+      ansible.builtin.shell: |
+        ufw default deny incoming
+        ufw default allow outgoing
+        ufw allow from 10.0.2.2 to any port 22 proto tcp
+        ufw allow from 10.0.2.2 to any port 9091 proto tcp
+        ufw --force enable
+      when: "'Status: inactive' in firewall.stdout"
+    - name: Read effective firewall
+      ansible.builtin.command: ufw status verbose
+      register: effective_firewall
+      changed_when: false
+    - name: Verify the retained firewall boundary
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in effective_firewall.stdout"
+          - "'deny (incoming)' in effective_firewall.stdout"
+          - "'22/tcp' in effective_firewall.stdout"
+          - "'9091/tcp' in effective_firewall.stdout"
+          - "'10.0.2.2' in effective_firewall.stdout"
