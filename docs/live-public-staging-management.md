@@ -37,3 +37,9 @@ Full `./scripts/dev.sh smoke` passed against disposable PostgreSQL using pinned 
 For route rollback, compare current parent/new route hashes and subsequent edits to the private receipt before restoring only the preceding Prichal route and validating/reloading Caddy. Keep the main Caddyfile and existing PDS routes intact. Stop only the new Almaz tunnel and Kvant public frontend/API if pausing this surface; retain its OAuth application, secret and configuration. Do not revoke unrelated clients or roll back the staging registry over later writes.
 
 Fresh original NUC and Dozor pilot native health returned 0.4.5027 and 0.4.5036. The private staging registry/worker/node and stopped recovery fixture remain separate. Public native PDS routing, populated-account recovery, production provisioning, scheduled checkpoint acquisition, naturally due renewal/alerts and unattended boot/cutover remain open.
+
+## Owner access check and preview label
+
+The owner completed Authelia access in the collaborative preview. Prichal's workspace rendered with service/database available and schema version 35. It still displayed its own Sign in link, and the registry had no Gitea-issued owner/session at that observation; Gitea management authentication remained pending. Authelia access and the management login are distinct steps.
+
+The workspace's hard-coded Local development status label was corrected to Private preview. The pinned frontend build passed, and the new bundle `index-CzCVKa-9.js` was installed on the public staging frontend without restarting either API. Real provider sign-in, persisted management session and inspector inventory remain required before calling the full public authentication flow verified.
