@@ -2,7 +2,7 @@
 
 Use **Kvant**, with a dedicated Ubuntu KVM guest named `prichal-staging-01`, for the next staging hosting node. The owner selected existing homelab hardware instead of a VPS on October 11, 2026. Incremental provider spending is capped at $0; electricity and existing equipment remain household costs. The location is the home LAN. This selection does not enable commercial hosting.
 
-The versioned [node selection](../deploy/homelab/staging-node.json) records the resource ceiling, disk identity, private network boundary and proposed recovery destination. Its status is `selected-not-provisioned`: it is a declaration for subsequent infrastructure work, not an executable provisioner or enrollment receipt.
+The versioned [node selection](../deploy/homelab/staging-node.json) records the resource ceiling, disk identity, private network boundary and proposed recovery destination. It now records `provisioned-private-qualification`; see [live bootstrap, enrollment and recovery evidence](live-kvant-staging-node.md). The declaration alone is not an executable provisioner or enrollment receipt.
 
 ## Host evidence
 
@@ -21,7 +21,7 @@ Kvant runs Omarchy and Dozor runs Fedora. NUC and Almaz run Ubuntu. A dedicated 
 
 ## Initial allocation and boundaries
 
-Start with two virtual CPUs, 4 GiB RAM, a 40 GiB virtual disk and an operator ceiling of one PDS slot. The slot ceiling is conservative policy, not measured tenant capacity. Add slots only after measured workload, disk enforcement and restore qualification. Provision the disk under `/mnt/fast1/apps/prichal-staging` only when the mounted filesystem UUID is `6d24966a-f7db-42e5-b136-e3a6f6c3ac01` and its allocation budget admits the disk. Refuse startup when the intended mount is absent.
+Use three virtual CPUs, 4 GiB RAM, a 40 GiB virtual disk and an operator ceiling of one PDS slot. The slot ceiling is conservative policy, not measured tenant capacity. Add slots only after measured workload, disk enforcement and restore qualification. Provision the disk under `/mnt/fast1/apps/prichal-staging` only when the mounted filesystem UUID is `6d24966a-f7db-42e5-b136-e3a6f6c3ac01` and its allocation budget admits the disk. Refuse startup when the intended mount is absent.
 
 Use a dedicated service, disk, bootstrap identity and private state directory outside T3 worktrees. Keep it separate from Kuznya, Subcult OS, existing PDS storage and management PostgreSQL. Protect infrastructure state and bootstrap material with private directories and files; never store secrets in the selection JSON or Git. A second application of configuration must inspect and converge the same named guest, not create another node.
 
@@ -40,3 +40,7 @@ The proposed independent encrypted recovery destination is Dozor's `/srv/recover
 Issue #3 stays open. Host selection, spend ceiling, initial allocation and proposed backup destination are recorded. Guest provisioning, repeatable configuration, live enrollment/inventory, backup custody/restore and new public domain selection remain unverified.
 
 The Dozor pilot at `prichal-pds.subcult.tv` remains the current live test service. Its agent was active during inspection. No VM, disk, firewall, service or route was created or changed for this assessment. The NUC service at `pds.subcult.tv` and existing account identities remain in place. Retiring or moving the Dozor pilot requires its own recovery and cutover evidence after the new staging node is qualified.
+
+## Bootstrap follow-up
+
+The owner authorized execution after this assessment. The dedicated guest, private one-time enrollment and empty-node recovery are now qualified. The initial two-vCPU proposal was revised to three because the existing agent reserves CPU overhead and would report zero usable slots on two vCPUs. See [live evidence and remaining gates](live-kvant-staging-node.md); the earlier sequence describes the selected work, not proof that all issue acceptance criteria have passed.

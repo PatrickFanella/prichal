@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "purpose": "issue-3-staging-host-selection",
-  "status": "selected-not-provisioned",
+  "purpose": "issue-3-private-staging-qualification",
+  "status": "provisioned-private-qualification",
   "provider": "owned-homelab",
   "region": "home-lan",
   "incrementalMonthlyProviderSpendCeilingUSD": 0,
@@ -9,7 +9,7 @@
   "isolation": "dedicated-ubuntu-kvm-guest",
   "nodeName": "prichal-staging-01",
   "resources": {
-    "vcpus": 2,
+    "vcpus": 3,
     "memoryMiB": 4096,
     "diskGiB": 40,
     "initialPdsSlotCeiling": 1
@@ -23,7 +23,9 @@
     "administration": "loopback-forward-over-pinned-ssh",
     "agentExposure": "private-mtls-only",
     "publicPortsOnGuest": [],
-    "publicEdgeHost": "almaz"
+    "publicEdgeHost": "almaz",
+    "sshForward": "127.0.0.1:22250",
+    "agentForward": "127.0.0.1:22251"
   },
   "domains": {
     "newManagementDomain": null,
@@ -35,14 +37,20 @@
     "destinationHost": "dozor",
     "proposedDirectory": "/srv/recovery/kvant/prichal-staging",
     "encrypted": true,
-    "restoreQualificationRequiredBeforePublicUse": true
+    "restoreQualificationRequiredBeforePublicUse": true,
+    "status": "empty-node-and-registry-restore-qualified"
   },
-  "remainingBeforeProvisioning": [
-    "Select and pin Ubuntu image, verify published checksum and image provenance",
-    "Review versioned VM resource plan and idempotent guest configuration",
-    "Reserve unique loopback SSH and agent forwards without changing Kuznya",
-    "Confirm storage allocation and encrypted backup/key custody",
-    "Qualify private node enrollment and inventory integration without bypassing local-only gates",
-    "Select distinct staging domains before any public routing or account creation"
+  "nodeId": "1ef77d45-c6d5-4bdb-b77b-ba1103b45a66",
+  "image": {
+    "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-amd64.img",
+    "sha256": "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2",
+    "signingFingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
+  },
+  "remainingBeforePublicUse": [
+    "Staging management integration beyond the local qualification registry",
+    "Node certificate renewal and PKI profile compatibility",
+    "Select and qualify distinct staging domains",
+    "Scheduled backups and populated PDS recovery",
+    "Physical host reboot and full host-loss cutover"
   ]
 }
