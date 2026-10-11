@@ -1,0 +1,16 @@
+name: prichal-public-staging
+services:
+  api:
+    image: ${PUBLIC_STAGING_IMAGE:?immutable API image required}
+    command: [/bin/api]
+    network_mode: host
+    env_file: ["${PUBLIC_STAGING_ROOT:?}/api.env"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    volumes:
+      - "${PUBLIC_STAGING_ROOT}/keys:/keys:ro"
+    cpus: 0.5
+    mem_limit: 256m
+    restart: unless-stopped
