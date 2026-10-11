@@ -79,6 +79,14 @@ func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http
 		bind("GET /api/operator/session", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
 			reply(w, 200, map[string]string{"role": role})
 		})
+		bind("GET /api/operator/nodes", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
+			view, err := s.Nodes(r.Context(), session.OwnerID)
+			if err != nil {
+				unavailable(w, err)
+				return
+			}
+			reply(w, 200, view)
+		})
 		bind("GET /api/operator/organizations/{id}", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
 			view, err := s.Organization(r.Context(), session.OwnerID, role, r.PathValue("id"))
 			if err != nil {

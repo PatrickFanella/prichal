@@ -26,8 +26,9 @@ type Peer struct {
 
 // Client carries worker credentials, independently of public API configuration.
 type Client struct {
-	roots       *x509.CertPool
-	certificate tls.Certificate
+	roots                     *x509.CertPool
+	certificate               tls.Certificate
+	caPath, certPath, keyPath string
 }
 
 // NewClient loads a dedicated agent CA and worker client certificate.
@@ -48,7 +49,7 @@ func NewClient(caPath, certPath, keyPath string) (*Client, error) {
 	if err != nil {
 		return nil, errors.New("worker agent certificate unavailable")
 	}
-	return &Client{roots, certificate}, nil
+	return &Client{roots: roots, certificate: certificate, caPath: caPath, certPath: certPath, keyPath: keyPath}, nil
 }
 func (c *Client) httpClient(peer Peer) (*http.Client, error) {
 	endpoint, err := url.Parse(peer.Endpoint)
@@ -60,7 +61,13 @@ func (c *Client) httpClient(peer Peer) (*http.Client, error) {
 	if host != "localhost" && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback()) {
 		return nil, errors.New("nonlocal agent endpoint is not yet supported")
 	}
-	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: c.roots, Certificates: []tls.Certificate{c.certificate}, VerifyConnection: func(state tls.ConnectionState) error {
+	// Every operation sees atomically renewed files rather than a startup snapshot.
+	// A malformed replacement fails closed; old credentials are never a fallback.
+	current, err := NewClient(c.caPath, c.certPath, c.keyPath)
+	if err != nil {
+		return nil, err
+	}
+	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: current.roots, Certificates: []tls.Certificate{current.certificate}, VerifyConnection: func(state tls.ConnectionState) error {
 		if len(state.PeerCertificates) == 0 || state.PeerCertificates[0].Subject.CommonName != "pds-ass-node-"+peer.NodeID {
 			return errors.New("registered node identity mismatch")
 		}

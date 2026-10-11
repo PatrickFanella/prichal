@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { LifecycleActivity } from './lifecycle-activity';
+import { HostingNodes } from './hosting-nodes';
 import { OperatorLifecycleRecovery } from './operator-lifecycle-recovery';
 import { operatorIntent, operatorOperation, type OperatorIntent, type ReceiptState } from './operator-lifecycle-contract';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -77,6 +78,7 @@ export function SupportWorkspace({ csrfToken, ownerId }: { csrfToken: string; ow
   }
   if (!role) return request.current || blocked ? <section className="support-workspace" aria-label="Retained operator access"><p role="alert">Current operator access could not be confirmed. Retained browser metadata remains preserved and no action will be submitted automatically.</p><button type="button" onClick={() => { void loadRole(); }}>Check operator access</button></section> : null;
   return <section className="support-workspace" aria-labelledby="support-heading"><h3 id="support-heading">Operator support</h3><p>Role: {role === 'operate' ? 'Inspection and lifecycle actions' : 'Inspection only'}. Inspection is audited. Customer sign-in and data are never impersonated.</p>
+    <HostingNodes key={ownerId} ownerId={ownerId}/>
     <form onSubmit={event => { event.preventDefault(); void inspect(reference, kind); }}><label htmlFor="support-kind">Reference type</label><select id="support-kind" value={kind} onChange={event => setKind(event.target.value)} disabled={busy || request.current !== null}><option value="deployment">Instance</option><option value="organization">Organization</option></select><label htmlFor="support-reference">Exact reference UUID</label><input id="support-reference" value={reference} onChange={event => setReference(event.target.value.trim().toLowerCase())} maxLength={36} required disabled={busy || request.current !== null}/><button disabled={busy || !uuid.test(reference)}>Inspect</button></form>
     {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}{outcome && <p role="status" ref={result} tabIndex={-1}>{outcome}</p>}
     <OperatorLifecycleRecovery key={`${ownerId}:${request.current?.key ?? 'invalid'}`} intent={request.current} blocked={blocked} disabled={busy} role={role} onState={setReceiptState} onRole={setRole} onUnconfirmed={() => { setView(null); setResults([]); setReviewed(false); }} onClose={closeConfirmedRetry}/>

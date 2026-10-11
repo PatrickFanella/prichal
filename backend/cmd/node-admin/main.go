@@ -61,6 +61,39 @@ func run() error {
 	}
 	store := fleet.Store{Pool: pool}
 	switch os.Args[1] {
+	case "custody":
+		flags := flag.NewFlagSet("custody", flag.ContinueOnError)
+		node := flags.String("node", "", "registered node UUID")
+		if err = flags.Parse(os.Args[2:]); err != nil {
+			return err
+		}
+		if *node == "" || flags.NArg() != 0 {
+			return errors.New("custody requires --node UUID")
+		}
+		var found string
+		if err = pool.QueryRow(startup, `SELECT id FROM hosting_nodes WHERE id=$1 AND state IN ('active','draining') AND enrolled_at IS NOT NULL`, *node).Scan(&found); err != nil {
+			return errors.New("registered node unavailable")
+		}
+		rows, queryErr := pool.Query(startup, `SELECT deployment_id::text FROM instance_placements WHERE node_id=$1 ORDER BY deployment_id LIMIT 1001`, *node)
+		if queryErr != nil {
+			return queryErr
+		}
+		defer rows.Close()
+		ids := []string{}
+		for rows.Next() {
+			var id string
+			if err = rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		if len(ids) > 1000 {
+			return errors.New("node custody limit exceeded")
+		}
+		return json.NewEncoder(os.Stdout).Encode(ids)
 	case "capacity":
 		flags := flag.NewFlagSet("capacity", flag.ContinueOnError)
 		node := flags.String("node", "", "registered node UUID")

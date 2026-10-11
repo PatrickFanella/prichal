@@ -145,6 +145,10 @@ def main():
         for role in ['listener', 'worker']:
             cert = make_certificate(role, certs[role], keys[role], ca, keys['ca'], now)
             publish(ROOT / f'pki/{role}.crt', cert.public_bytes(serialization.Encoding.PEM))
+        if (ROOT / 'worker-client').exists():
+            owned_private(ROOT / 'worker-client', True)
+            for name in ['ca.crt', 'worker.crt']:
+                publish(ROOT / 'worker-client' / name, (ROOT / 'pki' / name).read_bytes())
         run(['systemctl', '--user', 'restart', 'prichal-staging-enrollment.service'])
         env = os.environ.copy()
         owned_private(ROOT / 'admin.env')
@@ -168,8 +172,21 @@ def health():
         '--cert', str(ROOT / 'pki/worker.crt'), '--key', str(ROOT / 'pki/worker.key'),
         'https://127.0.0.1:22251/v1/capacity'])
     capacity = json.loads(result.stdout)
-    if capacity['maximumSlots'] != 1 or capacity['cpus'] != 3 or capacity['instanceIds']:
+    # Only namespaces retained by management placement are eligible for this node.
+    env = os.environ.copy()
+    owned_private(ROOT / 'admin.env')
+    for line in (ROOT / 'admin.env').read_text().splitlines():
+        name, value = line.split('=', 1)
+        env[name] = value
+    retained = json.loads(run([str(ROOT / 'bin/node-admin'), 'custody', '--node', NODE], env=env).stdout)
+    if not valid_custody(capacity, retained):
         raise ValueError('Staging capacity/custody changed')
+
+
+def valid_custody(capacity, retained):
+    observed = capacity['instanceIds']
+    return (capacity['maximumSlots'] == 1 and capacity['cpus'] == 3 and isinstance(retained, list)
+            and len(set(observed)) == len(observed) and set(observed).issubset(set(retained)))
 
 
 def record(now, renewed, node):

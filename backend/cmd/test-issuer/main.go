@@ -5,6 +5,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/auth"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testissuer"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -23,15 +24,19 @@ func run() error {
 	if err := settings.Validate(); err != nil {
 		return err
 	}
-	// The fixture command deliberately has a fixed loopback address and issuer.
-	if settings.Issuer != "http://localhost:5556" {
-		return errors.New("test issuer command requires http://localhost:5556")
+	address := os.Getenv("PDS_TEST_ISSUER_LISTEN")
+	if address == "" {
+		address = "127.0.0.1:5556"
+	}
+	host, port, err := net.SplitHostPort(address)
+	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() || settings.Issuer != "http://localhost:"+port {
+		return errors.New("test issuer requires a matching loopback listener and localhost issuer")
 	}
 	issuer, err := testissuer.New(settings.Issuer, settings.ClientID, settings.Origin+"/api/auth/callback")
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: "127.0.0.1:5556", Handler: issuer.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
-	log.Print("isolated test issuer listening on 127.0.0.1:5556")
+	server := &http.Server{Addr: address, Handler: issuer.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	log.Printf("isolated test issuer listening on %s", address)
 	return server.ListenAndServe()
 }

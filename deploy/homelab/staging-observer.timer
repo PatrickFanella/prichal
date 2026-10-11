@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh private staging node measurements
+
+[Timer]
+OnActiveSec=10s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=prichal-staging-observer.service
+
+[Install]
+WantedBy=timers.target

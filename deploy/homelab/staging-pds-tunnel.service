@@ -1,0 +1,13 @@
+[Unit]
+Description=Private ingress for the retained Prichal staging PDS
+After=prichal-staging-vm.service
+Wants=prichal-staging-vm.service
+
+[Service]
+ExecStart=/usr/bin/ssh -N -p 22250 -i /mnt/fast1/apps/prichal-staging/admin.key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/mnt/fast1/apps/prichal-staging/known_hosts -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ControlMaster=no -o ControlPath=none -L 127.0.0.1:37409:127.0.0.1:37409 prichal@127.0.0.1
+Restart=always
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -36,7 +36,7 @@ func (a *fakeAgent) Status(context.Context, nodeagent.Peer, string) (nodeagent.I
 	return a.status, nil
 }
 func (a *fakeAgent) Capacity(context.Context, nodeagent.Peer) (nodeagent.Capacity, error) {
-	return nodeagent.Capacity{MaximumSlots: 2, InstanceIDs: []string{a.status.ID}}, nil
+	return nodeagent.Capacity{MaximumSlots: 2, CPUs: 3, MemoryBytes: 4 << 30, InstanceIDs: []string{a.status.ID}}, nil
 }
 func (a *fakeAgent) Usage(context.Context, nodeagent.Peer, string) (nodeagent.Usage, error) {
 	return nodeagent.Usage{}, errors.New("usage unavailable")

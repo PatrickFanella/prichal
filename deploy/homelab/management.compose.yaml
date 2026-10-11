@@ -1,0 +1,57 @@
+name: prichal-staging-management
+services:
+  api:
+    image: ${STAGING_MANAGEMENT_IMAGE:?pinned local image required}
+    command: [/bin/api]
+    network_mode: host
+    env_file: ["${STAGING_MANAGEMENT_ROOT}/api.env"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    cpus: 0.5
+    mem_limit: 256m
+    restart: unless-stopped
+    volumes:
+      - "${STAGING_MANAGEMENT_ROOT}/keys:/keys:ro"
+      - "${STAGING_MANAGEMENT_ROOT}/artifacts:/artifacts"
+  issuer:
+    image: ${STAGING_MANAGEMENT_IMAGE:?pinned local image required}
+    command: [/bin/test-issuer]
+    network_mode: host
+    env_file: ["${STAGING_MANAGEMENT_ROOT}/issuer.env"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 128m
+    restart: unless-stopped
+  worker:
+    image: ${STAGING_MANAGEMENT_IMAGE:?pinned local image required}
+    command: [/bin/worker]
+    network_mode: host
+    env_file: ["${STAGING_MANAGEMENT_ROOT}/worker.env"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    cpus: 1
+    mem_limit: 512m
+    restart: unless-stopped
+    volumes:
+      - "${STAGING_CONTROL_ROOT}/worker-client:/client:ro"
+      - "${STAGING_MANAGEMENT_ROOT}/keys:/keys:ro"
+      - "${STAGING_MANAGEMENT_ROOT}/artifacts:/artifacts"
+  observer:
+    image: ${STAGING_MANAGEMENT_IMAGE:?pinned local image required}
+    command: [/bin/monitor]
+    network_mode: host
+    env_file: ["${STAGING_MANAGEMENT_ROOT}/worker.env"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 128m
+    profiles: [qualification]
+    volumes:
+      - "${STAGING_CONTROL_ROOT}/worker-client:/client:ro"

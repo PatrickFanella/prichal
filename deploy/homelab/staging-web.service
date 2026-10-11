@@ -1,0 +1,12 @@
+[Unit]
+Description=Prichal private staging management web
+After=network-online.target
+
+[Service]
+ExecStart=/home/onnwee/.local/share/mise/installs/node/24.15.0/bin/node /home/onnwee/.local/state/prichal-staging-management/release/management-web.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target

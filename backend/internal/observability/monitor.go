@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,7 +56,15 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 		subject := "node/" + peer.NodeID
 		findings = append(findings, Finding{Subject: subject, Kind: "host_unavailable", Active: err != nil})
 		if err == nil {
+			if err = (fleet.Store{Pool: pool}).RecordCapacity(ctx, peer.NodeID, capacity.MaximumSlots, capacity.CPUs, capacity.MemoryBytes, capacity.InstanceIDs); err != nil {
+				_, _ = pool.Exec(ctx, `UPDATE hosting_nodes SET last_verified_at=NULL WHERE id=$1`, peer.NodeID)
+				return nil, err
+			}
 			findings = append(findings, Finding{Subject: subject, Kind: "capacity_exhausted", Active: len(capacity.InstanceIDs) >= capacity.MaximumSlots})
+		} else {
+			if _, err = pool.Exec(ctx, `UPDATE hosting_nodes SET last_verified_at=NULL WHERE id=$1`, peer.NodeID); err != nil {
+				return nil, err
+			}
 		}
 		rows, err := pool.Query(ctx, `SELECT d.id::text,d.state,d.updated_at,coalesce(c.desired_state,'running'),coalesce(c.state,'applied'),coalesce(c.generation,0),coalesce(c.id::text,'') FROM deployments d LEFT JOIN LATERAL (SELECT id,desired_state,state,generation FROM service_operations WHERE deployment_id=d.id AND kind='service' ORDER BY generation DESC LIMIT 1) c ON true JOIN instance_placements p ON p.deployment_id=d.id WHERE p.node_id=$1 ORDER BY d.id LIMIT 1001`, peer.NodeID)
 		if err != nil {

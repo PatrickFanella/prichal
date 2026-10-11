@@ -166,6 +166,20 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if runtime.withdrawals != withdrawalCalls {
 		t.Fatal("unregistered peer reached withdrawal runtime")
 	}
+	// A running worker must read renewed files and must not fall back after corruption.
+	workerPath := filepath.Join(directory, "worker")
+	if err = os.WriteFile(workerPath, []byte("invalid replacement"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.Capacity(context.Background(), peer); err == nil {
+		t.Fatal("startup certificate snapshot used after invalid replacement")
+	}
+	if err = os.WriteFile(workerPath, workerPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.Capacity(context.Background(), peer); err != nil {
+		t.Fatal("retained worker did not recover after certificate publication", err)
+	}
 }
 
 func (r *clientRuntime) Usage(_ context.Context, id string) (Usage, error) {

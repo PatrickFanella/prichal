@@ -17,7 +17,7 @@ func (f fixture) Capacity(context.Context, nodeagent.Peer) (nodeagent.Capacity, 
 	if f.down {
 		return nodeagent.Capacity{}, errors.New("PRIVATE SECRET MUST NEVER ENTER OBSERVATIONS")
 	}
-	return nodeagent.Capacity{MaximumSlots: 0}, nil
+	return nodeagent.Capacity{MaximumSlots: 0, CPUs: 3, MemoryBytes: 4 << 30}, nil
 }
 func (f fixture) Status(context.Context, nodeagent.Peer, string) (nodeagent.Instance, error) {
 	return nodeagent.Instance{}, errors.New("PRIVATE RECORD")
@@ -162,7 +162,7 @@ func TestUsageRetainsPriorSampleAndRejectsOlderReplacement(t *testing.T) {
 type usageObserver struct{ pressure, missing bool }
 
 func (f usageObserver) Capacity(context.Context, nodeagent.Peer) (nodeagent.Capacity, error) {
-	return nodeagent.Capacity{MaximumSlots: 2}, nil
+	return nodeagent.Capacity{MaximumSlots: 2, CPUs: 3, MemoryBytes: 4 << 30}, nil
 }
 func (f usageObserver) Status(_ context.Context, _ nodeagent.Peer, id string) (nodeagent.Instance, error) {
 	return nodeagent.Instance{ID: id, Endpoint: nodeagent.LocalEndpoint(id), State: "running", Healthy: true}, nil
