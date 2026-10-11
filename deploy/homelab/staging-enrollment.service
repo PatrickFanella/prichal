@@ -1,0 +1,13 @@
+[Unit]
+Description=Prichal private staging qualification enrollment authority
+After=network-online.target
+
+[Service]
+EnvironmentFile=/home/onnwee/.local/state/prichal-staging-control/admin.env
+ExecStart=/home/onnwee/.local/state/prichal-staging-control/bin/node-admin serve
+Restart=on-failure
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=default.target
