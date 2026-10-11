@@ -19,6 +19,11 @@ spec.loader.exec_module(operator)
 
 
 class CertificateTests(unittest.TestCase):
+    def test_only_retained_placements_are_admitted_by_renewal(self):
+        capacity = {'maximumSlots':1,'cpus':3,'instanceIds':['retained-fixture']}
+        self.assertTrue(operator.valid_custody(capacity,['retained-fixture']))
+        self.assertFalse(operator.valid_custody(capacity,[]))
+        self.assertFalse(operator.valid_custody({**capacity,'instanceIds':['retained-fixture','retained-fixture']},['retained-fixture']))
     def setUp(self):
         self.now = dt.datetime.now(dt.timezone.utc)
         self.key = ec.generate_private_key(ec.SECP256R1())

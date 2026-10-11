@@ -1,8 +1,7 @@
 // Disposable local OIDC fixture client. Never use it for a live management origin.
 import assert from 'node:assert/strict';
-const origin='http://localhost:5173';
-const issuer='http://localhost:5556';
-export async function localOwnerClient(owner='alice') {
+export async function localOwnerClient(owner='alice', {origin='http://localhost:5173',issuer='http://localhost:5556'}={}) {
+ for (const value of [origin,issuer]) { const url=new URL(value); assert.ok(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)&&!url.username&&!url.password&&url.pathname==='/'&&!url.search&&!url.hash&&url.origin===value,'Private loopback fixture origins required'); }
  assert.ok(['alice','bob'].includes(owner),'Known disposable owner required');
  const cookies=new Map();
  async function call(url,options={}) {

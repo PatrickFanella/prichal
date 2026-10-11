@@ -1,0 +1,9 @@
+[Unit]
+Description=Measure the private Prichal staging hosting node
+After=prichal-staging-agent-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker compose --env-file /home/onnwee/.local/state/prichal-staging-management/runtime.env -f /home/onnwee/.local/state/prichal-staging-management/management.compose.yaml run --rm --no-deps observer
+TimeoutStartSec=120
+UMask=0077
