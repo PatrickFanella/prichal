@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the fixed private Prichal staging node certificates
+After=prichal-staging-vm.service prichal-staging-agent-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python /home/onnwee/.local/state/prichal-staging-control/renew-staging-certificates.py
+UMask=0077
+TimeoutStartSec=180

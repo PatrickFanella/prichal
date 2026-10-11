@@ -36,3 +36,7 @@ Local placement reserves a slot in PostgreSQL while locking the deployment and c
 Schema version 4 adds the node registry, bootstrap hashes and placement records. Restart the API after an operator command upgrades the local database. The required smoke gate verifies enrollment expiry/replay, CSR role restrictions, certificate trust and concurrent reservation without oversubscription.
 
 This completes local protocol qualification only. Provider selection, cloud bootstrap, secret custody, production certificate rotation and capacity measurements remain open under #3, #6, #11 and #20.
+
+## Private operator renewal
+
+`node-admin renew --node UUID --out FILE` renews an active local registry identity using its retained public key and endpoint. It preserves bootstrap consumption, rejects registry key/role/hostname drift and caps the new server leaf at 24 hours or the CA expiry. The output must be a new private file. The public API/HTTP enrollment route receives no renewal authority. Publish the certificate to the retained node and verify authentication; committing the registry checkpoint alone does not prove installation. See [the fixed staging operator](live-staging-certificate-renewal.md) for qualified publication and timer behavior.
