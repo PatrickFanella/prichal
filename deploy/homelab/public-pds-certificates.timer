@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly certificate inspection for the fixed Kvant public pilot
+
+[Timer]
+OnActiveSec=30
+OnCalendar=hourly
+AccuracySec=1
+Unit=prichal-public-pds-certificates.service
+
+[Install]
+WantedBy=timers.target
