@@ -24,6 +24,8 @@ jobs:
           for script in scripts/*.mjs deploy/local/fixtures/*.mjs deploy/local/fixtures/*.cjs; do node --check "$script"; done
       - name: Start disposable PostgreSQL
         run: ./scripts/ci-db.sh start
+      - name: Verify fixed public pilot recovery boundaries
+        run: python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_reconcile.py' -v
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
       - name: Prepare customer CLI platform builds and verify Linux entry point

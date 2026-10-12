@@ -1,0 +1,11 @@
+[Unit]
+Description=Check retained Kvant public PDS recovery every minute
+
+[Timer]
+OnActiveSec=20
+OnCalendar=*-*-* *:*:00
+AccuracySec=1
+Unit=prichal-public-pds-reconcile.service
+
+[Install]
+WantedBy=timers.target

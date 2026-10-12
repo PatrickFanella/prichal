@@ -1,0 +1,12 @@
+[Unit]
+Description=Recover the retained Kvant public PDS through its fixed mTLS agent
+After=prichal-public-pds-vm.service prichal-public-pds-agent-tunnel.service prichal-public-pds-ingress-tunnel.service
+Requisite=prichal-public-pds-vm.service prichal-public-pds-agent-tunnel.service prichal-public-pds-ingress-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/onnwee/.local/state/prichal-kvant-public-pds/bin/reconcile-public-pds.py
+TimeoutStartSec=45
+UMask=0077
+NoNewPrivileges=yes
+
