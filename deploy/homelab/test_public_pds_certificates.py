@@ -59,6 +59,9 @@ class PublicCertificateLifecycle(unittest.TestCase):
         self.assertEqual(hashes['ca.key'], hashlib.sha256(before['ca.key']).hexdigest())
         for role, purpose in [('agent', 'sslserver'), ('worker', 'sslclient')]:
             self.command('verify', '-x509_strict', '-CAfile', path / 'ca.crt', '-purpose', purpose, path / (role + '.crt'))
+        # Canonical naming is stable across Ubuntu and Arch OpenSSL versions.
+        self.assertEqual(self.command('x509', '-in', path / 'agent.crt', '-subject',
+                         '-nameopt', 'RFC2253', '-noout').strip(), b'subject=CN=pds-ass-agent')
 
     def test_foreign_csr_is_refused_before_signing(self):
         _, path, candidate = self.fixture()
@@ -119,6 +122,21 @@ class PublicCertificateLifecycle(unittest.TestCase):
         self.assertTrue((path / 'rollback-verified.json').exists())
         for name, source in sources.items():
             self.assertEqual(source.read_bytes(), (before / name).read_bytes())
+
+    def test_uncertain_activation_cannot_roll_back_trust_until_bytes_match(self):
+        path = self.root / 'run'
+        path.mkdir(mode=0o700)
+        (path / 'before').mkdir(mode=0o700)
+        source = self.root / 'agent.crt'
+        source.write_bytes(b'old')
+        (path / 'before/agent.crt').write_bytes(b'old')
+        (path / 'staging.json').write_text('{"runtime":{"id":"retained"}}')
+        with patch.object(guest, 'material', return_value={'agent.crt': source}), patch.object(guest, 'runtime', return_value={'id': 'retained'}), patch.object(guest, 'private', side_effect=lambda p, owner=None: p.read_bytes()):
+            self.assertTrue(guest.rollback_verified(path))
+            source.write_bytes(b'candidate')
+            self.assertFalse(guest.rollback_verified(path))
+            source.write_bytes(b'concurrent')
+            self.assertFalse(guest.rollback_verified(path))
 
 
 if __name__ == '__main__':

@@ -159,6 +159,7 @@ def main():
                 run(['systemctl', '--user', 'stop', 'prichal-public-pds-reconcile.service'])
                 candidate = guest('prepare', run=run_id)
                 hashes = stage(path, candidate, recovery)
+                (path / 'source-hashes.json').write_text(json.dumps(hashes))
                 trust({'action': 'prepare', 'run': run_id, 'old': candidate['old'], 'new': candidate['new']})
                 prepared = True
                 guest('qualify-rollback' if sys.argv[1:] == ['--qualify-rollback'] else 'activate', run=run_id,
@@ -168,6 +169,9 @@ def main():
                     raise RuntimeError('Host PKI changed during activation; inspect receipts')
                 for name in ['ca.crt', 'agent.crt', 'worker.crt']:
                     publish(ROOT / 'pki' / name, (path / name).read_bytes())
+                if any(hashlib.sha256((ROOT / 'pki' / name).read_bytes()).hexdigest() != hashes[name]
+                       for name in ['ca.key', 'worker.key']):
+                    raise RuntimeError('Retained host key changed; inspect receipts')
                 final = guest('check')
                 if final['runtime'] != initial['runtime']:
                     raise RuntimeError('Retained runtime changed after renewal')

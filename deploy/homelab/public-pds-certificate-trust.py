@@ -44,7 +44,7 @@ def validate(value, current=False):
             if result.returncode or hashlib.sha256(result.stdout).hexdigest() != KEY_HASH:
                 raise RuntimeError('Pilot public key differs')
             expected = 'subject=CN=' + INSTANCE + '.localhost'
-            if run('openssl', 'x509', '-in', str(path), '-noout', '-subject').decode().strip() != expected:
+            if run('openssl', 'x509', '-in', str(path), '-noout', '-nameopt', 'RFC2253', '-subject').decode().strip() != expected:
                 raise RuntimeError('Pilot subject differs')
             if current:
                 run('openssl', 'verify', '-CAfile', str(path), '-purpose', 'sslserver', '-verify_hostname', INSTANCE + '.localhost', str(path))

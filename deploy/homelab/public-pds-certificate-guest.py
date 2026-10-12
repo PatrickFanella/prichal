@@ -138,7 +138,7 @@ def validate_candidates(path):
         if pubkey(path / (role + '.crt'), True) != pubkey(live, True):
             raise RuntimeError('Candidate changed retained key')
     for role, expected in [('ca', 'prichal-kvant-public-pds-ca'), ('agent', 'pds-ass-agent')]:
-        if run('openssl', 'x509', '-in', path / (role + '.crt'), '-subject', '-noout').decode().strip() != 'subject=CN=' + expected:
+        if run('openssl', 'x509', '-in', path / (role + '.crt'), '-subject', '-nameopt', 'RFC2253', '-noout').decode().strip() != 'subject=CN=' + expected:
             raise RuntimeError('Wrong certificate identity')
     now = dt.datetime.now(dt.timezone.utc).timestamp()
     for role in ['agent', 'ingress']:
@@ -179,6 +179,13 @@ def activate(value, fail=False):
     return {'activated': True, 'runtimeRetained': True}
 
 
+def rollback_verified(path):
+    report = json.loads(private(path / 'staging.json', 0))
+    return (runtime() == report['runtime']
+            and all(private(source) == private(path / 'before' / name, 0)
+                    for name, source in material().items()))
+
+
 def main():
     os.umask(0o077)
     value = json.loads(sys.stdin.buffer.read(65537))
@@ -195,10 +202,7 @@ def main():
         result = activate(value, action == 'qualify-rollback')
     else:
         path = target(value['run'])
-        report = json.loads(private(path / 'staging.json', 0))
-        result = {'rollbackVerified': (path / 'rollback-verified.json').exists()
-                  and runtime() == report['runtime']
-                  and all(private(source) == private(path / 'before' / name, 0) for name, source in material().items())}
+        result = {'rollbackVerified': rollback_verified(path)}
     print(json.dumps(result))
 
 

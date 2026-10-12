@@ -32,7 +32,7 @@ Full pinned `./scripts/dev.sh smoke` exited 0 with 44 Node checks, frontend buil
 
 ## Certificate validity, independent checkpoint and rollback
 
-The dedicated CA expires January 9, 2027 at 23:53:46 UTC. Agent/operator leaves expire October 18 at 23:53:46 UTC; private ingress expires October 18 at 23:56:05 UTC. These are independent of the existing staging-node and Dozor certificate timers. Renewal/expiry alerting for this new pilot is not automated. Qualify that lifecycle before unattended operation; initialization deliberately refuses retained PKI.
+The dedicated CA expires January 9, 2027 at 23:53:46 UTC. Agent/operator leaves expire October 18 at 23:53:46 UTC; private ingress expires October 18 at 23:56:05 UTC. These are independent of the existing staging-node and Dozor certificate timers. The subsequent [retained-key lifecycle](live-kvant-public-pds-certificates.md) qualifies forced renewal/rollback and installs hourly expiry inspection. Current validity is recorded there; naturally due renewal and routed expiry alerts remain unverified. Initialization deliberately refuses retained PKI.
 
 A cleanly stopped guest archive captures its disk, SSH/operator state, agent/native databases/blobs and current private pilot/PKI custody plus host units. AES-256-GCM ciphertext is retained on Kvant under `~/.local/state/prichal-public-pds-recovery/20261012/` and Dozor at `/srv/recovery/kvant/prichal-public-pds/kvant-public-pds-20261012.pvm`, SHA-256 `97909c0b48f315a881cf22098bd924380f9f1f0a9ee48552c955967366e94e11`. A new dedicated 32-byte recovery key is separately retained under `~/.local/state/prichal-public-pds-recovery/keys/kvant-public-pds-9f148c55.key` on both hosts. The existing `/srv/recovery/kvant` parent owner was preserved.
 
