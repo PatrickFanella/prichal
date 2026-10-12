@@ -1,0 +1,40 @@
+groups:
+- name: prichal-kvant-public-pds-certificates
+  rules:
+  - alert: PrichalKvantPublicPDSCertificateExpiring
+    expr: prichal_kvant_public_pds_certificate_not_after_seconds > 0 and prichal_kvant_public_pds_certificate_not_after_seconds - time() < 2 * 86400
+    for: 15m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Public Kvant PDS certificate expires within two days
+      description: Inspect fixed pilot renewal and guest/Almaz receipts before expiry.
+  - alert: PrichalKvantPublicPDSCertificateInspectionFailed
+    expr: prichal_kvant_public_pds_certificate_inspection_ok != 1
+    for: 5m
+    labels:
+      severity: critical
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Public Kvant PDS certificate inspection failed
+  - alert: PrichalKvantPublicPDSCertificateTelemetryStale
+    expr: absent(prichal_kvant_public_pds_certificate_received_seconds) or time() - prichal_kvant_public_pds_certificate_received_seconds > 900
+    for: 10m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Public Kvant PDS certificate status is missing or stale
+  - alert: PrichalKvantPublicPDSCertificateRenewalFailed
+    expr: prichal_kvant_public_pds_certificate_operator_success != 1 or time() - prichal_kvant_public_pds_certificate_operator_last_success_seconds > 7200
+    for: 10m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Public Kvant PDS renewal failed or missed its heartbeat

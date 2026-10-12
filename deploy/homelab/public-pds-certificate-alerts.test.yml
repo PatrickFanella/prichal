@@ -1,0 +1,105 @@
+rule_files:
+- public-pds-certificate-alerts.yml
+evaluation_interval: 1m
+tests:
+- name: nearing expiry retains the certificate role
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_not_after_seconds{host="dozor",role="worker"}
+    values: '86400+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalKvantPublicPDSCertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        role: worker
+        severity: warning
+      exp_annotations:
+        summary: Public Kvant PDS certificate expires within two days
+        description: Inspect fixed pilot renewal and guest/Almaz receipts before expiry.
+- name: fresh validity does not alert
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_not_after_seconds{host="dozor",role="ingress"}
+    values: '604800+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalKvantPublicPDSCertificateExpiring
+    exp_alerts: []
+- name: stale operator heartbeat alerts despite previous success
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_operator_success{host="dozor"}
+    values: '1+0x150'
+  - series: prichal_kvant_public_pds_certificate_operator_last_success_seconds{host="dozor"}
+    values: '0+0x150'
+  alert_rule_test:
+  - eval_time: 132m
+    alertname: PrichalKvantPublicPDSCertificateRenewalFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Public Kvant PDS renewal failed or missed its heartbeat
+- name: missing telemetry cannot silently appear healthy
+  interval: 1m
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PrichalKvantPublicPDSCertificateTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Public Kvant PDS certificate status is missing or stale
+
+- name: stale delivery is detected independently of Kvant
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_received_seconds{host="dozor"}
+    values: '0+0x40'
+  alert_rule_test:
+  - eval_time: 27m
+    alertname: PrichalKvantPublicPDSCertificateTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Public Kvant PDS certificate status is missing or stale
+- name: corrupt inspection produces critical alert
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_inspection_ok{host="dozor"}
+    values: '0+0x15'
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: PrichalKvantPublicPDSCertificateInspectionFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: critical
+      exp_annotations:
+        summary: Public Kvant PDS certificate inspection failed
+- name: failed renewal alerts before heartbeat ages out
+  interval: 1m
+  input_series:
+  - series: prichal_kvant_public_pds_certificate_operator_success{host="dozor"}
+    values: '0+0x30'
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PrichalKvantPublicPDSCertificateRenewalFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Public Kvant PDS renewal failed or missed its heartbeat

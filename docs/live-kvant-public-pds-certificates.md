@@ -26,7 +26,7 @@ All 34 homelab tests passed, including seven new real OpenSSL CSR/profile, forei
 
 ## Receipts, failure and rollback
 
-Host run receipts and public candidates are private under `~/.local/state/prichal-kvant-public-pds/renewals/`; `last-certificates.json` records success, renewal/rollback state, role expiry, check time and bounded error type. Inspect that receipt and the user service journal for operator failure. This is scheduled expiry inspection, not routed alert delivery. No new metrics publisher or notification route was installed.
+Host run receipts and public candidates are private under `~/.local/state/prichal-kvant-public-pds/renewals/`; `last-certificates.json` records success, renewal/rollback state, role expiry, check time and bounded error type. Inspect that receipt and the user service journal for operator failure. This is scheduled expiry inspection, not routed alert delivery. A subsequent [read-only status publisher and alert qualification](live-kvant-public-pds-alerts.md) connects receipts to existing Dozor monitoring; it preserves existing notification routes and mutes.
 
 An uncertain guest activation response retains overlapping Almaz trust unless the fixed guest helper proves original certificate bytes and runtime custody. The coordinator never rolls trust back independently after successful guest activation; public failure retains new trust and records failure for inspection. Guest rollback refuses concurrent file changes. Staging and root-only copies remain available for scoped recovery. Never restore an active duplicate of this identity.
 
