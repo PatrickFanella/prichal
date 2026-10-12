@@ -1,0 +1,12 @@
+[Unit]
+Description=Inspect and renew retained keys for the fixed Kvant public PDS
+After=prichal-public-pds-vm.service prichal-public-pds-agent-tunnel.service
+Requisite=prichal-public-pds-vm.service prichal-public-pds-agent-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/onnwee/.local/state/prichal-kvant-public-pds/bin/renew-public-pds-certificates.py
+TimeoutStartSec=600
+UMask=0077
+NoNewPrivileges=yes
+

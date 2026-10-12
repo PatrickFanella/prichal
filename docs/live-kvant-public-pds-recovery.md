@@ -22,6 +22,6 @@ The original private staging VM and Kuznya retained PIDs 1994020 and 930757. Exi
 
 ## Limits and rollback
 
-Physical Kvant reboot is untested. Certificate renewal/expiry alerting remains a separate gate: this timer cannot recover expired credentials or replace trust. Agent/operator certificates still expire October 18, 2026 at 23:53:46 UTC; private ingress expires at 23:56:05 UTC. Account enrollment, downstream federation, populated restore and production management provisioning remain open.
+Physical Kvant reboot is untested. This recovery timer cannot replace expired trust. The subsequent [retained-key lifecycle](live-kvant-public-pds-certificates.md) renews credentials and records current validity; naturally due renewal and routed expiry alerts remain unverified. Account enrollment, downstream federation, populated restore and production management provisioning remain open.
 
 To roll back only this automation, disable/stop `prichal-public-pds-reconcile.timer`, stop its oneshot service, and retain the script, mTLS material and receipts. Manual authenticated reconciliation remains available. Preserve the VM, both local tunnels, edge route, volumes and all earlier PDS services. The earlier encrypted checkpoint predates these units; install the reviewed final recovery/tunnel units during an isolated restore rather than activating a second live identity.
