@@ -1,0 +1,11 @@
+# Public AT Protocol surface; separate from the protected management dashboard.
+http://prichal-staging-pds.subcult.tv {
+ reverse_proxy https://172.20.0.1:34945 {
+  header_up Host prichal-staging-pds.subcult.tv
+  header_up X-Forwarded-Proto https
+  transport http {
+   tls_trust_pool file /etc/caddy/certs/prichal-kvant-public-pds.crt
+   tls_server_name 9f148c55-da61-486b-97f4-50df26b65893.localhost
+  }
+ }
+}

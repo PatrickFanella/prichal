@@ -1,0 +1,13 @@
+[Unit]
+Description=Private ingress transport to Kvant public staging PDS
+After=prichal-public-pds-vm.service
+Wants=prichal-public-pds-vm.service
+
+[Service]
+ExecStart=/usr/bin/ssh -N -T -o ControlMaster=no -o ControlPath=none -p 22260 -i /mnt/fast1/apps/prichal-public-pds/admin.key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/mnt/fast1/apps/prichal-public-pds/known_hosts -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:36724:127.0.0.1:36724 prichal@127.0.0.1
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target
