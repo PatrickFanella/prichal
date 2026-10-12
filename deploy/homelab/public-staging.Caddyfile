@@ -1,0 +1,5 @@
+# Import from Almaz's existing prichal.Caddyfile; TLS terminates at Cloudflare.
+http://prichal-staging.subcult.tv {
+ import authelia
+ reverse_proxy 172.20.0.1:34944
+}
