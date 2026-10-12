@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish public Kvant pilot status every five minutes
+
+[Timer]
+OnActiveSec=20
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=1
+Unit=prichal-public-pds-metrics.service
+
+[Install]
+WantedBy=timers.target

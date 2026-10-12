@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish bounded public Kvant pilot expiry and operator status
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/onnwee/.local/state/prichal-kvant-public-pds-metrics/publish.py
+TimeoutStartSec=45
+UMask=0077
+NoNewPrivileges=yes
+
