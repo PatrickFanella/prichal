@@ -18,4 +18,4 @@ await new Promise((resolve,reject)=>{
  const req=https.request(origin+'/xrpc/com.atproto.sync.subscribeRepos',{headers:{Connection:'Upgrade',Upgrade:'websocket','Sec-WebSocket-Version':'13','Sec-WebSocket-Key':randomBytes(16).toString('base64'),'User-Agent':'prichal-qualification/1'},timeout:10000});
  req.on('upgrade',(response,socket)=>{socket.destroy();response.statusCode===101?resolve():reject(Error('WebSocket upgrade failed'));});req.on('response',response=>{response.resume();reject(Error('WebSocket rejected'));});req.on('error',reject);req.on('timeout',()=>req.destroy(Error('WebSocket timed out')));req.end();
 });
-console.log(JSON.stringify({origin,health:'0.4.5036',serviceDID:'did:web:prichal-staging-pds.subcult.tv',oauthIssuerExact:true,accounts:0,xrpcSignupClosed:true,oauthSignupClosed:true,publicWebSocket:true}));
+console.log(JSON.stringify({origin,health:'0.4.5036',serviceDID:'did:web:prichal-staging-pds.subcult.tv',oauthIssuerExact:true,repositories:0,xrpcSignupClosed:true,oauthSignupClosed:true,publicWebSocket:true}));
