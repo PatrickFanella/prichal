@@ -1,0 +1,11 @@
+[Unit]
+Description=Isolated recovery qualification of the public Kvant PDS checkpoint
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /mnt/fast1/apps/prichal-public-pds-restore-20261012/restore-public-pds-vm.py launch
+ExecStop=/usr/bin/python3 /mnt/fast1/apps/prichal-public-pds-restore-20261012/restore-public-pds-vm.py powerdown --pid $MAINPID
+TimeoutStopSec=120
+MemoryMax=5G
+CPUQuota=300%
+UMask=0077
