@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://prichal.subcult.tv/sitemap.xml
