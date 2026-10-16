@@ -5,11 +5,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
 	"os"
+	"regexp"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func New(t *testing.T) *pgxpool.Pool { return create(t, "pds_smoke_", 8) }
@@ -57,7 +60,7 @@ func create(t *testing.T, prefix string, size int) *pgxpool.Pool {
 		// Forced drops can wait on checkpoint I/O when many packages run in parallel.
 		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if _, err := admin.Exec(cleanup, "DROP DATABASE "+identifier+" WITH (FORCE)"); err != nil {
+		if err := dropDisposableDatabase(cleanup, admin, name); err != nil {
 			t.Errorf("drop disposable database: %v", err)
 		}
 		admin.Close()
@@ -72,4 +75,27 @@ func create(t *testing.T, prefix string, size int) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	return pool
+}
+
+var disposableName = regexp.MustCompile(`^(pds_smoke_[0-9a-f]{16}|pds_recovery_[0-9a-f]{32})$`)
+
+func dropDisposableDatabase(ctx context.Context, admin *pgxpool.Pool, name string) error {
+	if !disposableName.MatchString(name) {
+		return errors.New("refusing cleanup of a non-disposable database name")
+	}
+	var parent string
+	if err := admin.QueryRow(ctx, `SELECT current_database()`).Scan(&parent); err != nil {
+		return err
+	}
+	if parent != "pds_local" && parent != "pds_ci" {
+		return errors.New("test admin must target pds_local or pds_ci")
+	}
+	identifier := pgx.Identifier{name}.Sanitize()
+	// FORCE terminates existing sessions but does not fence new connection attempts.
+	// Close admission first so an asynchronous reconnect cannot race the drop.
+	if _, err := admin.Exec(ctx, "ALTER DATABASE "+identifier+" ALLOW_CONNECTIONS false"); err != nil {
+		return err
+	}
+	_, err := admin.Exec(ctx, "DROP DATABASE "+identifier+" WITH (FORCE)")
+	return err
 }

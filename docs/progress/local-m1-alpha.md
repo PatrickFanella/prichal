@@ -1,5 +1,15 @@
 # Local M1 implementation progress
 
+## Disposable database cleanup fence — October 16, 2026
+
+PR #158 merged as `a2249008279969e3cb4d8f6c60417b5e11f274df` and closed #155. Its PR-head CI passed, but [merged-main run 15733](https://git.subcult.tv/subculture-collective/prichal/actions/runs/15733/jobs/28951) failed in the billing test's database cleanup: `DROP DATABASE ... WITH (FORCE)` returned SQLSTATE `55006`, database still accessed by other users. The recorded failure is a test teardown failure, not a public-record link assertion. It remains failed; no rerun is treated as a repair.
+
+A deterministic regression probe opens a second PostgreSQL connection immediately before the drop. The original DROP-only behavior admitted it for both smoke and recovery namespaces. Cleanup now first disables admission to the exact generated database, then force-drops existing sessions. The local/CI parent check is repeated at cleanup, and only the allocator's exact smoke/recovery name formats are accepted. Invalid names and a non-local/CI parent are refused without changing admission. Prepared-transaction, permission, timeout or drop failures remain errors; there is no broad cleanup or automatic admission reset.
+
+Twenty race-enabled runs of `backend/internal/testdb` passed, including connection refusal with SQLSTATE `55000`, existing-session termination and removal of both database types. Ten race-enabled runs of the CI-named billing test passed. The full pinned `./scripts/dev.sh smoke` gate then passed against separate `prichal-storage-qualification` PostgreSQL: 44 Node checks, frontend production build, Go vet and all Go race packages. Its generated smoke/recovery databases were removed and its PostgreSQL container was stopped, retaining the management volume. The incidental package-manager lockfile edit was removed.
+
+This reproduces the missing admission fence, not the intermittent hosted `55006` timing itself. The original merged-main check is still failed until a separate hosted repair/merge check proves recovery. No application route, runtime data, production database or email-factor feature changed; #153 remains next feature work after this CI repair.
+
 ## Public records link — October 15, 2026
 
 Issue #155's link-out option is implemented in the existing first-account section. Valid completed enrollment exposes a fixed-origin PDSls link containing only the public DID; `.test` handles receive a local-fixture explanation. Denied, unavailable, pending, foreign and malformed responses expose no link. No native credentials, new backend reads or third-party embeds are added.
