@@ -41,6 +41,8 @@ Local PostgreSQL binds to `127.0.0.1:35433`; the API defaults to `127.0.0.1:8080
 
 This installs from the lockfile, builds the interface, runs Go vet and race-enabled tests, and creates a uniquely named disposable smoke database. The smoke test applies migrations twice, checks real database-backed readiness, rejects a future schema version, checks an unavailable connection, and verifies signed OIDC, sessions, CSRF and organization isolation. It drops only its own smoke database. The configured parent database must be named `pds_local` or `pds_ci`.
 
+Disposable cleanup closes its pool, rejects database names outside the generated smoke/recovery namespaces, verifies the local/CI parent again, disables new connections to the disposable database, then drops it with `FORCE`. Disabling admission prevents a reconnect from racing session termination and removal. A cleanup failure remains a test failure; it does not trigger broad database deletion or reopen admission. Inspect the exact failed disposable database before retrying cleanup. [PostgreSQL's connection-admission setting](https://www.postgresql.org/docs/17/sql-alterdatabase.html) and [forced-drop limits](https://www.postgresql.org/docs/17/sql-dropdatabase.html) describe the underlying behavior.
+
 The Gitea workflow runs the same gate against a new tmpfs-backed PostgreSQL container using disposable CI credentials. It needs a Docker-backed runner with Docker CLI and daemon access; the job records its own container ID and cleans up only that labeled container. Cloud secrets are unnecessary. A queued workflow is not a verified CI result.
 
 To check failure recovery in the browser:
