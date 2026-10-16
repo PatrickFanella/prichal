@@ -1,5 +1,15 @@
 # Local M1 implementation progress
 
+## Running PDS release observations — October 16, 2026
+
+PR #160 merged as `71089bb5de6646963f9a814394ff2c602d216f6a`, closed #153, and passed both PR-head and merged-main CI.
+
+Issue #154 now has a complete agent-to-monitor-to-owner/operator projection. The restricted agent binds the running container's image reference to its immutable image ID and matching manifest digest, then reads the OCI version label from that image. Schema 36 stores the observation against the current placement; missing evidence is unknown and observations older than one minute are stale. Owners see only their organization, while audited operator inspection shows the same release alongside a separate cached upstream lookup. A failed or superseded owner poll cannot retain a foreign or denied deployment list.
+
+The operator lookup has a fixed official URL, three-second deadline, 64 KiB limit, no redirects, one in-flight request per API process, one-hour success cache and five-minute failure cache. Page requests return without waiting. The official latest-release endpoint returned 404 on this date, matching the absence of published upstream GitHub releases; the live result is unknown. The screen does not authorize or start an upgrade.
+
+A native read-only Engine check on fresh isolated fixture `d89e737f-ffec-42e0-954f-5e8bc0f1b441` observed `0.4.5036` and the pinned manifest digest through the new observer, then stopped the fixture successfully. It used an idle process from the official image, not a PDS account journey. Thirteen controlled browser cases passed, including stale/malformed/missing-version states, owner permission loss/recovery, foreign scope, late success after denial, operator inspection/denial and upstream failure, with zero mutations and no owner upstream requests. Three viewport widths had no horizontal overflow. Full pinned smoke passed: 44 Node checks, frontend build, Go vet and all Go race packages. [Evidence and coordinated schema/agent rollout](../local-pds-release-observations.md) records limits and rollback requirements. Hosted CI, merge and deployment remain separate.
+
 ## Native email sign-in codes — October 16, 2026
 
 PR #159 merged as `0e4358884fb94cdeeab1b34bf14fcdab0895f70b`; both its PR-head and merged-main checks passed. The earlier failed main run remains retained as history.

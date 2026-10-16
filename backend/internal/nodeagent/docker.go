@@ -177,6 +177,7 @@ type inspected struct {
 		RW          bool
 	}
 	ID     string
+	Image  string
 	Config struct {
 		User   string
 		Image  string

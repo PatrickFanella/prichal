@@ -31,6 +31,7 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 	}
 	var findings []Finding
 	var samples []nodeagent.Usage
+	var releases []releaseSample
 	nodes, err := pool.Query(ctx, `SELECT id::text,agent_endpoint,public_key_hash FROM hosting_nodes WHERE enrolled_at IS NOT NULL ORDER BY id LIMIT 101`)
 	if err != nil {
 		return nil, err
@@ -96,6 +97,11 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 				continue
 			}
 			status, err := observer.Status(ctx, peer, instance.id)
+			var release *nodeagent.RuntimeRelease
+			if err == nil && status.ID == instance.id && status.Endpoint == nodeagent.LocalEndpoint(instance.id) && status.State == "running" && status.Release != nil && status.Release.Valid() {
+				release = status.Release
+			}
+			releases = append(releases, releaseSample{id: instance.id, node: peer.NodeID, runtime: release, checkedAt: time.Now().UTC()})
 			bad := err != nil || status.ID != instance.id || status.Endpoint != nodeagent.LocalEndpoint(instance.id) || status.State != "running" || !status.Healthy
 			if instance.phase != "applied" {
 				bad = true
@@ -172,7 +178,7 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 		return nil, err
 	}
 	findings = append(findings, Finding{Subject: "management", Kind: "recovery_held", Active: held}, Finding{Subject: "management", Kind: "backup_unconfigured", Active: true})
-	if err = recordScan(ctx, pool, findings, samples); err != nil {
+	if err = recordScan(ctx, pool, findings, samples, releases); err != nil {
 		return nil, err
 	}
 	return findings, nil
@@ -182,7 +188,7 @@ func Scan(ctx context.Context, pool *pgxpool.Pool, observer Observer) ([]Finding
 func Record(ctx context.Context, pool *pgxpool.Pool, findings []Finding) error {
 	return recordScan(ctx, pool, findings, nil)
 }
-func recordScan(ctx context.Context, pool *pgxpool.Pool, findings []Finding, samples []nodeagent.Usage) error {
+func recordScan(ctx context.Context, pool *pgxpool.Pool, findings []Finding, samples []nodeagent.Usage, releaseBatches ...[]releaseSample) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -207,6 +213,22 @@ func recordScan(ctx context.Context, pool *pgxpool.Pool, findings []Finding, sam
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO instance_usage(deployment_id,data_bytes,blob_bytes,data_files,blob_files,accounts,measured_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(deployment_id) DO UPDATE SET data_bytes=excluded.data_bytes,blob_bytes=excluded.blob_bytes,data_files=excluded.data_files,blob_files=excluded.blob_files,accounts=excluded.accounts,measured_at=excluded.measured_at,recorded_at=now() WHERE instance_usage.measured_at<=excluded.measured_at`, sample.InstanceID, sample.DataBytes, sample.BlobBytes, sample.DataFiles, sample.BlobFiles, sample.Accounts, time.UnixMilli(sample.ObservedAtMillis)); err != nil {
 			return err
+		}
+	}
+	for _, batch := range releaseBatches {
+		for _, sample := range batch {
+			if sample.checkedAt.IsZero() {
+				return errors.New("runtime release observation time required")
+			}
+			var reference, imageID, version any
+			if sample.runtime != nil && sample.runtime.Valid() {
+				reference = sample.runtime.ImageRef
+				imageID = sample.runtime.ImageID
+				version = sample.runtime.Version
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO instance_runtime_releases(deployment_id,node_id,image_ref,image_id,version,checked_at) SELECT $1,$2,$3,$4,$5,$6 FROM instance_placements WHERE deployment_id=$1 AND node_id=$2 ON CONFLICT(deployment_id) DO UPDATE SET node_id=excluded.node_id,image_ref=excluded.image_ref,image_id=excluded.image_id,version=excluded.version,checked_at=excluded.checked_at`, sample.id, sample.node, reference, imageID, version, sample.checkedAt); err != nil {
+				return err
+			}
 		}
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO service_probe_runs(singleton,completed_at) VALUES(true,now()) ON CONFLICT(singleton) DO UPDATE SET completed_at=excluded.completed_at`); err != nil {

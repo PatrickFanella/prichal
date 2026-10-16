@@ -34,6 +34,7 @@ func unavailable(w http.ResponseWriter, err error) {
 
 // Register exposes fixed support actions without Docker, native credentials or impersonation.
 func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http.ServeMux) {
+	upstream := newUpstreamCache()
 	return func(mux *http.ServeMux) {
 		bind := func(pattern string, mutation, operator bool, handler func(http.ResponseWriter, *http.Request, auth.Session, string)) {
 			mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +79,9 @@ func (s *Store) Register(sessions Sessions, actions *lifecycle.Store) func(*http
 		}
 		bind("GET /api/operator/session", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
 			reply(w, 200, map[string]string{"role": role})
+		})
+		bind("GET /api/operator/pds-upstream-release", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
+			reply(w, 200, upstream.snapshot())
 		})
 		bind("GET /api/operator/nodes", false, true, func(w http.ResponseWriter, r *http.Request, session auth.Session, role string) {
 			view, err := s.Nodes(r.Context(), session.OwnerID)
