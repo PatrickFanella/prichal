@@ -181,6 +181,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const state = expired ? 'expired' : operation?.state;
   const canWithdraw = !!operation && ['invitation_ready', 'expired', 'failed'].includes(operation.state ?? '') && operation.withdrawalAttempts < 3;
   const canRecover = !operation || (!operation.withdrawalRequested && ['expired', 'failed', 'superseded', 'cancelled'].includes(state ?? '')) || state === 'withdrawn';
+  const completedAccount = loaded && !loadError && !withdrawalId && !cancellationId && operation?.did && valid(operation, deploymentId) && (state === 'account_created' || state === 'verified');
   return <section className="first-account" aria-label="First AT account">
     <h4>First account</h4>
     {admission?.open === false && <p role="status">New first-account requests are paused. Retained requests and account status remain available. Already-issued invitations remain valid until expiry.</p>}
@@ -196,7 +197,14 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your server</a></p>
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
-    {loaded && !loadError && !withdrawalId && !cancellationId && operation?.did && valid(operation, deploymentId) && (state === 'account_created' || state === 'verified') && <div className="public-account-records">
+    {completedAccount && <div className="native-account-security">
+      <h5>Email sign-in codes</h5>
+      <p>Status unknown. Prichal does not read your native account session or change this setting.</p>
+      <p>In Bluesky, open Settings → Privacy and security → Two-factor authentication. Confirm your account email, then enable email sign-in codes there. Enter your password and codes only in your client or on your server’s sign-in page.</p>
+      <p>Keep access to that mailbox. Codes protect new password sign-ins; existing sessions and app passwords are separate. Review app passwords in your client. Check that your chosen client asks for the code before relying on it.</p>
+      <p>If you lose mailbox access, keep any signed-in client open and recover the mailbox with your email provider. Contact hosting support if that fails. Prichal has no automatic mailbox-recovery or factor-disable flow; never send support your password or a sign-in code.</p>
+    </div>}
+    {completedAccount && operation && <div className="public-account-records">
       <h5>Public records and media</h5>
       <p>Records and media published by this account are public.</p>
       {operation.handle?.endsWith('.test') ? <p>Local test accounts cannot be opened in a public browser.</p> : <>

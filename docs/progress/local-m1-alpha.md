@@ -1,5 +1,13 @@
 # Local M1 implementation progress
 
+## Native email sign-in codes — October 16, 2026
+
+PR #159 merged as `0e4358884fb94cdeeab1b34bf14fcdab0895f70b`; both its PR-head and merged-main checks passed. The earlier failed main run remains retained as history.
+
+Issue #153 now has an independent `./scripts/pds-local.sh qualify-email-factor` command. Two fresh native Linux fixtures confirmed email, enabled the pinned PDS email factor, refused password-only login with `AuthFactorTokenRequired`, accepted captured mail, and rejected invalid/reused codes. App-password login remained exempt; existing sessions remained usable. Token-free disable and anonymous state/mutation were refused. Generated passwords/tokens/codes were absent from allocated fixture stdout/stderr, and no management jobs/exports/audits were involved. Final private report `0a3e350a-05c6-4368-9465-50c53a434f8e` records PASS and stopped containers with no stop failures. A failed initial request remains separate.
+
+Completed first-account views now explain native setup, mailbox access, app-password/session limits, unknown factor status and the absence of automatic mailbox recovery or factor reset. Eleven controlled browser states, polling authorization loss/recovery and three viewport widths passed without credential controls or mutations. Full pinned smoke passed (44 Node checks, frontend build, Go vet and all Go race packages). [Qualification, recovery authority and OAuth/live-mail limits](../local-native-email-factor.md) records the provider-browser gap explicitly allowed by #153. No real account factor, production policy, native password handling or gatekeeper proxy changed.
+
 ## Disposable database cleanup fence — October 16, 2026
 
 PR #158 merged as `a2249008279969e3cb4d8f6c60417b5e11f274df` and closed #155. Its PR-head CI passed, but [merged-main run 15733](https://git.subcult.tv/subculture-collective/prichal/actions/runs/15733/jobs/28951) failed in the billing test's database cleanup: `DROP DATABASE ... WITH (FORCE)` returned SQLSTATE `55006`, database still accessed by other users. The recorded failure is a test teardown failure, not a public-record link assertion. It remains failed; no rerun is treated as a repair.
