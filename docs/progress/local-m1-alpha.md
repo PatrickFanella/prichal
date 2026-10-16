@@ -1,5 +1,11 @@
 # Local M1 implementation progress
 
+## Public records link — October 15, 2026
+
+Issue #155's link-out option is implemented in the existing first-account section. Valid completed enrollment exposes a fixed-origin PDSls link containing only the public DID; `.test` handles receive a local-fixture explanation. Denied, unavailable, pending, foreign and malformed responses expose no link. No native credentials, new backend reads or third-party embeds are added.
+
+Actual component/browser checks passed positive and negative response states, authorization loss/recovery on polling, four viewport widths and keyboard focus/activation. The resulting independent tab resolved the existing public pilot and displayed its collection/Blobs navigation, with no opener or referrer. Full pinned smoke passed; the final URL form also passed a frontend build. [Public-browser evidence and limits](../local-public-account-browser.md) distinguishes controlled management responses, the external live-pilot route and the still-disabled production management enrollment.
+
 ## Disposable storage failure qualification — October 15, 2026
 
 Issue #4 now has a separate `./scripts/pds-local.sh qualify-storage` command. The owner confirmed that its scope is disposable qualification, with production disk/plan quotas remaining in #16/#19 and the retained fixture's 32-account broker ceiling unchanged. The new command does not access that retained fixture or a management database.
