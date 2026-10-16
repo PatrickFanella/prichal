@@ -2,6 +2,10 @@
 # Workstation-only PDS qualification. Isolated from public identity infrastructure.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Fault injection allocates its own state; it must not create or use the retained fixture credentials.
+if [[ "${1:-}" == qualify-storage ]]; then
+  exec node scripts/qualify-pds-storage.mjs
+fi
 mkdir -p .local
 if [[ ! -f .local/pds.env ]]; then
   (umask 077; node --input-type=module > .local/pds.env <<'JS'
@@ -23,5 +27,5 @@ case "${1:-help}" in
   qualify-recovery) node scripts/qualify-recovery.mjs ;;
   restart) "${compose[@]}" restart pds ;;
   down) "${compose[@]}" down ;;
-  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|qualify-recovery|restart|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|qualify-storage|qualify-recovery|restart|down}\n'; exit 2 ;;
 esac
