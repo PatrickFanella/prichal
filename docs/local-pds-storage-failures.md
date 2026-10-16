@@ -22,7 +22,7 @@ The pinned PDS's `_health` endpoint is a process check. In the October 15 qualif
 
 Every normal success or failure stops all allocated long-lived containers. SIGINT/SIGTERM also attempt to stop every allocated container and write a failed report. Cleanup tries every container even if one stop fails; nonempty `stopFailures` requires operator inspection. The report names retained stopped containers and fresh volumes. The full-storage tmpfs disappears when its container stops; durable original data/blob volumes and the saved pre-corruption database remain.
 
-Credentials, SQLite files and the local PLC/mail fixture are private. Keep them in ignored state. The printed result and private JSON report contain no passwords, tokens, invitation codes or mail bodies. No resources are pruned or deleted by the command. After a hard kill, inspect only resources bearing the exact report UUID label before operating on them; do not restart a retained full-storage or corrupted-database fixture beside another writer.
+Credentials, SQLite files and the local PLC/mail fixture are private. Keep generated host files in ignored state. The printed result and private JSON report contain no passwords, tokens, invitation codes or mail bodies. Temporary network-disabled helper containers remove themselves; the command retains fixture volumes, networks and stopped long-lived containers without pruning other resources. After a hard kill, inspect only resources bearing the exact report UUID label before operating on them; do not restart a retained full-storage or corrupted-database fixture beside another writer.
 
 ## Scope of issue #4
 
