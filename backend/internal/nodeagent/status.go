@@ -72,6 +72,9 @@ func (d *Docker) runtimeStatus(ctx context.Context, id string) (Instance, error)
 		}
 	}
 	result := Instance{ID: id, State: "starting", Endpoint: d.endpoint(id)}
+	if current.State.Running {
+		result.Release = d.runtimeRelease(ctx, current)
+	}
 	if current.State.Running && edge.State.Running {
 		result.State = "running"
 		result.Healthy = current.State.Health.Status == "healthy" && d.healthProbe != nil && d.healthProbe(ctx, id)

@@ -70,3 +70,5 @@ button,input{font:inherit}button,.button{border:0;background:var(--ink);color:#f
 .endpoint-claim .endpoint-choice-review { max-width: 100%; box-sizing: border-box; }
 .endpoint-claim button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
 .endpoint-claim [tabindex="-1"]:focus { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.pds-release { overflow-wrap: anywhere; }

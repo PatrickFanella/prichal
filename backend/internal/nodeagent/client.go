@@ -119,7 +119,7 @@ func (c *Client) instance(ctx context.Context, peer Peer, id, method string) (In
 	var result Instance
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 2048))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting" && result.State != "suspended") || !validServiceMetadata(result) {
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting" && result.State != "suspended") || !validServiceMetadata(result) || (result.Release != nil && !result.Release.Valid()) {
 		return Instance{}, errors.New("invalid node reconciliation response")
 	}
 	return result, nil

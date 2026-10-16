@@ -65,6 +65,8 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"NCPU": 8, "MemTotal": 8 << 30})
 		case path == "/containers/json":
 			_ = json.NewEncoder(w).Encode([]any{})
+		case r.Method == "GET" && strings.HasPrefix(path, "/images/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"Id": "sha256:" + strings.Repeat("a", 64), "RepoDigests": []string{"ghcr.io/bluesky-social/pds@" + strings.Split(PDSImage, "@")[1]}, "Config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.version": "0.4.5036"}}})
 		case r.Method == "GET" && strings.HasPrefix(path, "/containers/"):
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/json")
 			payload, exists := configurations[name]
@@ -87,7 +89,7 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 				}
 			}
 			slices.Reverse(mounts) // Engine inspection does not promise mount order.
-			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
+			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Image": "sha256:" + strings.Repeat("a", 64), "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
 				if config, ok := payload["NetworkingConfig"].(map[string]any); ok {
 					return config["EndpointsConfig"].(map[string]any)
 				}
@@ -193,7 +195,7 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 	readOnly = true
 	docker.healthProbe = func(context.Context, string) bool { return true }
 	result, err := docker.Status(context.Background(), id)
-	if err != nil || !result.Healthy {
+	if err != nil || !result.Healthy || result.Release == nil || result.Release.ImageRef != PDSImage {
 		t.Fatalf("inspection: %+v %v", result, err)
 	}
 	for _, user := range []string{"", "0", "12345:12345"} {

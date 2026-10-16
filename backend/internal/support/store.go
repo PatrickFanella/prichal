@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/observability"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -69,6 +70,22 @@ func (s *Store) Inspect(ctx context.Context, owner, role, id string) (json.RawMe
  'managementRecovery',COALESCE((SELECT state FROM management_recovery),'unconfigured'),
  'lifecycle',COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',l.kind,'state',l.state,'desiredState',l.desired_state,'generation',l.generation,'reason',l.reason)) FROM service_operations l WHERE l.deployment_id=d.id AND l.generation=(SELECT max(x.generation) FROM service_operations x WHERE x.deployment_id=d.id AND x.kind=l.kind)),'[]'::jsonb)
  ) FROM deployments d WHERE d.id=$1`, id).Scan(&view)
+	if err != nil {
+		return nil, err
+	}
+	release, err := observability.DeploymentRelease(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	var projection map[string]json.RawMessage
+	if err = json.Unmarshal(view, &projection); err != nil {
+		return nil, err
+	}
+	projection["release"], err = json.Marshal(release)
+	if err != nil {
+		return nil, err
+	}
+	view, err = json.Marshal(projection)
 	if err != nil {
 		return nil, err
 	}

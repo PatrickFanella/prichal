@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PDSRelease, UpstreamPDSRelease } from './pds-release';
 import type { FormEvent } from 'react';
 import { LifecycleActivity } from './lifecycle-activity';
 import { HostingNodes } from './hosting-nodes';
@@ -8,7 +9,7 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 function object(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function errorMessage(value: unknown): string { return object(value) && typeof value.error === 'string' ? value.error : 'Support evidence is temporarily unavailable.'; }
 export { LifecycleActivity } from './lifecycle-activity';
-type Tenant = { instanceId: string; organizationId: string; name: string; state: string; kind: string; managedHostname: string; billing: unknown; hostingGrant: unknown; lifecycle: unknown; incidents: unknown; usage: unknown; domainProof: unknown; managementRecovery: unknown };
+type Tenant = { release?: unknown; instanceId: string; organizationId: string; name: string; state: string; kind: string; managedHostname: string; billing: unknown; hostingGrant: unknown; lifecycle: unknown; incidents: unknown; usage: unknown; domainProof: unknown; managementRecovery: unknown };
 function tenant(value: unknown, id: string): value is Tenant { return object(value) && value.instanceId === id && typeof value.organizationId === 'string' && uuid.test(value.organizationId) && typeof value.name === 'string' && typeof value.state === 'string' && ['queued', 'configuring', 'checking', 'ready', 'failed'].includes(value.state) && (value.kind === 'agent' || value.kind === 'test') && typeof value.managedHostname === 'string'; }
 function state(value: unknown): string { return object(value) && typeof value.state === 'string' ? value.state : 'Unconfigured'; }
 export function SupportWorkspace({ csrfToken, ownerId }: { csrfToken: string; ownerId: string }) {
@@ -78,12 +79,14 @@ export function SupportWorkspace({ csrfToken, ownerId }: { csrfToken: string; ow
   }
   if (!role) return request.current || blocked ? <section className="support-workspace" aria-label="Retained operator access"><p role="alert">Current operator access could not be confirmed. Retained browser metadata remains preserved and no action will be submitted automatically.</p><button type="button" onClick={() => { void loadRole(); }}>Check operator access</button></section> : null;
   return <section className="support-workspace" aria-labelledby="support-heading"><h3 id="support-heading">Operator support</h3><p>Role: {role === 'operate' ? 'Inspection and lifecycle actions' : 'Inspection only'}. Inspection is audited. Customer sign-in and data are never impersonated.</p>
+    <UpstreamPDSRelease key={`upstream:${ownerId}`}/>
     <HostingNodes key={ownerId} ownerId={ownerId}/>
     <form onSubmit={event => { event.preventDefault(); void inspect(reference, kind); }}><label htmlFor="support-kind">Reference type</label><select id="support-kind" value={kind} onChange={event => setKind(event.target.value)} disabled={busy || request.current !== null}><option value="deployment">Instance</option><option value="organization">Organization</option></select><label htmlFor="support-reference">Exact reference UUID</label><input id="support-reference" value={reference} onChange={event => setReference(event.target.value.trim().toLowerCase())} maxLength={36} required disabled={busy || request.current !== null}/><button disabled={busy || !uuid.test(reference)}>Inspect</button></form>
     {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}{outcome && <p role="status" ref={result} tabIndex={-1}>{outcome}</p>}
     <OperatorLifecycleRecovery key={`${ownerId}:${request.current?.key ?? 'invalid'}`} intent={request.current} blocked={blocked} disabled={busy} role={role} onState={setReceiptState} onRole={setRole} onUnconfirmed={() => { setView(null); setResults([]); setReviewed(false); }} onClose={closeConfirmedRetry}/>
     {results.length > 0 && <ul>{results.map(item => <li key={item.instanceId}>{item.name}: {item.state} <button type="button" disabled={busy} onClick={() => { void inspect(item.instanceId); }}>Inspect instance</button></li>)}</ul>}{truncated && <p>Only the first 100 instances are shown. Inspect an exact instance reference for other records.</p>}
     {view && <><h4>{view.name}</h4><p>Instance {view.instanceId}. Organization {view.organizationId}. {view.state}.</p><dl><div><dt>Hostname</dt><dd>{view.managedHostname}</dd></div><div><dt>Billing observation</dt><dd>{object(view.billing) && view.billing.source === 'local_fixture' ? 'Local fixture: ' : ''}{state(view.billing)}</dd></div><div><dt>Local hosting grant</dt><dd>{state(view.hostingGrant)}</dd></div></dl>
+      {view.kind === 'agent' && <PDSRelease value={view.release}/>}
       {object(view.usage) && <p>Observed storage: {typeof view.usage.dataBytes === 'number' && typeof view.usage.blobBytes === 'number' ? ((view.usage.dataBytes + view.usage.blobBytes) / 1048576).toFixed(2) : 'Unknown'} MiB. Measured {typeof view.usage.measuredAt === 'string' ? new Date(view.usage.measuredAt).toLocaleString() : 'Unknown'}.</p>}
       <p>Domain proof: {state(view.domainProof)}. Management recovery: {typeof view.managementRecovery === 'string' ? view.managementRecovery : 'Unknown'}.</p>
       {Array.isArray(view.lifecycle) && <ul>{view.lifecycle.filter(object).map((item, index) => <li key={index}>{typeof item.kind === 'string' ? item.kind : 'Lifecycle'}: {typeof item.desiredState === 'string' ? item.desiredState : 'Unknown'}, {state(item)}.</li>)}</ul>}

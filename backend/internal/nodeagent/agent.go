@@ -13,14 +13,15 @@ import (
 
 // Instance contains no runtime credentials or host administration details.
 type Instance struct {
-	ID                string `json:"id"`
-	State             string `json:"state"`
-	Port              string `json:"port"`
-	Endpoint          string `json:"endpoint"`
-	Healthy           bool   `json:"healthy"`
-	ServiceGeneration int64  `json:"serviceGeneration,omitempty"`
-	ServiceTicket     string `json:"serviceTicket,omitempty"`
-	ServicePhase      string `json:"servicePhase,omitempty"`
+	Release           *RuntimeRelease `json:"release,omitempty"`
+	ID                string          `json:"id"`
+	State             string          `json:"state"`
+	Port              string          `json:"port"`
+	Endpoint          string          `json:"endpoint"`
+	Healthy           bool            `json:"healthy"`
+	ServiceGeneration int64           `json:"serviceGeneration,omitempty"`
+	ServiceTicket     string          `json:"serviceTicket,omitempty"`
+	ServicePhase      string          `json:"servicePhase,omitempty"`
 }
 
 // Runtime reconciles a stable, service-owned instance ID.

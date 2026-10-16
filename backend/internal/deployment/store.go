@@ -40,18 +40,19 @@ type Event struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 type Operation struct {
-	Service         observability.Status      `json:"service"`
-	Usage           observability.UsageStatus `json:"usage"`
-	ManagedHostname string                    `json:"managedHostname"`
-	Endpoint        string                    `json:"endpoint"`
-	Kind            string                    `json:"kind"`
-	ID              string                    `json:"id"`
-	OrganizationID  string                    `json:"organizationId"`
-	Name            string                    `json:"name"`
-	Region          string                    `json:"region"`
-	State           string                    `json:"state"`
-	Message         string                    `json:"message"`
-	Events          []Event                   `json:"events"`
+	Release         observability.ReleaseStatus `json:"release"`
+	Service         observability.Status        `json:"service"`
+	Usage           observability.UsageStatus   `json:"usage"`
+	ManagedHostname string                      `json:"managedHostname"`
+	Endpoint        string                      `json:"endpoint"`
+	Kind            string                      `json:"kind"`
+	ID              string                      `json:"id"`
+	OrganizationID  string                      `json:"organizationId"`
+	Name            string                      `json:"name"`
+	Region          string                      `json:"region"`
+	State           string                      `json:"state"`
+	Message         string                      `json:"message"`
+	Events          []Event                     `json:"events"`
 }
 type Args struct {
 	DeploymentID string `json:"deploymentId"`
@@ -173,6 +174,10 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Operation, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return op, ErrNotFound
 	}
+	if err != nil {
+		return op, err
+	}
+	op.Release, err = observability.DeploymentRelease(ctx, s.Pool, id)
 	if err != nil {
 		return op, err
 	}
