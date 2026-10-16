@@ -196,6 +196,14 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       <p><a href={operation.accountUrl} target="_blank" rel="noreferrer">Open account creation on your server</a></p>
     </>}
     {(state === 'account_created' || state === 'verified') && <p>{operation?.handle}. {operation?.emailConfirmed ? 'Email confirmed.' : 'Email confirmation pending.'}</p>}
+    {loaded && !loadError && !withdrawalId && !cancellationId && operation?.did && valid(operation, deploymentId) && (state === 'account_created' || state === 'verified') && <div className="public-account-records">
+      <h5>Public records and media</h5>
+      <p>Records and media published by this account are public.</p>
+      {operation.handle?.endsWith('.test') ? <p>Local test accounts cannot be opened in a public browser.</p> : <>
+        <p><a href={`https://pdsls.dev/at/${operation.did}`} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">View public records in PDSls (opens in a new tab)</a></p>
+        <p>PDSls is an independent service. You can browse without signing in. If it is unavailable, return here to keep managing your server.</p>
+      </>}
+    </div>}
     {!withdrawalId && !cancellationId && loaded && (canRecover || request) && <button type="button" disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
     {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || !!cancellationId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
     {withdrawalId && <p role="status">An unconfirmed withdrawal request is retained in this browser tab. Invitation copying, account creation and replacement are paused. Any retry uses the same invitation ticket.</p>}
