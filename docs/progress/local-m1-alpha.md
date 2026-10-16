@@ -1,5 +1,15 @@
 # Local M1 implementation progress
 
+## Disposable storage failure qualification — October 15, 2026
+
+Issue #4 now has a separate `./scripts/pds-local.sh qualify-storage` command. The owner confirmed that its scope is disposable qualification, with production disk/plan quotas remaining in #16/#19 and the retained fixture's 32-account broker ceiling unchanged. The new command does not access that retained fixture or a management database.
+
+On native Linux Kvant, the final run `810a461d-9f24-4575-a3bd-57214e40656a` passed account/record/image persistence across restart, stopped-runtime 502, bounded 8 MiB tmpfs ENOSPC and upload failure/recovery, corrupt SQLite refusal, and restored login/record/image checks. Every allocated container stopped; no stop failed. Earlier failed fixture attempts remain recorded privately. Full storage left process `_health` at 200 while uploads returned 500, so process health alone is insufficient storage readiness evidence. The [storage runbook](../local-pds-storage-failures.md) records isolation, custody, interruption handling and limits.
+
+An explicit SIGTERM after the persistence checkpoint exited 130 and retained failed report `d5532c45-9bf2-446d-ad45-02028d42413d`, with every allocated fixture stopped and no stop failures. The stopped resources remain available for inspection; no volumes were pruned.
+
+The pinned `./scripts/dev.sh smoke` gate passed: 44 Node checks, frontend production build, Go vet and every race-enabled Go package. Its PostgreSQL database uses the separate `prichal-storage-qualification` project and volume. The package-manager bootstrap's incidental lockfile edit was removed. Hosted CI, merge and deployment remain separate; no live PDS or public identity changed.
+
 The user chose local build and verification first on 2026-09-30. No staging host, provider, public PDS domain or cloud budget has been selected. The foundation was merged in PR #31. Owner authentication was merged in PR #32. Durable deployments continue on `feat/durable-deployments`.
 
 M1 depends on the M0 foundation. This branch begins with issue #1, then qualifies the disposable official PDS runtime from issue #4. Live infrastructure work remains pending. Neither local readiness nor a healthy PDS proves public federation or completes M1.
@@ -19,7 +29,7 @@ M1 depends on the M0 foundation. This branch begins with issue #1, then qualifie
 - `./scripts/pds-local.sh qualify` passed health, unauthenticated admin rejection, invitation requirement, `.test` handle domain, unknown-host rejection (421), WebSocket upgrade, invitation persistence across restart, blob-volume canary persistence, and SQLite integrity for all three databases.
 - Stopping the PDS produced a 502 through ingress; starting it restored the same checks.
 - The PDS has isolated networking, separate persistent SQLite/blob volumes, generated secrets, CPU/memory/PID caps and no Docker socket. Caddy publishes only a loopback port.
-- Actual account/record/upload fixtures, disk/account enforcement and database/storage fault injection remain pending under #4. A volume canary is not a repository blob test.
+- Account/record/upload qualification was subsequently added. The October 15 [disposable storage-fault drill](../local-pds-storage-failures.md) adds bounded ENOSPC, corrupt SQLite refusal and recovery evidence. Production disk/account-plan enforcement remains under #16/#19; a volume canary alone is not a repository blob test.
 
 ## Owner authentication implementation
 

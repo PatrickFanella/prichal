@@ -7,6 +7,7 @@ This fixture runs the official Bluesky PDS through Caddy on <http://localhost:25
 ./scripts/pds-local.sh check
 ./scripts/pds-local.sh qualify
 ./scripts/pds-local.sh qualify-account
+./scripts/pds-local.sh qualify-storage
 ```
 
 `qualify` creates a one-use invitation, checks SQLite integrity, writes a temporary blob-volume canary, restarts the PDS, verifies persistence, stops the PDS to check the proxy's failure response, and starts it again. The canary is removed afterward. The unused invitation remains in this disposable fixture. The command restarts only the `pds-ass-runtime` PDS; run it when no other local work is using this fixture.
@@ -26,7 +27,7 @@ The ingress uses local HTTP. Public DNS, ACME/TLS and live federation are separa
 
 ## Evidence limits
 
-The health endpoint is an upstream process check. The qualification script separately reads actual SQLite integrity and verifies an invitation through the admin protocol. The blob canary proves volume persistence, not an authenticated upload or repository record. Storage exhaustion and corrupted database behavior still need isolated fixtures. The separate account journey now verifies authenticated uploads and repository data. Do not mark issue #4 or M1 complete from these checks alone.
+The health endpoint is an upstream process check. The qualification script separately reads actual SQLite integrity and verifies an invitation through the admin protocol. The blob canary proves volume persistence, not an authenticated upload or repository record. The separate account journey verifies authenticated uploads and repository data. The [fresh storage-fault harness](local-pds-storage-failures.md) now verifies bounded filesystem exhaustion, corrupted SQLite refusal and recovery without touching this retained fixture. A full blob store can leave upstream `_health` at 200 while uploads fail; process health alone is insufficient readiness evidence. M1's public enrollment and hosting gates remain separate.
 
 The local protocol fixture uses the pinned PDS image's upstream PLC library to validate creation, signatures and operation history. It accepts only localhost PDS endpoints and rejects forged updates. It captures SMTP mail only for `.invalid` recipients, without delivery. Identity history and captured mail persist in a separate `protocol-data` volume. Its HTTP inspection port is loopback-only at `2582`; captured messages contain verification codes, so treat this volume as private. The fixture has internal and loopback ingress networks; the PDS has only the internal network and cannot contact public `plc.directory`. Do not create production identities in CI. For live qualification, select a designated staging PDS domain, approved email sender and disposable live account explicitly, then record DID/handle resolution, record/blob reads, stream events and downstream visibility separately.
 
