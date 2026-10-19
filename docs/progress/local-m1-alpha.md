@@ -1,5 +1,11 @@
 # Local M1 implementation progress
 
+## Owner member invitation browser — October 19, 2026
+
+Issue #117 now has owner browser controls after confirmed first-account creation: list invitation/member identities, prepare a single-use code, explicitly check native use, and review withdrawal of an unused invitation. Same-tab request identifiers retain submission and uncertain withdrawal retries; codes stay out of storage and URLs. Denied or malformed reads clear codes, expiry hides them, and losing first-account authorization removes the panel. Accepted accounts remain preserved.
+
+Controlled browser checks passed all nine states, lost responses, retained retries across remounts, withdrawal acknowledgement and focus, native-check dispatch, admission pause, access loss/recovery, unsafe response refusal, blocked storage, first-account integration, keyboard operation and three viewport widths. Full pinned smoke passed (46 Node tests, build, vet and all Go races); the final frontend build also passed. The disposable PostgreSQL had zero generated test databases and was stopped with its volume retained. [Member evidence and remaining gates](../local-member-invitations.md) distinguish today's controlled responses from the native journey already qualified on October 8 under #125. No production enablement or native mutation occurred. Member removal/migration policy, administrator permission, organization-domain handles and plan limits remain open; #117 is not complete.
+
 ## Hosted-preview backup rollout — October 19, 2026
 
 PR #162 merged as `90e571a26d88b6bfe9ef27ac349c3277150a4323`; PR-head and merged-main CI passed. Its exact standalone helper and systemd units are now installed on Dozor without changing the preview API/web images or management schema. The first manual service run completed successfully, producing a private 171,024-byte archive that independently checksum-verified and restored all 60 tables at schema 35. Its verifier stopped cleanly. The old pre-release SQL dump remains preserved.

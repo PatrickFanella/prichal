@@ -1,3 +1,4 @@
+import { MemberInvitations } from './member-invitations';
 import { HandleSetup } from './HandleSetup';
 import { useEffect, useRef, useState } from 'react';
 
@@ -235,6 +236,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       <button type="button" disabled={busy || !understood} onClick={() => { void cancelQueued(); }}>{cancellationId ? 'Retry queued cancellation' : 'Cancel queued enrollment'}</button>
       <button type="button" disabled={busy} onClick={() => { setCancellationReview(false); setUnderstood(false); window.setTimeout(() => cancellationLauncher.current?.focus(), 0); }}>Close review</button>
     </div>}
+    {completedAccount && <MemberInvitations deploymentId={deploymentId} csrfToken={csrfToken} />}
     {state === 'verified' && <HandleSetup deploymentId={deploymentId} csrfToken={csrfToken} />}
     {notice && <p role="status">{notice}</p>}{(error || loadError) && <p role="alert" ref={failure} tabIndex={-1}>{loadError || error}</p>}
   </section>;
