@@ -33,6 +33,10 @@ The API applies management migrations at startup and refuses a database with a n
 
 Check: `curl -H 'Host: prichal-app.subcult.tv' http://10.0.0.57:3090/api/readiness` returns `"ready":true` with the expected schema version.
 
+## Backup tooling prepared for review
+
+The [private backup runbook](hosted-preview-backups.md) describes the fixed-source dump helper, isolated restore checks, 14-backup retention and nightly systemd units prepared under #127. They are not installed on Dozor. The October 19 inspection still found only the old pre-release dump and no Prichal backup timer. Owner admission, monitoring, direct release fetching and live restore qualification remain open.
+
 ## Rollback
 
 Start the previous release's images with its commit: `PRICHAL_REVISION=<previous> docker compose up -d` from that release's `deploy/production`, then point `current` back. A migration cannot be undone this way; restore the dump into a fresh volume instead. To take the preview offline, run `docker compose down` (the volume is kept) and remove `sites/prichal.Caddyfile` and its import on Almaz.

@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly private Prichal preview backup and isolated restore check
+
+[Timer]
+OnCalendar=*-*-* 02:40:00
+RandomizedDelaySec=10min
+Persistent=true
+Unit=prichal-preview-backup.service
+
+[Install]
+WantedBy=timers.target

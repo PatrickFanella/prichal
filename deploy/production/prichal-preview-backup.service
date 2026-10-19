@@ -1,0 +1,23 @@
+[Unit]
+Description=Back up and verify the private Prichal preview database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=onnwee
+SupplementaryGroups=docker
+UMask=0077
+ExecStart=/usr/bin/python3 /srv/apps/prichal/operations/preview-backup.py backup
+TimeoutStartSec=10min
+TimeoutStopSec=30s
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/apps/prichal/backups
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=192M
+
