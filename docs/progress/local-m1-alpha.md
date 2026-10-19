@@ -1,5 +1,13 @@
 # Local M1 implementation progress
 
+## Hosted-preview backup rollout — October 19, 2026
+
+PR #162 merged as `90e571a26d88b6bfe9ef27ac349c3277150a4323`; PR-head and merged-main CI passed. Its exact standalone helper and systemd units are now installed on Dozor without changing the preview API/web images or management schema. The first manual service run completed successfully, producing a private 171,024-byte archive that independently checksum-verified and restored all 60 tables at schema 35. Its verifier stopped cleanly. The old pre-release SQL dump remains preserved.
+
+A second fresh copy of the actual archive reached `/api/readiness` with the exact deployed API image and synthetic loopback issuer after copied browser/CLI authentication rows were removed inside the clone. Schema remained 35, no worker started, all five qualification containers stopped, and live database/API/web IDs and start times matched their pre-rollout snapshot. This is matching-image application readiness, not real sign-in, job replay or public recovery cutover.
+
+The nightly timer is enabled/active for 02:40 Central plus up to ten minutes, next observed October 20 at 02:40:54 CDT. Its first natural trigger is pending. Canonical Dozor host evidence and rollback were committed in Machinum. [Rollout hashes and proof limits](../live-preview-backup-rollout.md) retain the private receipt paths and remaining #127 gates. Production owner admission remains open; monitoring/alert qualification and direct release fetching remain unfinished. The final issue readback showed that the owner closed #127 at 13:39 CDT after merging #162. That closure is preserved; this rollout does not claim the remaining checks passed.
+
 ## Hosted-preview backup tooling — October 19, 2026
 
 PR #161 merged as `72b8d0928755d6571a4246bead5c8a1cdaff9f73`, closed #154, and passed PR-head and merged-main CI. The live hosted preview remains a separate older release: read-only Dozor inspection found schema 35, one management owner, open owner admission with zero policy changes, one old pre-release dump and no Prichal backup timer. Readiness was healthy. No live release or policy was changed.

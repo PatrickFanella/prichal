@@ -1,6 +1,6 @@
 # Private preview database backups
 
-This delivers the backup tooling portion of #127. It is prepared for review and is not installed on Dozor. The October 19 read-only inspection found the preview healthy at management schema 35, one owner, open owner admission with zero policy changes, one old pre-release SQL dump, and no Prichal backup timer. These observations do not close any live hardening gate.
+This delivers the backup tooling portion of #127. The reviewed helper and systemd units from merged PR #162 were installed on Dozor on October 19. A live-source backup, isolated database restore and matching-image application-readiness restore passed. The nightly timer is enabled; its first natural execution remains pending. The preview application remains on schema 35 with its existing API/web images and open owner admission. [Live rollout evidence](live-preview-backup-rollout.md) records hashes, the private archive, schedule and remaining gates.
 
 `deploy/production/preview-backup.py` provides three commands:
 
@@ -30,7 +30,7 @@ On failure, inspect the systemd result and private artifacts. Verify whether the
 
 The archive covers management PostgreSQL only. Native PDS SQLite databases, blobs, identity keys, OIDC client configuration, external routing, off-host custody and host-loss recovery have separate owners and procedures. A matching restored schema and successful `pg_restore` do not establish application readiness, copied-session revocation, job reconciliation or a browser sign-in.
 
-## Reviewed installation on Dozor
+## Installation procedure on Dozor
 
 Install from an exact reviewed checkout without updating the preview API, web images or management schema. Keep a copy and hash of any prior helper/units for rollback. `/srv/apps/prichal/operations/preview-backup.py` is a stable operations artifact, independent of the active application release. The units run as the existing `onnwee` operator with Docker group access and private permissions.
 
@@ -53,7 +53,7 @@ sudo systemctl enable --now prichal-preview-backup.timer
 systemctl list-timers prichal-preview-backup.timer --no-pager
 ```
 
-The timer runs nightly at 02:40 in the host's timezone, with up to ten minutes of randomized delay and catch-up after downtime. The service has a ten-minute startup limit, a 30-second stop window and restricted writable paths. This runbook does not claim a nightly timer has run or a live preview dump has been restored. After installation, record exact helper/unit hashes, the first natural timer receipt, live-source restore qualification, failures and rollback evidence in this repository and the canonical Machinum Dozor host note; do not edit generated `~/.homelab/HOMELAB.md`.
+The timer runs nightly at 02:40 in the host's timezone, with up to ten minutes of randomized delay and catch-up after downtime. The service has a ten-minute startup limit, a 30-second stop window and restricted writable paths. The October 19 installation and manual live-source/application restore are recorded in the rollout evidence. The first natural nightly receipt remains pending. Record that receipt, later failures and rollback evidence in this repository and the canonical Machinum Dozor host note; do not edit generated `~/.homelab/HOMELAB.md`.
 
 Rollback disables only `prichal-preview-backup.timer`, waits for or safely interrupts its owned running service, then restores the reviewed prior helper/units if present and reloads systemd. Retain all backup files and stopped verification containers. No application/database rollback is needed because the helper does not modify their release or source data.
 
@@ -63,4 +63,4 @@ Fourteen deterministic Python tests passed, covering exact source/cleanup scope,
 
 Native full-schema qualification `15ab72c7-9f2a-4374-ab38-04e1ad85264f` built all 36 management migrations in a fresh source, seeded a synthetic owner/organization plus a row/identity-sequence canary, then dumped and restored 57 tables. The restored canary row, next sequence value and owner/organization relationship passed. Archive/receipt evidence remains in `.local/preview-backups/15ab72c7-9f2a-4374-ab38-04e1ad85264f/`. Both fixtures stopped; no source production data was copied. Earlier narrower and full-schema runs remain separate.
 
-A separate native SIGTERM during restore exited 1 with no success output and stopped both allocated source and restore containers. Its safe report is `.local/preview-backup-interruption.json`. Source application tests and public readiness remain separate from this synthetic restore. No live backup timer, owner-admission change, monitoring rule, release transport or canonical host-note change was applied. Those gates and an actual live-source/application-readiness restore remain open under #127.
+A separate native SIGTERM during restore exited 1 with no success output and stopped both allocated source and restore containers. Its safe report is `.local/preview-backup-interruption.json`. Source application tests and public readiness remain separate from this synthetic restore. Those implementation-qualification runs preceded deployment. The later rollout installed the timer, verified a live-source/application-readiness restore and updated the canonical host note. Natural nightly execution, production owner-admission closure, monitoring and direct release transport remain unverified by this rollout; the owner subsequently closed #127.

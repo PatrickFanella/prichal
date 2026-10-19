@@ -33,9 +33,9 @@ The API applies management migrations at startup and refuses a database with a n
 
 Check: `curl -H 'Host: prichal-app.subcult.tv' http://10.0.0.57:3090/api/readiness` returns `"ready":true` with the expected schema version.
 
-## Backup tooling prepared for review
+## Private preview backups
 
-The [private backup runbook](hosted-preview-backups.md) describes the fixed-source dump helper, isolated restore checks, 14-backup retention and nightly systemd units prepared under #127. They are not installed on Dozor. The October 19 inspection still found only the old pre-release dump and no Prichal backup timer. Owner admission, monitoring, direct release fetching and live restore qualification remain open.
+The fixed-source helper is installed at `/srv/apps/prichal/operations/preview-backup.py`. `prichal-preview-backup.timer` runs nightly at 02:40 Central plus up to ten minutes, retaining 14 generated backups after successful isolated restore verification. A manual live-source backup and matching-image application-readiness restore passed on October 19; the first natural nightly run remains pending. See the [backup runbook](hosted-preview-backups.md) and [rollout evidence](live-preview-backup-rollout.md). Owner-admission closure, monitoring/alert qualification and direct release fetching remain unverified by this rollout; the owner subsequently closed #127.
 
 ## Rollback
 
