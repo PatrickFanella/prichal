@@ -1,5 +1,15 @@
 # Local M1 implementation progress
 
+## Hosted-preview backup tooling — October 19, 2026
+
+PR #161 merged as `72b8d0928755d6571a4246bead5c8a1cdaff9f73`, closed #154, and passed PR-head and merged-main CI. The live hosted preview remains a separate older release: read-only Dozor inspection found schema 35, one management owner, open owner admission with zero policy changes, one old pre-release dump and no Prichal backup timer. Readiness was healthy. No live release or policy was changed.
+
+The backup portion of #127 now has a fixed-source host helper, isolated restore verification and nightly systemd units prepared for review. It uses the exact local preview PostgreSQL identity/image/volume, private files, a lock, checksummed custom-format dumps, a 256 MiB archive cap and 14-backup retention. It restores before marking success or pruning, and refuses further allocation at 15 archives or after an orphaned partial. The clone has no network, ports or persistent data volume. Docker contexts and caller registry credentials cannot redirect its host access. Dump/restore output cannot print private PostgreSQL errors into journals.
+
+Fourteen Python boundary/failure tests, Python syntax and systemd unit validation passed. Native full-schema fixture `15ab72c7-9f2a-4374-ab38-04e1ad85264f` applied all 36 management migrations and restored 57 tables, including a synthetic owner/organization relationship, canary row and sequence. Both source/restore fixtures stopped. A separate SIGTERM during restore exited 1 without success output and stopped both allocations. Full pinned smoke passed: 44 Node checks, frontend production build, Go vet and all Go race packages. The qualification PostgreSQL is stopped with its volume retained.
+
+The [backup runbook](../hosted-preview-backups.md) records reviewed installation, retention failure handling and rollback. No production backup/timer or host-note update was applied. A nightly live-source dump, actual application-readiness restore, production owner-admission closure, monitoring/alert drill, direct Dozor release fetching and canonical Dozor evidence remain open under #127. The synthetic restore does not establish live authentication, copied-session revocation or job reconciliation.
+
 ## Running PDS release observations — October 16, 2026
 
 PR #160 merged as `71089bb5de6646963f9a814394ff2c602d216f6a`, closed #153, and passed both PR-head and merged-main CI.
