@@ -90,3 +90,22 @@ Both listeners and every owned child closed before the driver wrote a passing re
 Private evidence is `.local/cli-loopback/99f85ae0-6cf4-41ba-affd-f50b8655050d/report.json`, `.local/issue-audit/native-cli-loopback-final.log` and `.local/issue-audit/native-cli-loopback-interruption.json`. The driver reused the unchanged `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` binary from the native offline drill above, built from CLI source at `79f53f0`. No customer CLI Go source changed between that source and this qualification. The report retains the exact qualifier hash; checksum metadata and binary bytes matched afterward.
 
 This qualifies native process, file and client-protocol behavior against a synthetic loopback fixture. It does not prove durable server work, real device approval/revocation, management authorization, native provisioning, published installation or other platforms. Issue #27 remains open.
+
+
+## Private Bash and Zsh completion sessions — October 20, 2026
+
+With Bash, Zsh, standard-library Python and the checksum-verified Linux AMD64 binary available:
+
+```sh
+PDS_QUALIFY_CLI_SHELLS=true python scripts/qualify-cli-shells.py
+```
+
+The opt-in qualifier generates the native binary's completion text, then registers it in fresh interactive Bash and Zsh PTYs. The sessions use private completion files, an isolated command path/configuration location and disabled personal startup/history settings. Zsh uses a private cache path with dump creation disabled. Nothing is installed into the user's shell profiles. Typed test lines receive a real Tab key, then a private editor widget captures and clears the buffer before it can execute a CLI command.
+
+Drill `d1b9cdb8-d78e-41ec-a7c6-308154f31a66` completed at `2026-10-20T11:30:59Z` with Bash **5.3.15** and Zsh **5.9.2**. Four editor-buffer checks passed in each shell: `sta` completed to `status`, `--dep` to `--deployment`, `--idem` to `--idempotency-key`, and an unmatched prefix stayed unchanged. Both shells exited 0 and were reaped. The private Zsh dump remained absent; standard personal history/cache metadata, the retained native binary and checksum metadata matched afterward.
+
+A separate fault probe changed one expected completion in a private copy of the qualifier. It exited 1 with a failed Bash-stage receipt, recorded the mismatch and still reaped the owned Bash PTY with exit 0. Independent before/after personal-history/cache metadata also matched. This verifies failure reporting and ordinary assertion cleanup; no stuck-shell or external-signal behavior is inferred from that probe.
+
+Private evidence is `.local/cli-shells/d1b9cdb8-d78e-41ec-a7c6-308154f31a66/report.json`, its private PTY transcripts, and `.local/issue-audit/native-cli-shells-failure.json`. Receipts retain the exact qualifier and binary hashes. The unchanged binary is the same `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` artifact used above. No CLI Go source, account, management API, PDS tenant, persistent user profile or published release changed.
+
+This closes the representative Bash/Zsh shell-session registration gap on this Linux host. Fish was unavailable and remains unqualified. These checks do not qualify every completion prefix, persistent user installation, other shell/OS versions or signed release installation. The wider #27 release and authorization gates remain open.
