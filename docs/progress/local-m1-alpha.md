@@ -1202,3 +1202,12 @@ Full pinned smoke exited 0 with 55 Node tests, frontend build, Go vet and all Go
 ### Member removal in short landscape — October 20, 2026
 
 Controlled T3 browser checks of the actual component on `43fc8ec` passed 568×320 and 844×390 landscape plus 320×568 portrait layouts, keyboard acknowledgement/confirmation with automatic focus scrolling, orientation changes during review and a pending POST, lost-response reconciliation with one POST, history disclosure, denied-receipt clearing and focused-error recovery. No measured horizontal overflow or escaping element was found. Private evidence `.local/member-removal-landscape.json` includes source hashes; [scope and results](../local-member-deactivation.md#short-landscape-and-orientation-changes--october-20) distinguish desktop Chromium CSS viewports with synthetic API responses from physical-device, screen-reader and full native qualification. This documentation-only change does not close #24 or #117. No management/native service or tenant was mutated.
+
+
+### Native qualification capacity preflight — October 20, 2026
+
+Moved read-only capacity admission ahead of shared-protocol startup and management-fixture creation in the opt-in native member/removal recovery harness. A capacity refusal now records a private `preflight.json` with counts and no-start/no-allocation fields. Cleanup is registered before any admitted shared-fixture start attempt. No runtime policy or capacity ceiling changed.
+
+A real full-host invocation refused the ninth requested slot with eight retained namespaces. Its expected exit 1 and private receipt were checked independently; the shared fixture's complete state, restart count and network attachments plus the retained tenant-container list were identical before and after. See `.local/issue-audit/native-capacity-preflight-verification.json` and [the bounded admission evidence](../local-member-deactivation.md#admission-before-shared-fixture-startup--october-20). This qualifies refusal without service churn, not the still-blocked successful native recovery path. No issue is closed by this harness change.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages). The real full-capacity refusal check passed independently and retained the final harness source hash. Successful native allocation/recovery remains blocked and is not counted as passing.
