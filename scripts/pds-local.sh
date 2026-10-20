@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 case "${1:-}" in
   qualify-storage) exec node scripts/qualify-pds-storage.mjs ;;
   qualify-email-factor) exec node scripts/qualify-email-factor.mjs ;;
+  qualify-member-exit) exec node scripts/qualify-member-exit.mjs ;;
 esac
 mkdir -p .local
 if [[ ! -f .local/pds.env ]]; then
@@ -28,5 +29,5 @@ case "${1:-help}" in
   qualify-recovery) node scripts/qualify-recovery.mjs ;;
   restart) "${compose[@]}" restart pds ;;
   down) "${compose[@]}" down ;;
-  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|qualify-storage|qualify-email-factor|qualify-recovery|restart|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/pds-local.sh {up|check|qualify|qualify-account|qualify-storage|qualify-email-factor|qualify-member-exit|qualify-recovery|restart|down}\n'; exit 2 ;;
 esac

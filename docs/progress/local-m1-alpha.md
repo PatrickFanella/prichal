@@ -1,5 +1,11 @@
 # Local M1 implementation progress
 
+## Native member deactivation qualification — October 19, 2026
+
+PR #166 merged as `d4028a44a3b7` after its exact head passed CI and readiness checks. Merged-main CI remains a separate pending observation. The next #117 unit qualifies a fixed native member deactivation primitive before migration-window integration. It refuses owner/unknown/uninvited targets, preserves existing user deactivation and deletion scheduling, and never activates or deletes an account. It has no agent or management route.
+
+Fresh fixture `56365f97-9914-4b91-a952-7ec38e60a35b` passed native deactivation, refused member writes, unchanged owner and seven-file logical repository/blob/key inventory, stable replay timestamp, existing user-policy preservation, restart persistence and owner login. All three containers stopped with no failures; volumes and earlier failed fixture evidence remain retained. Full pinned smoke passed with 50 Node tests, build, vet and all Go races; final focused tests and native qualification passed after replacing Node's reserved `inspect` action with `native_status`. [Native evidence and remaining policy/broker gates](../local-member-deactivation.md) keep this distinct from a completed removal flow. No live account, production policy or service changed; #117 remains open.
+
 ## Complete recorded member roster — October 19, 2026
 
 PR #165 merged as `37557f21d087` after its exact head passed CI and merge-readiness checks. Merged-main CI was still pending at the separate readback. The next #117 correction makes accepted members visible independently of the newest-100 invitation history. The summary returns a complete recorded roster within the existing 25-member ceiling, under the same owner/explicit-administrator access checks. Browser validation rejects a missing roster, duplicate identity/reference or count mismatch and clears denied data.
