@@ -20,6 +20,7 @@ button,input{font:inherit}button,.button{border:0;background:var(--ink);color:#f
 .handle-setup form { display: grid; gap: .5rem; }
 .handle-setup code, .handle-setup dd { overflow-wrap: anywhere; }
 .handle-setup dd { margin-left: 0; }
+.handle-setup [tabindex="-1"]:focus { outline: 3px solid var(--steel); outline-offset: 3px; }
 
 .support-workspace { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .support-workspace form { display: grid; gap: .7rem; margin: 1rem 0; }
