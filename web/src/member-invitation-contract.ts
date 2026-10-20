@@ -6,7 +6,8 @@ export type MemberInvitation = {
   expiresAt: string | null; accountUrl: string; did?: string; handle?: string;
   withdrawalRequested: boolean; createdAt: string;
 };
-export type MemberSummary = { ceiling: number; members: number; open: number; invitations: MemberInvitation[] };
+export type MemberAccount = { invitationId: string; did: string; handle: string };
+export type MemberSummary = { accounts: MemberAccount[]; ceiling: number; members: number; open: number; invitations: MemberInvitation[] };
 const date = (value: unknown): value is string => typeof value === "string" && Number.isFinite(Date.parse(value));
 export function validMemberInvitation(value: unknown, deploymentId: string): value is MemberInvitation {
   if (!object(value) || typeof value.id !== "string" || !uuid.test(value.id) || value.deploymentId !== deploymentId ||
@@ -28,6 +29,9 @@ export function validMemberInvitation(value: unknown, deploymentId: string): val
 export function validMemberSummary(value: unknown, deploymentId: string): value is MemberSummary {
   return object(value) && Number.isSafeInteger(value.ceiling) && Number(value.ceiling) > 0 && Number(value.ceiling) <= 25 &&
     Number.isSafeInteger(value.members) && Number(value.members) >= 0 && Number.isSafeInteger(value.open) && Number(value.open) >= 0 &&
+    Array.isArray(value.accounts) && value.accounts.length === value.members && value.accounts.length <= Number(value.ceiling) &&
+    value.accounts.every(item => object(item) && typeof item.invitationId === "string" && uuid.test(item.invitationId) && typeof item.did === "string" && /^did:plc:[a-z2-7]{24}$/.test(item.did) && typeof item.handle === "string" && /^[a-zA-Z0-9.-]{1,253}$/.test(item.handle)) &&
+    new Set(value.accounts.map(item => item.did)).size === value.accounts.length && new Set(value.accounts.map(item => item.invitationId)).size === value.accounts.length &&
     Array.isArray(value.invitations) && value.invitations.length <= 100 && value.invitations.every(item => validMemberInvitation(item, deploymentId)) &&
     new Set(value.invitations.map(item => item.id)).size === value.invitations.length;
 }

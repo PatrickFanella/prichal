@@ -8,7 +8,7 @@ Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner
 |---|---|
 | `POST /api/deployments/{id}/members/invitations` | Request an invitation with `{"idempotencyKey": UUID}`. A repeated key returns the original invitation. |
 | `GET /api/deployments/{id}/members/admission` | Current enrollment request policy after invitation-management authorization. |
-| `GET /api/deployments/{id}/members/invitations` | Ceiling, accepted member count, open invitations and the newest 100 invitations. |
+| `GET /api/deployments/{id}/members/invitations` | Ceiling, complete recorded accepted-member roster/count, open invitations and the newest 100 invitations. |
 | `GET /api/member-invitations/{id}` | One invitation with its code while open, and its history. |
 | `POST /api/member-invitations/{id}/refresh` | Ask the node whether the code was used. At most once every five seconds. |
 | `POST /api/member-invitations/{id}/withdraw` | Disable an unused open code. A request still pending returns its current status; withdraw it once it is ready. |
@@ -83,3 +83,16 @@ Owners and administrators can open a ready managed server's member panel from sh
 Verification includes race-enabled real PostgreSQL tests for independent opt-in, all six read/mutation/policy boundaries, viewer/revoked denial, canonical worker ownership, issue/refresh/withdrawal actor attribution, ordinary revocation serialization, legacy migration and HTTP session/CSRF/production gates. Controlled browser responses checked explicit opening, administrator submission with CSRF, disabled/revoked access, recovery, viewer absence and shared-read failure cleanup. Shared-panel layouts fit 320, 768 and 1280 CSS pixels. Private browser result: `.local/member-administrator-browser.json`. No native runtime, production flag or live membership was changed. Member removal and its migration window, plan limits, organization-domain handles and live administrator/native qualification remain open under #117.
 
 The full pinned smoke gate passed after the refresh-audit expectation was updated: 46 Node tests, frontend build, Go vet and all Go race packages. A final focused member race run passed the additional foreign-organization refusal and not-found handling. Qualification uses a separate disposable PostgreSQL; no schema migration or flag change was applied to a live service.
+
+
+## Accepted roster independent of invitation history — October 19
+
+The newest-100 invitation window previously also limited which accepted member identities were visible. An accepted member could disappear from the panel after enough later invitations, while still contributing to its member count.
+
+The existing summary now includes an `accounts` roster with invitation ID, public DID and handle for every recorded accepted member. It is fetched independently of the history window under the same current owner/administrator permission and organization/deployment locks. The result is bounded by the existing 25-member ceiling; an over-ceiling or count mismatch fails closed. The invitation history remains capped at 100. This records known accepted identities; it does not inventory accounts created outside these invitations or inspect current native moderation/deactivation status.
+
+The browser renders accepted members separately and rejects absent/malformed rosters, duplicate identities/references or a count mismatch. A denied or failed summary read removes both roster and invitation codes. The new browser requires the matching API response; older APIs without `accounts` pause these controls rather than inventing a complete list. No schema, permission or native mutation is added.
+
+A PostgreSQL regression fixture places one accepted invitation behind 105 newer expired invitations. The owner and an explicitly enabled current administrator still receive the accepted member, while only the newest 100 invitations are returned; foreign and revoked access is refused. Node contract checks cover independent identity validation, duplicate references and mismatched counts. Controlled browser responses displayed an accepted member absent from all 100 history rows, cleared it on denied/malformed data, recovered, and showed the empty state. The panel fit 320, 768 and 1280 CSS pixels without horizontal overflow. Private browser evidence: `.local/member-roster-browser.json`.
+
+Full pinned smoke passed: 47 Node tests, frontend build, Go vet and all Go race packages. The qualification PostgreSQL retained its volume, had zero generated test databases and was stopped. Hosted PR/main CI and deployment remain separate proof states.

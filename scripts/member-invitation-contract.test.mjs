@@ -21,7 +21,14 @@ test("Member invitation boundary rejects foreign identity, unsafe destinations a
   assert.equal(validMemberInvitation({ ...withdrawn, withdrawalRequested: false }, deployment), false);
 });
 test("Member summary refuses duplicate IDs, malformed rows and unsupported ceilings", () => {
-  const summary = { ceiling: 25, members: 0, open: 1, invitations: [base] };
+  const summary = { ceiling: 25, members: 0, open: 1, accounts: [], invitations: [base] };
   assert.equal(validMemberSummary(summary, deployment), true);
   for (const bad of [{ ...summary, ceiling: 26 }, { ...summary, members: -1 }, { ...summary, open: 0.5 }, { ...summary, invitations: [base, base] }, { ...summary, invitations: [{ ...base, state: "unknown" }] }, { ...summary, invitations: Array(101).fill(base) }]) assert.equal(validMemberSummary(bad, deployment), false);
+});
+
+test("Accepted roster is independent of invitation history and rejects duplicates or count mismatch", () => {
+ const account={invitationId:"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",did:"did:plc:bbbbbbbbbbbbbbbbbbbbbbbb",handle:"older-member.test"};
+ const summary={ceiling:25,members:1,open:1,accounts:[account],invitations:[base]};
+ assert.equal(validMemberSummary(summary,deployment),true);
+ for(const bad of [{...summary,accounts:undefined},{...summary,accounts:[]},{...summary,members:2},{...summary,members:2,accounts:[account,account]},{...summary,accounts:[{...account,did:"did:plc:invalid"}]},{...summary,accounts:[{...account,invitationId:"invalid"}]}])assert.equal(validMemberSummary(bad,deployment),false);
 });

@@ -42,7 +42,13 @@ type MemberEvent struct {
 	Event
 	ActorID *string `json:"actorId"`
 }
+type MemberAccount struct {
+	InvitationID string `json:"invitationId"`
+	DID          string `json:"did"`
+	Handle       string `json:"handle"`
+}
 type MemberSummary struct {
+	Accounts    []MemberAccount    `json:"accounts"`
 	Ceiling     int                `json:"ceiling"`
 	Members     int                `json:"members"`
 	Open        int                `json:"open"`
@@ -249,10 +255,10 @@ func (s *Store) readMember(ctx context.Context, tx pgx.Tx, owner, id string, eve
 	return invitation, rows.Err()
 }
 
-// ListMembers returns the newest invitations and accepted member counts for an owned deployment.
+// ListMembers returns the complete bounded accepted roster and newest invitations.
 func (s *Store) ListMembers(ctx context.Context, owner, deployment string) (MemberSummary, error) {
 	actor := owner
-	summary := MemberSummary{Ceiling: nodeagent.MemberCeiling, Invitations: []MemberInvitation{}}
+	summary := MemberSummary{Ceiling: nodeagent.MemberCeiling, Invitations: []MemberInvitation{}, Accounts: []MemberAccount{}}
 	if !uuid.MatchString(owner) || !uuid.MatchString(deployment) {
 		return summary, ErrNotFound
 	}
@@ -269,6 +275,25 @@ func (s *Store) ListMembers(ctx context.Context, owner, deployment string) (Memb
 	}
 	if err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE state='accepted'),count(*) FILTER (WHERE state='invitation_ready' AND expires_at>now()) FROM member_invitations WHERE deployment_id=$1`, deployment).Scan(&summary.Members, &summary.Open); err != nil {
 		return summary, err
+	}
+	roster, err := tx.Query(ctx, `SELECT id::text,account_did,account_handle FROM member_invitations WHERE deployment_id=$1 AND owner_id=$2 AND state='accepted' ORDER BY account_handle,id LIMIT 26`, deployment, owner)
+	if err != nil {
+		return summary, err
+	}
+	for roster.Next() {
+		var member MemberAccount
+		if err = roster.Scan(&member.InvitationID, &member.DID, &member.Handle); err != nil {
+			roster.Close()
+			return summary, err
+		}
+		summary.Accounts = append(summary.Accounts, member)
+	}
+	roster.Close()
+	if err = roster.Err(); err != nil {
+		return summary, err
+	}
+	if len(summary.Accounts) > nodeagent.MemberCeiling || len(summary.Accounts) != summary.Members {
+		return summary, errors.New("member roster differs from recorded count")
 	}
 	rows, err := tx.Query(ctx, `SELECT id::text FROM member_invitations WHERE deployment_id=$1 AND owner_id=$2 ORDER BY created_at DESC,id DESC LIMIT 100`, deployment, owner)
 	if err != nil {
