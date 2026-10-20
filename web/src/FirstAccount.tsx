@@ -111,7 +111,7 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       const value: unknown = await response.json();
       if (controller.signal.aborted) return;
       if (!response.ok || !valid(value, deploymentId)) { if (object(value) && typeof value.error === 'string') setError(value.error); else setError('Invitation could not be confirmed. Retry the same request.'); return; }
-      setOperation(value); setRequest(null);
+      focusResult.current = true; setOperation(value); setRequest(null);
       try { localStorage.removeItem(storageKey); } catch { /* The operation is durable on the service. */ }
     } catch { if (!controller.signal.aborted) setError('Invitation could not be confirmed. Retry the same request.'); }
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
@@ -213,7 +213,8 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
         <p>PDSls is an independent service. You can browse without signing in. If it is unavailable, return here to keep managing your server.</p>
       </>}
     </div>}
-    {!withdrawalId && !cancellationId && loaded && (canRecover || request) && <button type="button" disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
+    {request && <p role="status" id={`enrollment-retry-${deploymentId}`}>An invitation{request.recover ? ' recovery' : ''} request is awaiting confirmation. Retry sends the same request; it does not start a separate invitation. Requests are never retried automatically.</p>}
+    {!withdrawalId && !cancellationId && loaded && (canRecover || request) && <button type="button" aria-describedby={request ? `enrollment-retry-${deploymentId}` : undefined} disabled={busy || (!request && admission?.open !== true)} onClick={() => { void prepare(!!operation); }}>{busy ? 'Preparing invitation…' : request ? 'Retry invitation request' : operation ? 'Recover invitation' : 'Prepare first-account invitation'}</button>}
     {operation && <button type="button" disabled={busy || !loaded || !!withdrawalId || !!cancellationId || ['pending', 'superseded', 'failed', 'withdrawing', 'withdrawn', 'cancelled'].includes(state ?? '')} onClick={() => { void refresh(); }}>Check account status</button>}
     {withdrawalId && <p role="status">An unconfirmed withdrawal request is retained in this browser tab. Invitation copying, account creation and replacement are paused. Any retry uses the same invitation ticket.</p>}
     {state === 'withdrawing' && <p>Waiting for native confirmation. An account that completed signup will be preserved.</p>}
