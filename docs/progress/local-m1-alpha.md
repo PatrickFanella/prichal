@@ -1,5 +1,11 @@
 # Local M1 implementation progress
 
+## Complete recorded member roster — October 19, 2026
+
+PR #165 merged as `37557f21d087` after its exact head passed CI and merge-readiness checks. Merged-main CI was still pending at the separate readback. The next #117 correction makes accepted members visible independently of the newest-100 invitation history. The summary returns a complete recorded roster within the existing 25-member ceiling, under the same owner/explicit-administrator access checks. Browser validation rejects a missing roster, duplicate identity/reference or count mismatch and clears denied data.
+
+A PostgreSQL fixture retained one accepted member behind 105 newer expired invitations. Owner and enabled administrator reads returned that member with exactly 100 history rows; foreign and revoked reads were refused. Controlled browser responses verified the independent roster, denied/malformed clearing, recovery, empty state and three viewport widths. Full pinned smoke passed: 47 Node tests, frontend build, Go vet and all Go race packages. [Roster behavior and limits](../local-member-invitations.md#accepted-roster-independent-of-invitation-history--october-19) distinguish recorded acceptance from current native account status. No schema, quota, permission or runtime mutation changed. Member removal/migration policy, domain handles, plan limits and live qualification remain open under #117.
+
 ## Administrator member invitations — October 19, 2026
 
 PR #164 merged as `d2d3cebdcd0b` and passed PR-head and merged-main CI. The next #117 slice adds independently enabled local administrator invitation management. It requires both collaboration and `PDS_LOCAL_MEMBER_ADMINISTRATION=true`; default and production boundaries remain closed. Every member read/action checks current ownership or active administrator membership under the organization lock. Jobs retain the canonical owner, while migration 37 records the real requesting actor for issue, refresh and withdrawal. Historical and worker-observation actors remain null.

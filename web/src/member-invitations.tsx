@@ -107,7 +107,7 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
     <h4>Member accounts</h4>
     <p>Invite people to create their own accounts on this server. Members enter their email and password directly on the PDS. Their network records are public.</p>
     <p>These invitations create AT accounts. Management access is invited separately.</p>
-    {summary && <p>{summary.members} accepted members · {summary.open} open invitations · {summary.ceiling} member limit. Pending requests also reserve places. Showing the newest 100 invitations.</p>}
+    {summary && <p>{summary.members} accepted members · {summary.open} open invitations · {summary.ceiling} member limit. Pending requests also reserve places.</p>}
     {!summary && !loadError && !error && <p role="status">Checking member invitation status…</p>}
     {!admission && <p>New member invitations are paused or availability could not be confirmed. Existing invitation status remains available.</p>}
     <button type="button" disabled={busy || !summary || !!withdrawal || (!request && !admission)} onClick={() => void act("issue")}>{request ? "Retry same member invitation request" : "Prepare member invitation"}</button>
@@ -115,6 +115,11 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
     {request && <p>A request key is retained in this tab. Retry it to confirm its result before preparing another invitation.</p>}
     {withdrawal && <p role="status">Withdrawal confirmation is pending. Its code is hidden. Review a retry only if fresh status still shows that invitation as open.</p>}
     {summary && summary.invitations.length === 0 && <p>No member invitations yet.</p>}
+    {summary && <div aria-label="Accepted member roster"><h5>Accepted members</h5>
+      {summary.accounts.length === 0 ? <p>No accepted members yet.</p> : <ul>{summary.accounts.map(member => <li key={member.did}>{member.handle} · <code>{member.did}</code></li>)}</ul>}
+      <p>This roster includes all recorded accepted members, independently of invitation history. It does not inspect live account status.</p>
+    </div>}
+    {summary && <h5>Newest 100 invitations</h5>}
     <ul>{summary?.invitations.map(item => {
       const current = item.state === "invitation_ready" && !!item.expiresAt && Date.parse(item.expiresAt) > now;
       const actionable = current && !item.withdrawalRequested && (!withdrawal || withdrawal === item.id);
