@@ -49,7 +49,15 @@ case "${1:-help}" in
     cd backend
     PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/enrollment -run '^TestMemberRemovalManagementSnapshotRecovery$' -count=1 -v
     ;;
+  qualify-member-native-recovery)
+    mkdir -p .local/member-removal-native
+    export PDS_NATIVE_MEMBER_WINDOW_DIRECTORY="$PWD/.local/member-removal-native/$(node -e 'console.log(require("node:crypto").randomUUID())')"
+    export PDS_QUALIFY_NATIVE_MEMBER_WINDOW=true
+    export PDS_QUALIFY_NATIVE_MEMBER_RECOVERY=true
+    cd backend
+    PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/enrollment -run '^TestMemberRemovalNativeMigrationWindow$' -count=1 -v
+    ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|qualify-member-management-recovery|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|qualify-member-management-recovery|qualify-member-native-recovery|smoke|down}\n'; exit 2 ;;
 esac

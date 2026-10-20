@@ -49,7 +49,11 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	if err := os.Mkdir(root, 0700); err != nil {
 		t.Fatal("fresh qualification directory required")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	budget := 3 * time.Minute
+	if os.Getenv("PDS_QUALIFY_NATIVE_MEMBER_RECOVERY") == "true" {
+		budget = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	docker := func(args ...string) []byte {
 		t.Helper()
@@ -80,6 +84,9 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	}
 	protocolID := protocol["Id"].(string)
 	wasRunning := protocol["State"].(map[string]any)["Running"].(bool)
+	if os.Getenv("PDS_QUALIFY_NATIVE_MEMBER_RECOVERY") == "true" && wasRunning {
+		t.Fatal("cold recovery requires the shared protocol fixture to be initially stopped")
+	}
 	if !wasRunning {
 		docker("start", protocolID)
 		t.Cleanup(func() {
@@ -213,7 +220,8 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 		return hex.EncodeToString(b[:])
 	}
 	ownerHandle := "ow-" + id[:6] + ".test"
-	owner := native("com.atproto.server.createAccount", map[string]any{"handle": ownerHandle, "email": "owner-" + id[:6] + "@fixture.invalid", "password": randomToken(), "inviteCode": enrollment.Code}, "")
+	ownerPassword := randomToken()
+	owner := native("com.atproto.server.createAccount", map[string]any{"handle": ownerHandle, "email": "owner-" + id[:6] + "@fixture.invalid", "password": ownerPassword, "inviteCode": enrollment.Code}, "")
 	ownerDID := owner["did"].(string)
 	observedOwner, e := runtime.Enroll(ctx, id, ownerTicket)
 	if e != nil || observedOwner.DID != ownerDID || observedOwner.State != "account_created" {
@@ -296,7 +304,8 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	}
 	invitation = api("/api/member-invitations/"+invitationID, nil)
 	memberHandle := "mb-" + id[:6] + ".test"
-	member := native("com.atproto.server.createAccount", map[string]any{"handle": memberHandle, "email": "member-" + id[:6] + "@fixture.invalid", "password": randomToken(), "inviteCode": invitation["code"]}, "")
+	memberPassword := randomToken()
+	member := native("com.atproto.server.createAccount", map[string]any{"handle": memberHandle, "email": "member-" + id[:6] + "@fixture.invalid", "password": memberPassword, "inviteCode": invitation["code"]}, "")
 	memberDID := member["did"].(string)
 	memberToken := member["accessJwt"].(string)
 	api("/api/member-invitations/"+invitationID+"/refresh", map[string]any{})
@@ -358,6 +367,9 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	summary, err := f.store.ListMembers(ctx, f.owner, id)
 	if err != nil || summary.Members != 1 || len(summary.Accounts) != 1 {
 		t.Fatal("native window changed accepted quota")
+	}
+	if os.Getenv("PDS_QUALIFY_NATIVE_MEMBER_RECOVERY") == "true" {
+		report["coldRecovery"] = qualifyMemberNativeRecovery(t, ctx, root, id, []nativeRecoveryLogin{{ownerHandle, ownerPassword, ownerDID}, {memberHandle, memberPassword, memberDID}})
 	}
 	report["result"] = "passed"
 	report["ownerDID"] = ownerDID

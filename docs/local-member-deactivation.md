@@ -128,4 +128,6 @@ This proves the logical management snapshot and recovery-fence path with synthet
 
 ## Remaining #117 work
 
+The separate [populated native cold-recovery qualification](local-member-native-recovery.md) now retains both accounts, signed data/media and member host metadata across an encrypted same-host checkpoint and fresh-storage restore. Its original account logins and restored writes passed; its remaining endpoint, agent, custody and elapsed-window gates are explicit.
+
 The initial real management/native window is qualified above. Combined browser/native and post-deadline management qualification remain open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.
