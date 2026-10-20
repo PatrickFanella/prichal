@@ -52,6 +52,7 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 		return err
 	}
 	var total, verified int
+	verifiedHosts := map[string]nodeagent.Peer{}
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM instance_placements`).Scan(&total); err != nil {
 		return err
 	}
@@ -133,6 +134,7 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 				}
 			}
 			delete(inventory, id)
+			verifiedHosts[id] = peer
 			verified++
 		}
 		retained, err := tx.Query(ctx, `SELECT instance_id::text FROM recovery_retained_namespaces WHERE node_id=$1`, peer.NodeID)
@@ -168,6 +170,9 @@ func Reconcile(ctx context.Context, pool *pgxpool.Pool, observer Observer) error
 	}
 	if total != verified {
 		return errors.New("placement has no verifiable registered host")
+	}
+	if err := reconcileMemberExits(ctx, tx, observer, verifiedHosts); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE management_recovery SET state='reconciled',reconciled_at=now() WHERE singleton=true`); err != nil {
 		return err
