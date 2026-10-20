@@ -12,7 +12,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
 )
 
-// RegisterMembers exposes owner-only member invitation routes. Member passwords
+// RegisterMembers exposes member invitation routes to current owners and explicitly enabled administrators. Member passwords
 // and email go directly to the native PDS.
 func (s *Store) RegisterMembers(owners *auth.Service, local bool) func(*http.ServeMux) {
 	return func(mux *http.ServeMux) {
@@ -60,6 +60,10 @@ func (s *Store) RegisterMembers(owners *auth.Service, local bool) func(*http.Ser
 			}
 			invitation, err := s.SubmitMember(r.Context(), session.OwnerID, r.PathValue("id"), request)
 			memberReply(w, invitation, err)
+		})
+		bind("GET /api/deployments/{id}/members/admission", false, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
+			policy, err := s.MemberAdmission(r.Context(), session.OwnerID, r.PathValue("id"))
+			memberReply(w, policy, err)
 		})
 		bind("GET /api/deployments/{id}/members/invitations", false, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
 			summary, err := s.ListMembers(r.Context(), session.OwnerID, r.PathValue("id"))

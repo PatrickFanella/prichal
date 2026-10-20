@@ -1,5 +1,11 @@
 # Local M1 implementation progress
 
+## Administrator member invitations — October 19, 2026
+
+PR #164 merged as `d2d3cebdcd0b` and passed PR-head and merged-main CI. The next #117 slice adds independently enabled local administrator invitation management. It requires both collaboration and `PDS_LOCAL_MEMBER_ADMINISTRATION=true`; default and production boundaries remain closed. Every member read/action checks current ownership or active administrator membership under the organization lock. Jobs retain the canonical owner, while migration 37 records the real requesting actor for issue, refresh and withdrawal. Historical and worker-observation actors remain null.
+
+The shared server browser lazily opens the existing member panel for owners/administrators, with a permission-checked member admission route. Viewer UI has no invitation entry. Controlled responses passed disabled/revoked access, recovery, CSRF dispatch and failed shared-read cleanup; layouts fit three widths. PostgreSQL tests cover opt-in, role scope, canonical worker execution, audit attribution, legacy migration, ordinary revocation serialization and HTTP gates. The full pinned smoke passed with 46 Node tests, build, vet and all Go races. [Permission, migration and remaining gates](../local-member-invitations.md#administrator-invitation-permission--october-19) distinguish these local checks from production and native administrator qualification. Member removal and its migration window, organization-domain handles and plan limits remain open; #117 remains incomplete.
+
 ## Owner member invitation browser — October 19, 2026
 
 Issue #117 now has owner browser controls after confirmed first-account creation: list invitation/member identities, prepare a single-use code, explicitly check native use, and review withdrawal of an unused invitation. Same-tab request identifiers retain submission and uncertain withdrawal retries; codes stay out of storage and URLs. Denied or malformed reads clear codes, expiry hides them, and losing first-account authorization removes the panel. Accepted accounts remain preserved.

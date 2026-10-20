@@ -56,7 +56,7 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
         setSummary(value); setLoadError("");
         if (review && !value.invitations.some(item => item.id === review && item.state === "invitation_ready" && !item.withdrawalRequested && item.expiresAt && Date.parse(item.expiresAt) > Date.now())) { setReview(""); setUnderstood(false); }
         try {
-          const policyResponse = await fetch(`/api/deployments/${deploymentId}/enrollment/admission`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+          const policyResponse = await fetch(`/api/deployments/${deploymentId}/members/admission`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
           if (controller.signal.aborted || read !== sequence.current) return;
           if ([401, 403].includes(policyResponse.status)) { setSummary(null); setAdmission(false); setLoadError("Sign in again to view member invitations."); setReview(""); setUnderstood(false); return; }
           const policy: unknown = await policyResponse.json();

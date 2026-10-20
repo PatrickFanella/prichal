@@ -25,18 +25,22 @@ type MemberRequest struct {
 	Key string `json:"idempotencyKey"`
 }
 type MemberInvitation struct {
-	ID                  string     `json:"id"`
-	DeploymentID        string     `json:"deploymentId"`
-	State               string     `json:"state"`
-	Message             string     `json:"message"`
-	Code                string     `json:"code,omitempty"`
-	ExpiresAt           *time.Time `json:"expiresAt"`
-	AccountURL          string     `json:"accountUrl"`
-	DID                 string     `json:"did,omitempty"`
-	Handle              string     `json:"handle,omitempty"`
-	WithdrawalRequested bool       `json:"withdrawalRequested"`
-	CreatedAt           time.Time  `json:"createdAt"`
-	Events              []Event    `json:"events"`
+	ID                  string        `json:"id"`
+	DeploymentID        string        `json:"deploymentId"`
+	State               string        `json:"state"`
+	Message             string        `json:"message"`
+	Code                string        `json:"code,omitempty"`
+	ExpiresAt           *time.Time    `json:"expiresAt"`
+	AccountURL          string        `json:"accountUrl"`
+	DID                 string        `json:"did,omitempty"`
+	Handle              string        `json:"handle,omitempty"`
+	WithdrawalRequested bool          `json:"withdrawalRequested"`
+	CreatedAt           time.Time     `json:"createdAt"`
+	Events              []MemberEvent `json:"events"`
+}
+type MemberEvent struct {
+	Event
+	ActorID *string `json:"actorId"`
 }
 type MemberSummary struct {
 	Ceiling     int                `json:"ceiling"`
@@ -51,24 +55,65 @@ func memberScope(id, deployment, organization string) string {
 	return "member/" + id + "/" + deployment + "/" + organization
 }
 
-// lockOwnedDeployment locks a ready agent deployment owned by owner.
-func lockOwnedDeployment(ctx context.Context, tx pgx.Tx, owner, deployment string) (string, error) {
-	var organization, state, kind string
-	err := tx.QueryRow(ctx, `SELECT d.organization_id::text,d.state,d.kind FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2 FOR UPDATE OF d FOR SHARE OF o`, deployment, owner).Scan(&organization, &state, &kind)
+// memberAccess locks the organization against concurrent role changes. Mutations
+// also serialize the deployment's invitation limit and idempotency checks.
+func (s *Store) memberAccess(ctx context.Context, tx pgx.Tx, actor, deployment string, mutation bool) (string, error) {
+	var organization, owner, state, kind string
+	lock := " FOR SHARE OF d,o"
+	if mutation {
+		lock = " FOR UPDATE OF d FOR SHARE OF o"
+	}
+	err := tx.QueryRow(ctx, `SELECT d.organization_id::text,o.owner_id::text,d.state,d.kind FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1`+lock, deployment).Scan(&organization, &owner, &state, &kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
 	}
 	if err != nil {
 		return "", err
 	}
-	if state != "ready" || kind != "agent" {
+	if actor != owner {
+		if !s.MemberAdministrators {
+			return "", ErrNotFound
+		}
+		var allowed bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organization_members WHERE organization_id=$1 AND owner_id=$2 AND state='active' AND role='administrator')`, organization, actor).Scan(&allowed); err != nil {
+			return "", err
+		}
+		if !allowed {
+			return "", ErrNotFound
+		}
+	}
+	if mutation && (state != "ready" || kind != "agent") {
 		return "", ErrConflict
 	}
-	return organization, nil
+	return owner, nil
+}
+
+// MemberAdmission returns request policy only to a current invitation manager.
+func (s *Store) MemberAdmission(ctx context.Context, actor, deployment string) (Admission, error) {
+	if !uuid.MatchString(actor) || !uuid.MatchString(deployment) {
+		return Admission{}, ErrNotFound
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return Admission{}, err
+	}
+	defer tx.Rollback(ctx)
+	if err = checkEnrollmentRecovery(ctx, tx); err != nil {
+		return Admission{}, err
+	}
+	if _, err = s.memberAccess(ctx, tx, actor, deployment, false); err != nil {
+		return Admission{}, err
+	}
+	var result Admission
+	if err = tx.QueryRow(ctx, `SELECT open,updated_at FROM enrollment_admission WHERE singleton=true`).Scan(&result.Open, &result.UpdatedAt); err != nil {
+		return result, err
+	}
+	return result, tx.Commit(ctx)
 }
 
 // SubmitMember records one member invitation request and its job atomically.
 func (s *Store) SubmitMember(ctx context.Context, owner, deployment string, request MemberRequest) (MemberInvitation, error) {
+	actor := owner
 	if s.Cipher == nil || !uuid.MatchString(owner) || !uuid.MatchString(deployment) || !uuid.MatchString(request.Key) {
 		return MemberInvitation{}, ErrInvalid
 	}
@@ -77,7 +122,7 @@ func (s *Store) SubmitMember(ctx context.Context, owner, deployment string, requ
 		return MemberInvitation{}, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = lockOwnedDeployment(ctx, tx, owner, deployment); err != nil {
+	if owner, err = s.memberAccess(ctx, tx, actor, deployment, true); err != nil {
 		return MemberInvitation{}, err
 	}
 	var id string
@@ -86,7 +131,7 @@ func (s *Store) SubmitMember(ctx context.Context, owner, deployment string, requ
 		if err = tx.Commit(ctx); err != nil {
 			return MemberInvitation{}, err
 		}
-		return s.GetMember(ctx, owner, id)
+		return s.GetMember(ctx, actor, id)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return MemberInvitation{}, err
@@ -116,7 +161,7 @@ func (s *Store) SubmitMember(ctx context.Context, owner, deployment string, requ
 	if err = tx.QueryRow(ctx, `INSERT INTO member_invitations(deployment_id,owner_id,idempotency_key,message) VALUES($1,$2,$3,$4) RETURNING id::text`, deployment, owner, request.Key, message).Scan(&id); err != nil {
 		return MemberInvitation{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO member_invitation_events(invitation_id,state,message) VALUES($1,'pending',$2)`, id, message); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO member_invitation_events(invitation_id,state,message,actor_id) VALUES($1,'pending',$2,$3)`, id, message, actor); err != nil {
 		return MemberInvitation{}, err
 	}
 	if _, err = s.Queue.InsertTx(ctx, tx, MemberArgs{id}, &river.InsertOpts{MaxAttempts: 3}); err != nil {
@@ -125,7 +170,7 @@ func (s *Store) SubmitMember(ctx context.Context, owner, deployment string, requ
 	if err = tx.Commit(ctx); err != nil {
 		return MemberInvitation{}, err
 	}
-	return s.GetMember(ctx, owner, id)
+	return s.GetMember(ctx, actor, id)
 }
 
 // GetMember returns one invitation after checking current deployment ownership.
@@ -153,9 +198,20 @@ func (s *Store) GetMember(ctx context.Context, owner, id string) (MemberInvitati
 
 func (s *Store) readMember(ctx context.Context, tx pgx.Tx, owner, id string, events bool) (MemberInvitation, error) {
 	var invitation MemberInvitation
+	var deployment string
+	if err := tx.QueryRow(ctx, `SELECT deployment_id::text FROM member_invitations WHERE id=$1`, id).Scan(&deployment); errors.Is(err, pgx.ErrNoRows) {
+		return invitation, ErrNotFound
+	} else if err != nil {
+		return invitation, err
+	}
+	canonicalOwner, err := s.memberAccess(ctx, tx, owner, deployment, false)
+	if err != nil {
+		return invitation, err
+	}
+	owner = canonicalOwner
 	var encoded []byte
 	var organization, endpoint string
-	err := tx.QueryRow(ctx, `SELECT m.id::text,m.deployment_id::text,m.state,m.message,m.code_ciphertext,m.expires_at,coalesce(m.account_did,''),coalesce(m.account_handle,''),m.withdrawal_requested_at IS NOT NULL,m.created_at,d.organization_id::text,d.endpoint_url FROM member_invitations m JOIN deployments d ON d.id=m.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE m.id=$1 AND m.owner_id=$2 AND o.owner_id=$2 FOR SHARE OF m,d,o`, id, owner).Scan(&invitation.ID, &invitation.DeploymentID, &invitation.State, &invitation.Message, &encoded, &invitation.ExpiresAt, &invitation.DID, &invitation.Handle, &invitation.WithdrawalRequested, &invitation.CreatedAt, &organization, &endpoint)
+	err = tx.QueryRow(ctx, `SELECT m.id::text,m.deployment_id::text,m.state,m.message,m.code_ciphertext,m.expires_at,coalesce(m.account_did,''),coalesce(m.account_handle,''),m.withdrawal_requested_at IS NOT NULL,m.created_at,d.organization_id::text,d.endpoint_url FROM member_invitations m JOIN deployments d ON d.id=m.deployment_id JOIN organizations o ON o.id=d.organization_id WHERE m.id=$1 AND m.owner_id=$2 AND o.owner_id=$2 FOR SHARE OF m,d,o`, id, owner).Scan(&invitation.ID, &invitation.DeploymentID, &invitation.State, &invitation.Message, &encoded, &invitation.ExpiresAt, &invitation.DID, &invitation.Handle, &invitation.WithdrawalRequested, &invitation.CreatedAt, &organization, &endpoint)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return invitation, ErrNotFound
 	}
@@ -174,18 +230,18 @@ func (s *Store) readMember(ctx context.Context, tx pgx.Tx, owner, id string, eve
 			return MemberInvitation{}, err
 		}
 	}
-	invitation.Events = []Event{}
+	invitation.Events = []MemberEvent{}
 	if !events {
 		return invitation, nil
 	}
-	rows, err := tx.Query(ctx, `SELECT state,message,created_at FROM member_invitation_events WHERE invitation_id=$1 ORDER BY id LIMIT 100`, id)
+	rows, err := tx.Query(ctx, `SELECT state,message,created_at,actor_id::text FROM member_invitation_events WHERE invitation_id=$1 ORDER BY id LIMIT 100`, id)
 	if err != nil {
 		return invitation, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var event Event
-		if err = rows.Scan(&event.State, &event.Message, &event.CreatedAt); err != nil {
+		var event MemberEvent
+		if err = rows.Scan(&event.State, &event.Message, &event.CreatedAt, &event.ActorID); err != nil {
 			return invitation, err
 		}
 		invitation.Events = append(invitation.Events, event)
@@ -195,6 +251,7 @@ func (s *Store) readMember(ctx context.Context, tx pgx.Tx, owner, id string, eve
 
 // ListMembers returns the newest invitations and accepted member counts for an owned deployment.
 func (s *Store) ListMembers(ctx context.Context, owner, deployment string) (MemberSummary, error) {
+	actor := owner
 	summary := MemberSummary{Ceiling: nodeagent.MemberCeiling, Invitations: []MemberInvitation{}}
 	if !uuid.MatchString(owner) || !uuid.MatchString(deployment) {
 		return summary, ErrNotFound
@@ -207,12 +264,7 @@ func (s *Store) ListMembers(ctx context.Context, owner, deployment string) (Memb
 	if err = checkEnrollmentRecovery(ctx, tx); err != nil {
 		return summary, err
 	}
-	var found string
-	err = tx.QueryRow(ctx, `SELECT d.id::text FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$1 AND o.owner_id=$2 FOR SHARE OF d,o`, deployment, owner).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return summary, ErrNotFound
-	}
-	if err != nil {
+	if owner, err = s.memberAccess(ctx, tx, actor, deployment, false); err != nil {
 		return summary, err
 	}
 	if err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE state='accepted'),count(*) FILTER (WHERE state='invitation_ready' AND expires_at>now()) FROM member_invitations WHERE deployment_id=$1`, deployment).Scan(&summary.Members, &summary.Open); err != nil {
@@ -236,7 +288,7 @@ func (s *Store) ListMembers(ctx context.Context, owner, deployment string) (Memb
 		return summary, err
 	}
 	for _, id := range ids {
-		invitation, err := s.readMember(ctx, tx, owner, id, false)
+		invitation, err := s.readMember(ctx, tx, actor, id, false)
 		if err != nil {
 			return summary, err
 		}
@@ -260,6 +312,7 @@ func (s *Store) WithdrawMember(ctx context.Context, owner, id string) (MemberInv
 }
 
 func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw bool) (MemberInvitation, error) {
+	actor := owner
 	if !uuid.MatchString(owner) || !uuid.MatchString(id) {
 		return MemberInvitation{}, ErrNotFound
 	}
@@ -269,14 +322,14 @@ func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw boo
 	}
 	defer tx.Rollback(ctx)
 	var deployment string
-	err = tx.QueryRow(ctx, `SELECT deployment_id::text FROM member_invitations WHERE id=$1 AND owner_id=$2`, id, owner).Scan(&deployment)
+	err = tx.QueryRow(ctx, `SELECT deployment_id::text FROM member_invitations WHERE id=$1`, id).Scan(&deployment)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MemberInvitation{}, ErrNotFound
 	}
 	if err != nil {
 		return MemberInvitation{}, err
 	}
-	if _, err = lockOwnedDeployment(ctx, tx, owner, deployment); err != nil {
+	if owner, err = s.memberAccess(ctx, tx, actor, deployment, true); err != nil {
 		return MemberInvitation{}, err
 	}
 	if err = checkEnrollmentRecovery(ctx, tx); err != nil {
@@ -284,7 +337,9 @@ func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw boo
 	}
 	var state string
 	var expires, refreshed *time.Time
-	if err = tx.QueryRow(ctx, `SELECT state,expires_at,last_refresh_at FROM member_invitations WHERE id=$1 FOR UPDATE`, id).Scan(&state, &expires, &refreshed); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT state,expires_at,last_refresh_at FROM member_invitations WHERE id=$1 AND owner_id=$2 FOR UPDATE`, id, owner).Scan(&state, &expires, &refreshed); errors.Is(err, pgx.ErrNoRows) {
+		return MemberInvitation{}, ErrNotFound
+	} else if err != nil {
 		return MemberInvitation{}, err
 	}
 	switch {
@@ -297,7 +352,7 @@ func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw boo
 		if _, err = tx.Exec(ctx, `UPDATE member_invitations SET state='withdrawing',code_ciphertext=NULL,withdrawal_requested_at=now(),message=$2,updated_at=now() WHERE id=$1`, id, message); err != nil {
 			return MemberInvitation{}, err
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO member_invitation_events(invitation_id,state,message) VALUES($1,'withdrawing',$2)`, id, message); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO member_invitation_events(invitation_id,state,message,actor_id) VALUES($1,'withdrawing',$2,$3)`, id, message, actor); err != nil {
 			return MemberInvitation{}, err
 		}
 		if _, err = s.Queue.InsertTx(ctx, tx, MemberArgs{id}, &river.InsertOpts{MaxAttempts: 3}); err != nil {
@@ -306,6 +361,9 @@ func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw boo
 	default:
 		if refreshed != nil && time.Since(*refreshed) < 5*time.Second {
 			return MemberInvitation{}, ErrConflict
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO member_invitation_events(invitation_id,state,message,actor_id) VALUES($1,'invitation_ready','Native member invitation check requested.',$2)`, id, actor); err != nil {
+			return MemberInvitation{}, err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE member_invitations SET last_refresh_at=now() WHERE id=$1`, id); err != nil {
 			return MemberInvitation{}, err
@@ -317,5 +375,5 @@ func (s *Store) changeMember(ctx context.Context, owner, id string, withdraw boo
 	if err = tx.Commit(ctx); err != nil {
 		return MemberInvitation{}, err
 	}
-	return s.GetMember(ctx, owner, id)
+	return s.GetMember(ctx, actor, id)
 }

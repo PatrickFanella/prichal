@@ -51,9 +51,10 @@ type Operation struct {
 	Events              []Event    `json:"events"`
 }
 type Store struct {
-	Pool   *pgxpool.Pool
-	Cipher *Cipher
-	Queue  *river.Client[pgx.Tx]
+	MemberAdministrators bool
+	Pool                 *pgxpool.Pool
+	Cipher               *Cipher
+	Queue                *river.Client[pgx.Tx]
 }
 
 func New(pool *pgxpool.Pool, cipher *Cipher) (*Store, error) {
@@ -61,7 +62,7 @@ func New(pool *pgxpool.Pool, cipher *Cipher) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{pool, cipher, queue}, nil
+	return &Store{Pool: pool, Cipher: cipher, Queue: queue}, nil
 }
 func (s *Store) Submit(ctx context.Context, owner, deployment string, request Request) (Operation, error) {
 	if s.Cipher == nil || !uuid.MatchString(owner) || !uuid.MatchString(deployment) || !uuid.MatchString(request.Key) {
