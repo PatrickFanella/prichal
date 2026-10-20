@@ -99,6 +99,16 @@ Management recovery requires this read-only observation for every retained membe
 
 The node inspection tests use the existing emulated Docker transport and real mTLS HTTP boundary. Recovery tests use allocator-owned disposable PostgreSQL and a read-only observer fixture. These checks do not qualify a populated encrypted management/PDS restore, discover host exit journals absent from management's snapshot, prove a native elapsed window or enable production recovery. An uncertain request remains held; this comparison adds no operator override or automatic repair.
 
+## Retained native host-metadata encryption and restoration — October 20
+
+At source commit `2b28279a9c1c360158073a6d7eb1caffce8fbd84`, the three real host sidecars from native fixture `028d3448-f1b6-4573-a5a4-556ac7fec3e9` were copied through `memberRecoveryFiles`, archived as the exact fixed filename inventory, sealed with `sealRecovery`, authenticated with `openRecovery` and restored through `restoreMemberRecoveryFiles` into a fresh private candidate. All three restored SHA-256 values matched their source bytes. The retained exit remained `migration_window` with its original deadline, `2026-11-19T05:37:12.012Z`.
+
+The authenticated bundle was 10,396 bytes with SHA-256 `718d8fd37de41f189e74adb06817ea769f581cf5c023c37599f01357586c097b`. A modified authentication tag was refused without publishing plaintext at the requested destination. The separate guard candidate directory contained only `members.json`; neither invitation nor exit journal was placed there. This was a file-layout check, not a running guard or restored-agent activation.
+
+The private receipt is `.local/member-metadata-recovery/56303ff0-5131-4088-9dcc-e36c914d351c/report.json`; ciphertext, key and private checkpoint/candidate files remain beside it under the ignored private directory. Source hashes and the original stopped-container timestamps matched before and after the drill. No source journal, runtime, native account or management database was changed.
+
+This qualifies encrypted restoration of the retained native host metadata only. The bundle and its key are on the same machine, so independent custody and retention are unqualified. PDS SQLite databases, signed repositories, blobs, native writes, management PostgreSQL, physical elapsed-window behavior and production recovery were outside this drill. Those wider gates remain open.
+
 ## Remaining #117 work
 
 The initial real management/native window is qualified above. Combined browser/native and post-deadline management qualification remain open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.
