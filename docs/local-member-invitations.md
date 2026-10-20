@@ -97,4 +97,4 @@ A PostgreSQL regression fixture places one accepted invitation behind 105 newer 
 
 Full pinned smoke passed: 47 Node tests, frontend build, Go vet and all Go race packages. The qualification PostgreSQL retained its volume, had zero generated test databases and was stopped. Hosted PR/main CI and deployment remain separate proof states.
 
-The [member removal implementation](local-member-deactivation.md) now connects a durable local management request and scheduled worker to the restricted host broker. Browser review is now connected to the same accepted roster; combined native/management qualification remains open.
+The [member removal implementation](local-member-deactivation.md) now connects a durable local management request and scheduled worker to the restricted host broker. Browser review is now connected to the same accepted roster; the [initial real management/native migration window](local-member-deactivation.md#real-initial-migration-window--october-20) is now qualified separately. Combined browser/native and post-deadline management qualification remain open.

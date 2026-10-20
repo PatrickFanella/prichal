@@ -37,7 +37,14 @@ case "${1:-help}" in
   worker) cd backend; exec go run ./cmd/worker ;;
   api) cd backend; exec go run ./cmd/api ;;
   web) cd web; exec pnpm dev ;;
+  qualify-member-removal)
+    mkdir -p .local/member-removal-native
+    export PDS_NATIVE_MEMBER_WINDOW_DIRECTORY="$PWD/.local/member-removal-native/$(node -e 'console.log(require("node:crypto").randomUUID())')"
+    export PDS_QUALIFY_NATIVE_MEMBER_WINDOW=true
+    cd backend
+    PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/enrollment -run '^TestMemberRemovalNativeMigrationWindow$' -count=1 -v
+    ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|smoke|down}\n'; exit 2 ;;
 esac
