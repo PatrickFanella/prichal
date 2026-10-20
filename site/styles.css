@@ -41,3 +41,5 @@ a:focus-visible{outline:3px solid var(--ink);outline-offset:6px}
  dl div{grid-template-columns:1fr;gap:4px}
  footer{flex-direction:column}
 }
+
+footer{flex-wrap:wrap}footer p{flex-basis:100%;margin:0;text-transform:none;letter-spacing:normal;line-height:1.6}footer a{color:var(--ink)}
