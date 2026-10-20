@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PDSRelease } from './pds-release';
 import { LifecycleActivity } from './support-workspace';
 import { OwnerJourney } from './owner-journey';
@@ -37,11 +37,14 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
   const [key, setKey] = useState(() => pending?.key ?? crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const failure = useRef<HTMLParagraphElement | null>(null);
   const [uncertain, setUncertain] = useState(pending !== null);
   const [loaded, setLoaded] = useState(false);
+  useEffect(() => { if (error) failure.current?.focus(); }, [error]);
   useEffect(() => {
     const controller = new AbortController();
-    setOperations([]); setLoaded(false); setError('');
+    setOperations([]); setLoaded(false); setLoadError(''); setError('');
     let sequence = 0;
     async function load() {
       const current = ++sequence;
@@ -49,8 +52,8 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
         const response = await fetch(`/api/organizations/${organizationId}/deployments`, { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
         const result: unknown = await response.json();
         if (!response.ok || !Array.isArray(result) || !result.every(item => operation(item) && item.organizationId === organizationId)) throw new Error('Invalid deployment list');
-        if (!controller.signal.aborted && current === sequence) { setOperations(result); setLoaded(true); setError(''); }
-      } catch { if (!controller.signal.aborted && current === sequence) { setOperations([]); setLoaded(true); setError('Deployment status is temporarily unavailable.'); } }
+        if (!controller.signal.aborted && current === sequence) { setOperations(result); setLoaded(true); setLoadError(''); }
+      } catch { if (!controller.signal.aborted && current === sequence) { setOperations([]); setLoaded(true); setLoadError('Deployment status is temporarily unavailable.'); } }
     }
     void load(); const timer = window.setInterval(() => { void load(); }, 3000);
     return () => { controller.abort(); window.clearInterval(timer); };
@@ -65,7 +68,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
         if (response.status >= 400 && response.status < 500) {
           try { localStorage.removeItem(storageKey); } catch { /* No request was accepted. */ }
           setUncertain(false); setKey(crypto.randomUUID());
-        }
+        } else setUncertain(true);
         setError(object(result) && typeof result.error === 'string' ? result.error : 'The deployment request could not be accepted.'); return; }
       if (!operation(result) || result.organizationId !== organizationId) throw new Error('Invalid operation');
       setOperations(current => [...current.filter(item => item.id !== result.id), result]);
@@ -77,7 +80,9 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
   return <div className="deployments">
     <h4>Servers</h4><p>Local qualification. Public hosting is unavailable.</p>
     <HostingEntitlement organizationId={organizationId}/>
-    {error && <p role="alert">{error}</p>}
+    {loadError && <p role="alert">{loadError}</p>}
+    {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}
+    {uncertain && <p id={`deployment-retry-${organizationId}`} role="status">A deployment request is awaiting confirmation. Retry to resume the same request. Its name and deployment mode are kept until the result is confirmed.</p>}
     {!loaded && <p role="status">Loading deployments...</p>}
     <ul>{operations.filter(item => item.organizationId === organizationId).map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">Open local PDS health</a></p>}<p role="status">{item.state}: {item.message}</p>{item.kind === 'agent' && <p>Local service observation: {item.service?.state ?? 'unknown'}.{item.service?.checkedAt && <> Checked {new Date(item.service.checkedAt).toLocaleString()}.</>} Scheduled backups are not configured.</p>}{item.kind === 'agent' && <PDSRelease value={item.release}/>}
 {item.kind === 'agent' && <p>Storage observation: {item.usage.state}. {item.usage.checkedAt && <>{((item.usage.dataBytes + item.usage.blobBytes) / 1048576).toFixed(2)} MiB, {item.usage.accounts} account. Checked {new Date(item.usage.checkedAt).toLocaleString()}.</>} Total storage limits are not configured.</p>}{item.kind === 'agent' && item.service.account!=='running' && <p role="status">Account moderation: {item.service.account}. Reason: {item.service.accountReason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.service.lifecycle!=='running' && <p role="status">Service lifecycle: {item.service.lifecycle}. Reason: {item.service.reason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.state === 'ready' && item.service.lifecycle==='running' && item.service.account==='running' && <FirstAccount deploymentId={item.id} csrfToken={csrfToken} />}{item.kind==='agent'&&item.state==='ready'&&<CustomerExports deploymentId={item.id} csrfToken={csrfToken}/>}<OwnerJourney deploymentId={item.id}/><LifecycleActivity deploymentId={item.id}/><details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>
@@ -85,7 +90,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
       <label htmlFor={`kind-${organizationId}`}>Deployment mode</label>
       <select id={`kind-${organizationId}`} value={kind} disabled={busy || uncertain} onChange={event => setKind(event.target.value === 'agent' ? 'agent' : 'test')}><option value="test">Simulate deployment</option><option value="agent">Create a local PDS</option></select>
       <label htmlFor={`server-${organizationId}`}>Server name</label>
-      <div className="form-row"><input id={`server-${organizationId}`} value={name} onChange={event => setName(event.target.value)} disabled={busy || uncertain} pattern="[a-z][a-z0-9-]*" maxLength={63} required placeholder="my-studio"/><button disabled={busy || !name} type="submit">{busy ? 'Submitting...' : uncertain ? 'Retry request' : kind === 'agent' ? 'Create local PDS' : 'Run deployment test'}</button></div>
+      <div className="form-row"><input id={`server-${organizationId}`} value={name} onChange={event => setName(event.target.value)} disabled={busy || uncertain} pattern="[a-z][a-z0-9-]*" maxLength={63} required placeholder="my-studio"/><button disabled={busy || !name} type="submit" aria-describedby={uncertain ? `deployment-retry-${organizationId}` : undefined}>{busy ? 'Submitting...' : uncertain ? 'Retry request' : kind === 'agent' ? 'Create local PDS' : 'Run deployment test'}</button></div>
     </form>
   </div>;
 }
