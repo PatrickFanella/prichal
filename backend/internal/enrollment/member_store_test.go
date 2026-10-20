@@ -224,9 +224,13 @@ func TestMemberWorkerIssuesSchedulesExpiryAndRecordsAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	accepted, err := f.store.GetMember(ctx, f.owner, invitation.ID)
-	if err != nil || accepted.State != "accepted" || accepted.Code != "" || accepted.DID != agent.did || accepted.Handle != "member.test" || len(accepted.Events) != 3 {
+	if err != nil || accepted.State != "accepted" || accepted.Code != "" || accepted.DID != agent.did || accepted.Handle != "member.test" || len(accepted.Events) != 4 {
 		t.Fatalf("accepted member: %+v %v", accepted, err)
 	}
+	if accepted.Events[2].ActorID == nil || *accepted.Events[2].ActorID != f.owner || accepted.Events[2].Message != "Native member invitation check requested." || accepted.Events[3].ActorID != nil {
+		t.Fatal("refresh and worker attribution differ")
+	}
+
 	summary, err := f.store.ListMembers(ctx, f.owner, f.deployment)
 	if err != nil || summary.Members != 1 || summary.Open != 0 || summary.Ceiling != nodeagent.MemberCeiling || len(summary.Invitations) != 1 {
 		t.Fatalf("member summary: %+v %v", summary, err)
@@ -418,6 +422,30 @@ func TestMemberHTTPEnforcesOwnerCSRFAndCodeBoundary(t *testing.T) {
 	if w := request(true, "GET", path, bobToken, "", "", ""); w.Code != 404 {
 		t.Fatal("foreign owner listed members")
 	}
+
+	if _, err = f.pool.Exec(ctx, `INSERT INTO organization_members(organization_id,owner_id,role,state) SELECT organization_id,$1,'administrator','active' FROM deployments WHERE id=$2`, f.bob, f.deployment); err != nil {
+		t.Fatal(err)
+	}
+	f.store.MemberAdministrators = true
+	if w := request(true, "GET", path, bobToken, "", "", ""); w.Code != 200 {
+		t.Fatalf("administrator list: %d", w.Code)
+	}
+	if w := request(true, "GET", "/api/deployments/"+f.deployment+"/members/admission", bobToken, "", "", ""); w.Code != 200 {
+		t.Fatalf("administrator policy: %d", w.Code)
+	}
+	if w := request(true, "POST", path, bobToken, "http://localhost", "wrong", body); w.Code != 403 {
+		t.Fatal("administrator bypassed CSRF")
+	}
+	if w := request(true, "POST", path, bobToken, "http://localhost", "test-csrf", `{"idempotencyKey":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}`); w.Code != 200 {
+		t.Fatalf("administrator submit: %d", w.Code)
+	}
+	if _, err = f.pool.Exec(ctx, `UPDATE organization_members SET state='revoked' WHERE owner_id=$1`, f.bob); err != nil {
+		t.Fatal(err)
+	}
+	if w := request(true, "GET", path, bobToken, "", "", ""); w.Code != 404 {
+		t.Fatal("revoked administrator retained HTTP access")
+	}
+
 	if w := request(true, "POST", "/api/member-invitations/not-a-uuid/withdraw", aliceToken, "http://localhost", "test-csrf", `{}`); w.Code != 404 {
 		t.Fatal("invalid invitation identity accepted")
 	}

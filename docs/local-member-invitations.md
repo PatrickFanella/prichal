@@ -1,18 +1,19 @@
 # Local member invitations
 
-Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Member removal and administrator permission remain separate work.
+Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Member removal remains separate work. Administrator invitation permission now has its own local opt-in.
 
 ## Owner routes
 
 | Route | Purpose |
 |---|---|
 | `POST /api/deployments/{id}/members/invitations` | Request an invitation with `{"idempotencyKey": UUID}`. A repeated key returns the original invitation. |
+| `GET /api/deployments/{id}/members/admission` | Current enrollment request policy after invitation-management authorization. |
 | `GET /api/deployments/{id}/members/invitations` | Ceiling, accepted member count, open invitations and the newest 100 invitations. |
 | `GET /api/member-invitations/{id}` | One invitation with its code while open, and its history. |
 | `POST /api/member-invitations/{id}/refresh` | Ask the node whether the code was used. At most once every five seconds. |
 | `POST /api/member-invitations/{id}/withdraw` | Disable an unused open code. A request still pending returns its current status; withdraw it once it is ready. |
 
-Routes are local-only and owner-only, with the same session, origin and CSRF checks as first-account enrollment. A new request needs a ready agent deployment, a recorded first account, open enrollment admission, no recovery hold and no unreversed hosting exit. Each deployment allows ten new requests per hour. Pausing enrollment admission pauses member requests too; open invitations stay valid until they expire.
+Routes are local-only, with the same session, origin and CSRF checks as first-account enrollment. Owners have access by default; current administrators require the separate opt-in described below. A new request needs a ready agent deployment, a recorded first account, open enrollment admission, no recovery hold and no unreversed hosting exit. Each deployment allows ten new requests per hour. Pausing enrollment admission pauses member requests too; open invitations stay valid until they expire.
 
 States are `pending`, `invitation_ready`, `accepted`, `expired`, `withdrawing`, `withdrawn`, `ceiling_reached`, `owner_required` and `failed`. Schema version 35 stores invitations and their events. Codes are encrypted with the enrollment key, scoped to the invitation, deployment and organization, and cleared once an invitation leaves `invitation_ready`. Accepted rows keep only the member's DID and handle; one DID can be accepted once per deployment.
 
@@ -46,7 +47,7 @@ On Kvant (Linux), October 2:
 
 `node scripts/qualify-member-invitations.mjs DEPLOYMENT_UUID` drives the whole journey through the owner API, worker, agent, guard and native signup. The initial October 2 attempt was blocked by native Linux bind-mount permissions. Issue #125 fixed that reader identity contract, and the first-account and member journeys passed on October 8 with a two-member ceiling. [Native qualification and retained-reader upgrade](local-private-file-readers.md) record the reports, operator-assisted retry and limits. That existing native evidence was not rerun for the browser delivery below.
 
-Still open after the browser delivery: member removal and the 30-day migration window, administrator permission, organization-domain handles (#10), live expiry of a real 72-hour code, public DNS, TLS, email and federation.
+Still open after the owner browser delivery: member removal and the 30-day migration window, administrator permission (addressed by the separate opt-in below), organization-domain handles (#10), live expiry of a real 72-hour code, public DNS, TLS, email and federation.
 
 ## Owner browser controls — October 19
 
@@ -61,3 +62,24 @@ Polling is read-only, bounded to one active load and cancelled on unmount. Faile
 Verification on Kvant used the actual React components in the T3 collaborative browser with synthetic responses, without native/API mutations. Checks passed for all nine invitation states; lost submission and withdrawal responses; stable request keys across retries and parent remounts; explicit refresh; review acknowledgement/focus and close-focus return; accepted identities; expiry; denied and malformed reads; admission pause; recovery; blocked storage; no stored codes or credential inputs; and first-account integration. Actual Tab/Space navigation reached the checkbox and enabled confirmation. At 320, 768 and 1280 CSS pixels the panel had no horizontal overflow; the nested first-account layout also fit at 320 pixels. Private result: `.local/member-browser-checks.json`.
 
 The pinned `./scripts/dev.sh smoke` gate passed: 46 Node tests, frontend build, Go vet and all race-enabled Go packages. A final frontend build passed after the policy-denial refinement. The separate qualification PostgreSQL had zero generated smoke/recovery databases and was stopped with its volume retained. The incidental package-manager lockfile change was removed. Local checks do not establish PR-head CI, merge, deployment, live expiry, organization-domain handles, administrator permission or member-removal policy. Issue #117 remains open.
+
+
+## Administrator invitation permission — October 19
+
+Ordinary collaboration remains a metadata rehearsal. To let active organization administrators manage member invitations, the local operator must independently enable both flags on the API:
+
+```sh
+PDS_LOCAL_ORGANIZATION_ACCESS=true PDS_LOCAL_MEMBER_ADMINISTRATION=true ./scripts/dev.sh api
+```
+
+The new flag defaults off. Startup rejects a true value outside local mode, without collaboration enabled, or any value other than true/false. Turning it off removes administrator invitation access without changing membership or native accounts. Production member routes remain unavailable. Native posting, signing, passwords, billing, exports, first-account enrollment and hosting exit retain their existing permissions.
+
+An enabled current administrator can list/read invitations and accepted identities, issue a code, request a use check, or withdraw an unused code. Viewers, revoked members, members of another organization and former owners without a current permitted role receive no invitation access. Every request checks current organization ownership or active administrator membership. The organization lock serializes admitted actions with ordinary role changes/revocation. Revocation prevents subsequent requests; it does not undo work durably authorized before the revocation.
+
+Invitations retain the canonical organization owner in `owner_id`, so the existing worker ownership check and encrypted code scope remain intact. The actual actor is recorded separately for issue, explicit refresh and effective withdrawal. Worker observations have a null actor rather than impersonating a manager. Migration 37 adds nullable `member_invitation_events.actor_id`; existing events remain unknown and are not backfilled from current ownership. Apply through normal startup migration. An older binary rejects schema 37; rollback needs a compatible binary or a separately qualified management restore, not a schema-version decrement.
+
+Owners and administrators can open a ready managed server's member panel from shared server status. Closed panels do not fetch invitation data. Viewer UI has no member entry, but server authorization remains authoritative. The member panel now reads `/members/admission` instead of the owner-only first-account policy route. It remains available to owners from their first-account screen. Losing shared status unmounts its panel, and losing invitation access clears its codes.
+
+Verification includes race-enabled real PostgreSQL tests for independent opt-in, all six read/mutation/policy boundaries, viewer/revoked denial, canonical worker ownership, issue/refresh/withdrawal actor attribution, ordinary revocation serialization, legacy migration and HTTP session/CSRF/production gates. Controlled browser responses checked explicit opening, administrator submission with CSRF, disabled/revoked access, recovery, viewer absence and shared-read failure cleanup. Shared-panel layouts fit 320, 768 and 1280 CSS pixels. Private browser result: `.local/member-administrator-browser.json`. No native runtime, production flag or live membership was changed. Member removal and its migration window, plan limits, organization-domain handles and live administrator/native qualification remain open under #117.
+
+The full pinned smoke gate passed after the refresh-audit expectation was updated: 46 Node tests, frontend build, Go vet and all Go race packages. A final focused member race run passed the additional foreign-organization refusal and not-found handling. Qualification uses a separate disposable PostgreSQL; no schema migration or flag change was applied to a live service.

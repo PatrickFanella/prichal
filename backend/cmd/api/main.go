@@ -139,6 +139,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	enrollments.MemberAdministrators, err = enrollment.LoadMemberAdministration(cfg.Auth.Mode == "local", organizationAccess)
+	if err != nil {
+		return err
+	}
 	managementOrigin, err := url.Parse(cfg.Auth.Origin)
 	if err != nil {
 		return errors.New("management origin is unavailable for endpoint planning")
