@@ -35,7 +35,7 @@ Check: `curl -H 'Host: prichal-app.subcult.tv' http://10.0.0.57:3090/api/readine
 
 ## Private preview backups
 
-The fixed-source helper is installed at `/srv/apps/prichal/operations/preview-backup.py`. `prichal-preview-backup.timer` runs nightly at 02:40 Central plus up to ten minutes, retaining 14 generated backups after successful isolated restore verification. A manual live-source backup and matching-image application-readiness restore passed on October 19; the first natural nightly run remains pending. See the [backup runbook](hosted-preview-backups.md) and [rollout evidence](live-preview-backup-rollout.md). Owner-admission closure, monitoring/alert qualification and direct release fetching remain unverified by this rollout; the owner subsequently closed #127.
+The fixed-source helper is installed at `/srv/apps/prichal/operations/preview-backup.py`. `prichal-preview-backup.timer` runs nightly at 02:40 Central plus up to ten minutes, retaining 14 generated backups after successful isolated restore verification. A manual live-source backup and matching-image application-readiness restore passed on October 19; the first natural timer run passed on October 20 at 02:43 CDT, independently matching the archive checksum and restoring 60 tables at schema 35 before stopping its isolated verifier. See the [backup runbook](hosted-preview-backups.md) and [rollout evidence](live-preview-backup-rollout.md). Owner-admission closure, monitoring/alert qualification and direct release fetching remain unverified by this rollout; the owner subsequently closed #127.
 
 ## Rollback
 
