@@ -89,6 +89,14 @@ The deadline was `2026-11-19T05:37:12.012Z`. No clock or journal was backdated, 
 
 The private receipt is `.local/member-removal-native/20261020-fourth/report.json`. All three fresh tenant containers stopped, volumes/state were retained, and the temporary tenant attachment was removed from the shared protocol fixture. Independent readback confirmed the protocol fixture returned to stopped with its original four network attachments. The allocator-owned management database was dropped by the existing test harness. Three failed harness attempts remain retained and stopped: setup was corrected to wait for native health, use the exact management session-token length and reconcile the owner's completed lease before member signup. Their temporary protocol attachments were independently removed. No existing tenant, public service, production database or release was changed.
 
+## Read-only retained exit inspection
+
+The registered worker client can call `MemberExitStatus` through `POST /v1/instances/{id}/members/exit/status` with only the accepted invitation ticket. The route uses the same pinned node identity and worker mTLS boundary, strict bounded JSON body and no-query allowlist as removal. It selects a separate inspection method; an older agent without that method returns unavailable rather than falling back to removal.
+
+The restricted local broker requires healthy, unheld hosting, an accepted member journal and an existing private exit journal. It resolves the DID from retained state and runs only the fixed helper's `native_status` action. Inspection preserves the original state and timestamps even when a window is overdue or native deactivation happened before an uncertain journal checkpoint. A completed journal requires native deactivation confirmation. Missing or unsafe journals, changed identities and unavailable native status return no successful observation. Member handle changes do not change the retained DID binding. No invitation codes, credentials or private native settings are returned.
+
+This prepares authenticated recovery observation. Management recovery does not yet use it to compare removal intent or release a recovery hold. Tests use the existing emulated Docker transport and real mTLS HTTP boundary; they do not add a native elapsed-window or production qualification claim.
+
 ## Remaining #117 work
 
 The initial real management/native window is qualified above. Combined browser/native and post-deadline management qualification remain open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.

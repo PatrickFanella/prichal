@@ -198,7 +198,30 @@ func TestMemberExitRequiresConfirmedMemberAndRejectsShortenedDeadline(t *testing
 	}
 }
 
-type exitRouteRuntime struct{ calls int }
+type exitRouteRuntime struct{ calls, inspections int }
+
+type legacyExitRuntime struct{ calls int }
+
+func (*legacyExitRuntime) Ensure(context.Context, string) (Instance, error) { return Instance{}, nil }
+func (r *legacyExitRuntime) MemberExit(context.Context, string, string) (MemberExit, error) {
+	r.calls++
+	return MemberExit{}, nil
+}
+
+func TestMemberExitInspectionNeverFallsBackToRemoval(t *testing.T) {
+	runtime := &legacyExitRuntime{}
+	w := httptest.NewRecorder()
+	Handler(runtime).ServeHTTP(w, httptest.NewRequest("POST", "/v1/instances/"+exitInstance+"/members/exit/status", strings.NewReader(fmt.Sprintf("{\"ticket\":%q}", exitTicket))))
+	if w.Code != 503 || runtime.calls != 0 {
+		t.Fatal("unsupported inspection fell back to removal")
+	}
+}
+
+func (r *exitRouteRuntime) MemberExitStatus(_ context.Context, id, ticket string) (MemberExit, error) {
+	r.inspections++
+	now := time.Now()
+	return MemberExit{InstanceID: id, Ticket: ticket, DID: exitDID, State: "migration_window", RequestedAt: now.UnixMilli(), DeactivateAfter: now.Add(MemberMigrationWindow).UnixMilli()}, nil
+}
 
 func (*exitRouteRuntime) Ensure(context.Context, string) (Instance, error) { return Instance{}, nil }
 func (r *exitRouteRuntime) MemberExit(_ context.Context, id, ticket string) (MemberExit, error) {
@@ -207,34 +230,38 @@ func (r *exitRouteRuntime) MemberExit(_ context.Context, id, ticket string) (Mem
 	return MemberExit{InstanceID: id, Ticket: ticket, DID: exitDID, State: "migration_window", RequestedAt: now.UnixMilli(), DeactivateAfter: now.Add(MemberMigrationWindow).UnixMilli()}, nil
 }
 func TestMemberExitRouteAcceptsOnlyRetainedTicket(t *testing.T) {
-	runtime := &exitRouteRuntime{}
-	handler := Handler(runtime)
-	base := "/v1/instances/" + exitInstance + "/members/exit"
-	for _, entry := range []struct {
-		path, body string
-		status     int
-	}{
-		{base, fmt.Sprintf("{\"ticket\":%q}", exitTicket), 200},
-		{base, fmt.Sprintf("{\"ticket\":%q,\"did\":%q}", exitTicket, exitDID), 400},
-		{base, fmt.Sprintf("{\"ticket\":%q,\"deactivateAfter\":1}", exitTicket), 400},
-		{base, fmt.Sprintf("{\"ticket\":%q}{}", exitTicket), 400},
-		{base + "?immediate=true", fmt.Sprintf("{\"ticket\":%q}", exitTicket), 404},
-		{"/v1/instances/invalid/members/exit", fmt.Sprintf("{\"ticket\":%q}", exitTicket), 404},
-	} {
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, httptest.NewRequest("POST", entry.path, strings.NewReader(entry.body)))
-		if w.Code != entry.status {
-			t.Fatalf("route %s returned %d", entry.path, w.Code)
-		}
-	}
-	if runtime.calls != 1 {
-		t.Fatal("unallowlisted request dispatched")
-	}
-	request := httptest.NewRequest("POST", base, strings.NewReader(fmt.Sprintf("{\"ticket\":%q}", exitTicket)))
-	w := httptest.NewRecorder()
-	Authenticate(handler).ServeHTTP(w, request)
-	if w.Code != 401 {
-		t.Fatal("uncertified worker admitted")
+	for _, suffix := range []string{"", "/status"} {
+		t.Run(suffix, func(t *testing.T) {
+			runtime := &exitRouteRuntime{}
+			handler := Handler(runtime)
+			base := "/v1/instances/" + exitInstance + "/members/exit" + suffix
+			for _, entry := range []struct {
+				path, body string
+				status     int
+			}{
+				{base, fmt.Sprintf("{\"ticket\":%q}", exitTicket), 200},
+				{base, fmt.Sprintf("{\"ticket\":%q,\"did\":%q}", exitTicket, exitDID), 400},
+				{base, fmt.Sprintf("{\"ticket\":%q,\"deactivateAfter\":1}", exitTicket), 400},
+				{base, fmt.Sprintf("{\"ticket\":%q}{}", exitTicket), 400},
+				{base + "?immediate=true", fmt.Sprintf("{\"ticket\":%q}", exitTicket), 404},
+				{"/v1/instances/invalid/members/exit", fmt.Sprintf("{\"ticket\":%q}", exitTicket), 404},
+			} {
+				w := httptest.NewRecorder()
+				handler.ServeHTTP(w, httptest.NewRequest("POST", entry.path, strings.NewReader(entry.body)))
+				if w.Code != entry.status {
+					t.Fatalf("route %s returned %d", entry.path, w.Code)
+				}
+			}
+			if runtime.calls+runtime.inspections != 1 || (suffix != "" && runtime.calls != 0) {
+				t.Fatal("unallowlisted request dispatched")
+			}
+			request := httptest.NewRequest("POST", base, strings.NewReader(fmt.Sprintf("{\"ticket\":%q}", exitTicket)))
+			w := httptest.NewRecorder()
+			Authenticate(handler).ServeHTTP(w, request)
+			if w.Code != 401 {
+				t.Fatal("uncertified worker admitted")
+			}
+		})
 	}
 }
 
