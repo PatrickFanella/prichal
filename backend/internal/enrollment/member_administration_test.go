@@ -186,7 +186,7 @@ func TestMemberActorMigrationDoesNotInventLegacyAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reconstruct the exact pre-37 event shape inside this disposable database.
-	if _, err = f.pool.Exec(ctx, `ALTER TABLE member_invitation_events DROP COLUMN actor_id; UPDATE schema_version SET version=36`); err != nil {
+	if _, err = f.pool.Exec(ctx, `DROP TABLE member_removal_events, member_removals; ALTER TABLE member_invitation_events DROP COLUMN actor_id; UPDATE schema_version SET version=36`); err != nil {
 		t.Fatal(err)
 	}
 	if err = migrate.Apply(ctx, f.pool); err != nil {

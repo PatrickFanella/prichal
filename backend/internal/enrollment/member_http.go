@@ -69,6 +69,22 @@ func (s *Store) RegisterMembers(owners *auth.Service, local bool) func(*http.Ser
 			summary, err := s.ListMembers(r.Context(), session.OwnerID, r.PathValue("id"))
 			memberReply(w, summary, err)
 		})
+		bind("POST /api/member-invitations/{id}/removal", true, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
+			var request MemberRequest
+			r.Body = http.MaxBytesReader(w, r.Body, 1024)
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF {
+				memberRemovalReply(w, nil, ErrInvalid)
+				return
+			}
+			result, err := s.RemoveMember(r.Context(), session.OwnerID, r.PathValue("id"), request)
+			memberRemovalReply(w, result, err)
+		})
+		bind("GET /api/member-invitations/{id}/removal", false, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
+			result, err := s.GetMemberRemoval(r.Context(), session.OwnerID, r.PathValue("id"))
+			memberRemovalReply(w, result, err)
+		})
 		bind("GET /api/member-invitations/{id}", false, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
 			invitation, err := s.GetMember(r.Context(), session.OwnerID, r.PathValue("id"))
 			memberReply(w, invitation, err)
@@ -111,6 +127,27 @@ func memberReply(w http.ResponseWriter, value any, err error) {
 		status, message = 409, "This server has reached its member limit."
 	case errors.Is(err, ErrConflict):
 		status, message = 409, "The member invitation is not open, was refreshed in the last five seconds, or the hourly limit was reached."
+	}
+	respond(w, status, map[string]string{"error": message})
+}
+
+func memberRemovalReply(w http.ResponseWriter, value any, err error) {
+	if err == nil {
+		respond(w, 200, value)
+		return
+	}
+	status, message := 503, "Member removal could not be confirmed. Retry with the same request key."
+	switch {
+	case errors.Is(err, ErrNotFound):
+		status, message = 404, "Member account or removal not found."
+	case errors.Is(err, ErrInvalid):
+		status, message = 400, "Use a valid member removal request key."
+	case errors.Is(err, ErrConflict):
+		status, message = 409, "Use the original removal request key for an accepted member on a ready server."
+	case errors.Is(err, ErrHostingExit):
+		status, message = 409, "This server has a hosting exit in progress. Member removal is paused."
+	case errors.Is(err, recovery.ErrHeld):
+		status, message = 503, "Management recovery is in progress. Member removal is paused."
 	}
 	respond(w, status, map[string]string{"error": message})
 }

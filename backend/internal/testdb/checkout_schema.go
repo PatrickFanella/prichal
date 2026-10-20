@@ -59,7 +59,7 @@ func ReconstructMembers34(t *testing.T, pool *pgxpool.Pool) {
 	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM member_invitations) AND NOT EXISTS(SELECT 1 FROM instance_runtime_releases)`).Scan(&empty); err != nil || !empty {
 		t.Fatal("populated member invitations or runtime observations cannot be reconstructed")
 	}
-	if _, err := pool.Exec(ctx, `DROP TABLE instance_runtime_releases; DROP TABLE member_invitation_events,member_invitations; UPDATE schema_version SET version=34`); err != nil {
+	if _, err := pool.Exec(ctx, `DROP TABLE member_removal_events,member_removals; DROP TABLE instance_runtime_releases; DROP TABLE member_invitation_events,member_invitations; UPDATE schema_version SET version=34`); err != nil {
 		t.Fatal(err)
 	}
 }

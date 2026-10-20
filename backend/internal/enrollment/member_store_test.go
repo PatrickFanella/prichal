@@ -446,6 +446,36 @@ func TestMemberHTTPEnforcesOwnerCSRFAndCodeBoundary(t *testing.T) {
 		t.Fatal("revoked administrator retained HTTP access")
 	}
 
+	accepted := acceptedRemovalMember(t, f, 950, "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb")
+	removalPath := "/api/member-invitations/" + accepted.ID + "/removal"
+	for _, entry := range []struct {
+		token, origin, csrf, body string
+		status                    int
+	}{
+		{"", "http://localhost", "", body, 401},
+		{aliceToken, "http://localhost", "wrong", body, 403},
+		{aliceToken, "http://foreign.invalid", "test-csrf", body, 403},
+		{bobToken, "http://localhost", "test-csrf", body, 404},
+		{aliceToken, "http://localhost", "test-csrf", `{"idempotencyKey":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","did":"did:plc:bbbbbbbbbbbbbbbbbbbbbbbb"}`, 400},
+		{aliceToken, "http://localhost", "test-csrf", `{"idempotencyKey":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","deactivateAfter":1}`, 400},
+		{aliceToken, "http://localhost", "test-csrf", body + "{}", 400},
+		{aliceToken, "http://localhost", "test-csrf", body, 200},
+	} {
+		w := request(true, "POST", removalPath, entry.token, entry.origin, entry.csrf, entry.body)
+		if w.Code != entry.status {
+			t.Fatalf("removal HTTP boundary: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if w := request(true, "GET", removalPath, aliceToken, "", "", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"requested"`) {
+		t.Fatalf("removal read: %d %s", w.Code, w.Body.String())
+	}
+	if w := request(true, "GET", removalPath, bobToken, "", "", ""); w.Code != 404 {
+		t.Fatal("revoked actor read removal")
+	}
+	if w := request(false, "POST", removalPath, aliceToken, "http://localhost", "test-csrf", body); w.Code != 503 {
+		t.Fatal("removal admitted outside local mode")
+	}
+
 	if w := request(true, "POST", "/api/member-invitations/not-a-uuid/withdraw", aliceToken, "http://localhost", "test-csrf", `{}`); w.Code != 404 {
 		t.Fatal("invalid invitation identity accepted")
 	}

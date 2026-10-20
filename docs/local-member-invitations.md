@@ -1,6 +1,6 @@
 # Local member invitations
 
-Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Member removal remains separate work. Administrator invitation permission now has its own local opt-in.
+Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Local member removal now has a [durable request and migration-window worker](local-member-deactivation.md); browser review remains separate work. Administrator invitation permission now has its own local opt-in.
 
 ## Owner routes
 
@@ -66,15 +66,15 @@ The pinned `./scripts/dev.sh smoke` gate passed: 46 Node tests, frontend build, 
 
 ## Administrator invitation permission — October 19
 
-Ordinary collaboration remains a metadata rehearsal. To let active organization administrators manage member invitations, the local operator must independently enable both flags on the API:
+Ordinary collaboration remains a metadata rehearsal. To let active organization administrators manage member invitations and removal requests, the local operator must independently enable both flags on the API:
 
 ```sh
 PDS_LOCAL_ORGANIZATION_ACCESS=true PDS_LOCAL_MEMBER_ADMINISTRATION=true ./scripts/dev.sh api
 ```
 
-The new flag defaults off. Startup rejects a true value outside local mode, without collaboration enabled, or any value other than true/false. Turning it off removes administrator invitation access without changing membership or native accounts. Production member routes remain unavailable. Native posting, signing, passwords, billing, exports, first-account enrollment and hosting exit retain their existing permissions.
+The new flag defaults off. Startup rejects a true value outside local mode, without collaboration enabled, or any value other than true/false. Turning it off removes administrator invitation and removal access without changing membership or native accounts. Production member routes remain unavailable. Native posting, signing, passwords, billing, exports, first-account enrollment and hosting exit retain their existing permissions.
 
-An enabled current administrator can list/read invitations and accepted identities, issue a code, request a use check, or withdraw an unused code. Viewers, revoked members, members of another organization and former owners without a current permitted role receive no invitation access. Every request checks current organization ownership or active administrator membership. The organization lock serializes admitted actions with ordinary role changes/revocation. Revocation prevents subsequent requests; it does not undo work durably authorized before the revocation.
+An enabled current administrator can list/read invitations and accepted identities, issue a code, request a use check, withdraw an unused code, or request/read member removal under its migration window. Viewers, revoked members, members of another organization and former owners without a current permitted role receive no invitation access. Every request checks current organization ownership or active administrator membership. The organization lock serializes admitted actions with ordinary role changes/revocation. Revocation prevents subsequent requests; it does not undo work durably authorized before the revocation.
 
 Invitations retain the canonical organization owner in `owner_id`, so the existing worker ownership check and encrypted code scope remain intact. The actual actor is recorded separately for issue, explicit refresh and effective withdrawal. Worker observations have a null actor rather than impersonating a manager. Migration 37 adds nullable `member_invitation_events.actor_id`; existing events remain unknown and are not backfilled from current ownership. Apply through normal startup migration. An older binary rejects schema 37; rollback needs a compatible binary or a separately qualified management restore, not a schema-version decrement.
 
@@ -97,4 +97,4 @@ A PostgreSQL regression fixture places one accepted invitation behind 105 newer 
 
 Full pinned smoke passed: 47 Node tests, frontend build, Go vet and all Go race packages. The qualification PostgreSQL retained its volume, had zero generated test databases and was stopped. Hosted PR/main CI and deployment remain separate proof states.
 
-The next removal foundation is the [disposable native deactivation primitive](local-member-deactivation.md). It is qualified separately and has no agent/management route or migration-window enforcement yet.
+The [member removal implementation](local-member-deactivation.md) now connects a durable local management request and scheduled worker to the restricted host broker. Browser review and combined native/management qualification remain open.
