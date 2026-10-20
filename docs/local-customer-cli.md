@@ -119,3 +119,22 @@ The qualifier now handles SIGINT and SIGTERM during its active shell-session che
 The revised source passed the ordinary eight completion cases in drill `b693eee9-38cc-415a-8f6b-db24b92eba7d`, completed at `2026-10-20T12:11:38Z`. Separate private probes paused after signal-handler registration in Bash and Zsh and sent each signal to the driver. All four exited 1, recorded the matching signal and reaped each owned shell with exit 0. Independent `/proc` checks found the signaled session's child absent; standard personal history/cache metadata matched before and after the matrix.
 
 Evidence is `.local/issue-audit/shell-signal-before.json`, `.local/issue-audit/shell-signal-matrix.json` and `.local/issue-audit/shell-interruption-positive.json`, with private receipts/transcripts under `.local/cli-shells/`. The matrix retains the final qualifier hash. These probes cover the active session and ordinary cleanup path. They do not qualify SIGKILL, signals before handler registration, repeated-signal delivery or a stuck shell requiring forced termination. No CLI implementation, account, tenant, user profile or release changed.
+
+## Native Linux device authorization and scoped reads — October 20, 2026
+
+With the pinned toolchains and checksum-verified Linux AMD64 artifact available, start the separate disposable local PostgreSQL and run:
+
+```sh
+./scripts/dev.sh db
+./scripts/dev.sh qualify-cli-native-auth
+```
+
+Use the same isolated Compose project setting for both commands. The opt-in Go qualification reuses the authentication package's real management handlers, migrations and local OIDC issuer fixture. It creates a fresh guarded `pds_smoke_*` database and ephemeral loopback HTTP listeners. The native CLI starts its own device grants; disposable Alice and Bob management sessions review and approve them through the real CSRF-protected endpoints. Token issuance, organization scoping and credential revocation use the real PostgreSQL-backed service. No existing management API, worker or issuer needs to be started or stopped.
+
+Drill `run-1473503287` passed with the Go race detector, completing at `2026-10-20T15:25:38.339451853Z`. Both native CLI logins returned signed-in JSON and wrote 0600 credential files under private 0700 directories. Each CLI saw exactly its owner's fresh organization. A bearer attempt to create an organization returned 403. Bob's attempt to revoke Alice's credential returned 404, after which Alice's CLI still worked. Alice's own revocation returned 200; the bearer read then returned 401 and her CLI read exited 1 with empty stdout. Bob's CLI remained usable. Logout returned signed-out JSON for both owners, removed both credential files and left zero CLI credentials in the disposable database. Issued tokens were absent from captured CLI stdout/stderr.
+
+The unchanged binary SHA-256 was `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad`, the artifact built from CLI source at `79f53f0` and used in the earlier native drills. CLI implementation files were unchanged through qualification base `41d0afb`. Binary bytes and checksum metadata matched afterward. The final receipt is written after the fixture's HTTP and database cleanup; cleanup failures prevent a passing receipt.
+
+Private evidence is `.local/cli-native-auth/run-1473503287/report.json` and `.local/issue-audit/native-cli-auth-final.log`. The receipt retains the qualifier source hash. Bounded process capture withholds instructions and credentials from test diagnostics; process contexts also cancel and reap a login if approval or an assertion fails. The normal smoke suite skips this explicit opt-in drill while compiling its test code.
+
+This qualifies native Linux CLI device authorization and organization reads against the current local management authentication service. The OIDC identity provider is disposable, and approval uses HTTP clients. Browser UI, a real external identity provider, deployment submission/interruption, native tenant provisioning, published installation and other platforms remain separate gates. No retained tenant, production service or release changed; #27 remains open.
