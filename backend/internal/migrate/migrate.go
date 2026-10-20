@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const Version = 37
+const Version = 38
 
 //go:embed sql/*.sql
 var migrations embed.FS
@@ -35,7 +35,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("incompatible management schema: database version %d exceeds supported version %d", version, Version)
 	}
 	for next := version + 1; next <= Version; next++ {
-		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql", 9: "sql/009_retained_recovery_namespaces.sql", 10: "sql/010_service_observations.sql", 11: "sql/011_owner_enrollment.sql", 12: "sql/012_handle_proof.sql", 13: "sql/013_node_capacity_policy.sql", 14: "sql/014_native_usage.sql", 15: "sql/015_service_lifecycle.sql", 16: "sql/016_account_lifecycle.sql", 17: "sql/017_cli_authorization.sql", 18: "sql/018_pilot_entitlements.sql", 19: "sql/019_billing_fixture_inbox.sql", 20: "sql/020_support_inspections.sql", 21: "sql/021_customer_exports.sql", 22: "sql/022_hosting_exit.sql", 23: "sql/023_organization_access.sql", 24: "sql/024_deployment_admission.sql", 25: "sql/025_enrollment_admission.sql", 26: "sql/026_endpoint_choices.sql", 27: "sql/027_owner_admission.sql", 28: "sql/028_enrollment_withdrawal.sql", 29: "sql/029_enrollment_cancellation.sql", 30: "sql/030_endpoint_claims.sql", 31: "sql/031_checkout_preparation.sql", 32: "sql/032_checkout_dispatch.sql", 33: "sql/033_checkout_completion_inbox.sql", 34: "sql/034_checkout_completion_mapping.sql", 35: "sql/035_member_invitations.sql", 36: "sql/036_runtime_releases.sql", 37: "sql/037_member_invitation_actors.sql"}[next]
+		file := map[int]string{1: "sql/001_foundation.sql", 2: "sql/002_owner_auth.sql", 3: "sql/003_deployments.sql", 4: "sql/004_fleet.sql", 5: "sql/005_runtime_operations.sql", 6: "sql/006_managed_endpoints.sql", 7: "sql/007_local_tls.sql", 8: "sql/008_recovery_hold.sql", 9: "sql/009_retained_recovery_namespaces.sql", 10: "sql/010_service_observations.sql", 11: "sql/011_owner_enrollment.sql", 12: "sql/012_handle_proof.sql", 13: "sql/013_node_capacity_policy.sql", 14: "sql/014_native_usage.sql", 15: "sql/015_service_lifecycle.sql", 16: "sql/016_account_lifecycle.sql", 17: "sql/017_cli_authorization.sql", 18: "sql/018_pilot_entitlements.sql", 19: "sql/019_billing_fixture_inbox.sql", 20: "sql/020_support_inspections.sql", 21: "sql/021_customer_exports.sql", 22: "sql/022_hosting_exit.sql", 23: "sql/023_organization_access.sql", 24: "sql/024_deployment_admission.sql", 25: "sql/025_enrollment_admission.sql", 26: "sql/026_endpoint_choices.sql", 27: "sql/027_owner_admission.sql", 28: "sql/028_enrollment_withdrawal.sql", 29: "sql/029_enrollment_cancellation.sql", 30: "sql/030_endpoint_claims.sql", 31: "sql/031_checkout_preparation.sql", 32: "sql/032_checkout_dispatch.sql", 33: "sql/033_checkout_completion_inbox.sql", 34: "sql/034_checkout_completion_mapping.sql", 35: "sql/035_member_invitations.sql", 36: "sql/036_runtime_releases.sql", 37: "sql/037_member_invitation_actors.sql", 38: "sql/038_member_removals.sql"}[next]
 		sql, err := migrations.ReadFile(file)
 		if err != nil {
 			return err

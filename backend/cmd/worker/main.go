@@ -57,6 +57,7 @@ func run() error {
 	var exportAgent exports.Agent
 	var enrollmentAgent enrollment.Agent
 	var memberAgent enrollment.MemberAgent
+	var removalAgent enrollment.MemberRemovalAgent
 	var serviceAgent lifecycle.Agent
 	var agent deployment.AgentClient
 	if os.Getenv("PDS_WORKER_AGENT_CA_FILE") != "" {
@@ -67,6 +68,7 @@ func run() error {
 		agent = client
 		enrollmentAgent = client
 		memberAgent = client
+		removalAgent = client
 		serviceAgent = client
 		exportAgent = client
 	}
@@ -137,6 +139,7 @@ func run() error {
 	river.AddWorker(workers, &billing.CompletionWorker{Inbox: checkoutCompletions, Intents: checkoutIntents, Authority: checkoutAuthority})
 	river.AddWorker(workers, &lifecycle.Worker{Pool: pool, Agent: serviceAgent})
 	river.AddWorker(workers, &enrollment.Worker{Pool: pool, Cipher: enrollmentCipher, Agent: enrollmentAgent})
+	river.AddWorker(workers, &enrollment.MemberRemovalWorker{Pool: pool, Agent: removalAgent})
 	river.AddWorker(workers, &enrollment.MemberWorker{Pool: pool, Cipher: enrollmentCipher, Agent: memberAgent})
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 2}}})
