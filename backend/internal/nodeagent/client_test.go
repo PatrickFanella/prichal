@@ -22,6 +22,17 @@ import (
 type clientRuntime struct {
 	calls, withdrawals int
 	withdrawalResult   *Enrollment
+	exitResult         *MemberExit
+	exits              int
+}
+
+func (r *clientRuntime) MemberExit(_ context.Context, id, ticket string) (MemberExit, error) {
+	r.exits++
+	if r.exitResult != nil {
+		return *r.exitResult, nil
+	}
+	now := time.Now()
+	return MemberExit{InstanceID: id, Ticket: ticket, DID: exitDID, State: "migration_window", RequestedAt: now.UnixMilli(), DeactivateAfter: now.Add(MemberMigrationWindow).UnixMilli()}, nil
 }
 
 func (r *clientRuntime) WithdrawEnrollment(_ context.Context, id, ticket string) (Enrollment, error) {
@@ -113,6 +124,26 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	}
 	pin := sha256.Sum256(public)
 	peer := Peer{NodeID: nodeID, Endpoint: server.URL, PublicKeyHash: pin[:]}
+	result, exitErr := client.MemberExit(context.Background(), peer, nodeID, nodeID)
+	if exitErr != nil || result.State != "migration_window" {
+		t.Fatalf("authenticated member exit: %+v %v", result, exitErr)
+	}
+	for _, mutate := range []func(*MemberExit){
+		func(m *MemberExit) { m.Ticket = exitTicket },
+		func(m *MemberExit) { m.InstanceID = exitTicket },
+		func(m *MemberExit) { m.DID = "invalid" },
+		func(m *MemberExit) { m.DeactivateAfter-- },
+		func(m *MemberExit) { m.State = "deactivated" },
+	} {
+		bad := result
+		mutate(&bad)
+		runtime.exitResult = &bad
+		if _, err := client.MemberExit(context.Background(), peer, nodeID, nodeID); err == nil {
+			t.Fatal("unsafe member exit response accepted")
+		}
+	}
+	runtime.exitResult = nil
+	exitCalls := runtime.exits
 	withdrawn, err := client.WithdrawEnrollment(context.Background(), peer, nodeID, nodeID)
 	if err != nil || withdrawn.State != "withdrawn" {
 		t.Fatalf("authenticated withdrawal: %+v %v", withdrawn, err)
@@ -152,6 +183,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 		peer Peer
 	}{{"wrong key", Peer{NodeID: nodeID, Endpoint: server.URL, PublicKeyHash: make([]byte, 32)}}, {"wrong node", Peer{NodeID: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", Endpoint: server.URL, PublicKeyHash: pin[:]}}} {
 		t.Run(entry.name, func(t *testing.T) {
+			if _, err := client.MemberExit(context.Background(), entry.peer, nodeID, nodeID); err == nil {
+				t.Fatal("unregistered exit peer accepted")
+			}
 			if _, err := client.WithdrawEnrollment(context.Background(), entry.peer, nodeID, nodeID); err == nil {
 				t.Fatal("unregistered withdrawal peer accepted")
 			}
@@ -159,6 +193,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 				t.Fatal("unregistered peer accepted")
 			}
 		})
+	}
+	if runtime.exits != exitCalls {
+		t.Fatal("unregistered peer reached member exit runtime")
 	}
 	if runtime.calls != 1 {
 		t.Fatalf("invalid peer reached runtime: %d", runtime.calls)
