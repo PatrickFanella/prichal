@@ -55,6 +55,8 @@ Subscription entitlements, usage limits, fleet capacity, exports and support wor
 
 Browser onboarding and independent production infrastructure pass the documented release gate before public signup opens.
 
+The owner confirmed on October 20, 2026 that the homelab is an interim private pilot until a VPS is available. M4's independence requirement remains unchanged. See the [M4 release gate](m4-release-gate.md) for the selected approach, bounded browser evidence and remaining production/launch checks.
+
 - [#24: Finish accessible browser onboarding and lifecycle guidance](https://git.subcult.tv/PatrickFanella/pds-ass/issues/24)
 - [#25: Qualify independent production deployment and incident recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/25)
 - [#26: Pass the public-launch gate and open bounded signup](https://git.subcult.tv/PatrickFanella/pds-ass/issues/26)

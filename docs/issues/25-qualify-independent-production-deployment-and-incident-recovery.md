@@ -33,6 +33,8 @@ Recreate the production-design environment from versioned configuration, verify 
 
 This issue is a qualification gate; actual paid infrastructure creation or public changes require the selected account and authorized execution window.
 
+On October 20, 2026, the owner confirmed that this independence requirement stays in M4. The homelab remains an interim private pilot until a VPS is available. See the [M4 release gate](../m4-release-gate.md); homelab qualification does not complete this issue.
+
 ## Planning reference
 
 Phase: M4 - Public launch. Priority: P0.
