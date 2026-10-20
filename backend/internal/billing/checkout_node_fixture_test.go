@@ -21,7 +21,9 @@ import (
 
 func TestCheckoutNodeAuthorityUsesRealOwnerHTTPRiverSDKAndDurableRegistry(t *testing.T) {
 	_, pool, org := fixtureStore(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	// This budget covers Node startup and both checkout/completion journeys under
+	// parallel race testing; it is not a product latency assertion.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	var owner string
 	if err := pool.QueryRow(ctx, `SELECT owner_id FROM organizations WHERE id=$1`, org).Scan(&owner); err != nil {
@@ -108,16 +110,22 @@ func TestCheckoutNodeAuthorityUsesRealOwnerHTTPRiverSDKAndDurableRegistry(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = client.Start(ctx); err != nil {
-		t.Fatal("disposable checkout worker startup failed")
-	}
+	// River v0.47's notifier exits on context.Canceled, but retries a parent's
+	// DeadlineExceeded. Keep the same deadline boundary, delivered as cancellation.
+	workerCtx, cancelWorker := context.WithCancel(context.WithoutCancel(ctx))
+	stopDeadline := context.AfterFunc(ctx, cancelWorker)
 	defer func() {
+		stopDeadline()
+		cancelWorker()
 		stop, done := context.WithTimeout(context.Background(), 5*time.Second)
 		defer done()
 		if err := client.Stop(stop); err != nil {
 			t.Error("disposable checkout worker shutdown failed")
 		}
 	}()
+	if err = client.Start(workerCtx); err != nil {
+		t.Fatal("disposable checkout worker startup failed")
+	}
 	for {
 		var ready bool
 		if err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM billing_checkout_requests WHERE id=$1 AND state='session_ready') AND EXISTS(SELECT 1 FROM river_job WHERE kind='billing_checkout' AND state='completed')`, receipt.ID).Scan(&ready); err != nil {
