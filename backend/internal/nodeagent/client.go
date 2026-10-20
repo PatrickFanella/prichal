@@ -316,6 +316,15 @@ func (c *Client) Export(ctx context.Context, peer Peer, id, did string) (Portabl
 
 // MemberExit authenticates the registered node and supplies only its retained ticket.
 func (c *Client) MemberExit(ctx context.Context, peer Peer, id, ticket string) (MemberExit, error) {
+	return c.memberExit(ctx, peer, id, ticket, false)
+}
+
+// MemberExitStatus reads the retained host window without advancing native state.
+func (c *Client) MemberExitStatus(ctx context.Context, peer Peer, id, ticket string) (MemberExit, error) {
+	return c.memberExit(ctx, peer, id, ticket, true)
+}
+
+func (c *Client) memberExit(ctx context.Context, peer Peer, id, ticket string, inspect bool) (MemberExit, error) {
 	if !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
 		return MemberExit{}, errors.New("invalid member exit request")
 	}
@@ -327,7 +336,11 @@ func (c *Client) MemberExit(ctx context.Context, peer Peer, id, ticket string) (
 	body, _ := json.Marshal(struct {
 		Ticket string `json:"ticket"`
 	}{ticket})
-	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/members/exit", bytes.NewReader(body))
+	path := "/v1/instances/" + id + "/members/exit"
+	if inspect {
+		path += "/status"
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+path, bytes.NewReader(body))
 	if err != nil {
 		return MemberExit{}, err
 	}

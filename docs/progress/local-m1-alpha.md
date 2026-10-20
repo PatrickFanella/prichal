@@ -1129,3 +1129,13 @@ The managed-local recovery checkpoint now includes existing member invitation jo
 Focused Node tests passed for byte retention, refusal paths, guard-policy separation and owner-only compatibility. The management database inventory already discovers all public tables and needs no special list for member-removal rows. This change prepares the existing recovery rehearsal; it does not qualify a populated multi-account encrypted restore, activate a recovered agent, observe an elapsed migration window or change production backup policy. Those gates remain open under the existing recovery and member-exit scope.
 
 Full pinned smoke exited 0 with 55 Node tests, frontend build, Go vet and all Go race packages. Recovery-script syntax and diff checks passed. Disposable PostgreSQL had zero generated test databases afterward and was stopped with its volume retained. Retained native fixtures and production services were preserved.
+
+## Read-only member exit observation, October 20, 2026
+
+PR #172 merged as `a24d3806b1c4c560af51348cefb3c74dd0a935b2` after exact-head required CI passed. Its merged-main check is tracked separately.
+
+The restricted agent now exposes a distinct authenticated member-exit inspection method. An existing accepted member and retained exit journal are required; the native helper receives only `native_status` and the retained DID. Inspection never creates or advances a migration window, deactivates an account or repairs a journal, including overdue windows and uncertain native completion. A completed journal requires native confirmation. The worker client validates the original tenant, ticket, DID and exact fixed window through the existing pinned node mTLS boundary. Unsupported agents fail unavailable without removal fallback.
+
+Focused node-agent race tests passed, including journal byte retention, missing/unsafe state, changed bindings, native status failure, overdue windows, completed-state confirmation, strict routing and wrong node/key rejection. [The contract and limits](../local-member-deactivation.md#read-only-retained-exit-inspection) distinguish this read-only prerequisite from the remaining management recovery comparison and real native elapsed-window qualification. No issue is closed by this observation method.
+
+Full pinned smoke exited 0 with 55 Node tests, frontend build, Go vet and all Go race packages. The final focused node-agent race suite passed after adding the explicit legacy-agent fallback refusal test. Diff checks passed. Disposable PostgreSQL had zero generated test databases and was stopped with its volume retained. Existing native fixtures and production services were preserved.

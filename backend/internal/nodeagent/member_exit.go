@@ -119,6 +119,58 @@ func (d *Docker) writeMemberExits(state memberExitState) error {
 func (d *Docker) MemberExit(ctx context.Context, id, ticket string) (MemberExit, error) {
 	return d.memberExitAt(ctx, id, ticket, time.Now())
 }
+
+// MemberExitStatus inspects an existing window without creating or advancing it.
+// Native status may confirm completion, but inspection never repairs the journal.
+func (d *Docker) MemberExitStatus(ctx context.Context, id, ticket string) (MemberExit, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	if d.pilot != nil {
+		return MemberExit{}, errors.New("member exit inspection requires isolated local identity")
+	}
+	if err := d.memberRuntime(ctx, id, ticket); err != nil {
+		return MemberExit{}, err
+	}
+	members, err := d.readMemberState(id)
+	if err != nil {
+		return MemberExit{}, err
+	}
+	for _, member := range members.Entries {
+		if member.Ticket == ticket && member.State == "accepted" && accountDID.MatchString(member.DID) {
+			return d.inspectMemberExit(id, member, func(did string) (nativeMemberExit, error) {
+				var result nativeMemberExit
+				err := d.executeFixed(ctx, "pds-ass-tenant-"+id, memberExitHelperScript, []string{"native_status", did}, &result)
+				return result, err
+			})
+		}
+	}
+	return MemberExit{}, errors.New("retained accepted member required")
+}
+
+func (d *Docker) inspectMemberExit(id string, member memberEntry, inspect func(string) (nativeMemberExit, error)) (MemberExit, error) {
+	if !instanceID.MatchString(id) || !instanceID.MatchString(member.Ticket) || member.State != "accepted" || !accountDID.MatchString(member.DID) {
+		return MemberExit{}, errors.New("invalid member exit inspection")
+	}
+	state, err := d.readMemberExits(id)
+	if err != nil {
+		return MemberExit{}, err
+	}
+	for _, entry := range state.Entries {
+		if entry.Ticket != member.Ticket {
+			continue
+		}
+		if entry.DID != member.DID || !entry.Valid(id, member.Ticket) {
+			return MemberExit{}, errors.New("retained member exit identity or window differs")
+		}
+		native, err := inspect(member.DID)
+		if err != nil || native.DID != member.DID || native.Handle == "" || len(native.Handle) > 253 || (entry.State == "deactivated" && !native.Deactivated) {
+			return MemberExit{}, errors.New("native member exit status differs")
+		}
+		return entry, nil
+	}
+	return MemberExit{}, errors.New("retained member exit required")
+}
+
 func (d *Docker) memberExitAt(ctx context.Context, id, ticket string, now time.Time) (MemberExit, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

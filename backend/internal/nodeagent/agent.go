@@ -101,36 +101,51 @@ func Handler(runtime Runtime) http.Handler {
 			_ = json.NewEncoder(w).Encode(result)
 		}
 	}
-	mux.HandleFunc("POST /v1/instances/{id}/members/exit", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		provider, ok := runtime.(interface {
-			MemberExit(context.Context, string, string) (MemberExit, error)
-		})
-		if !ok {
-			http.Error(w, "member exit unavailable", 503)
-			return
+	memberExit := func(inspect bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			var call func(context.Context, string, string) (MemberExit, error)
+			if inspect {
+				if provider, ok := runtime.(interface {
+					MemberExitStatus(context.Context, string, string) (MemberExit, error)
+				}); ok {
+					call = provider.MemberExitStatus
+				}
+			} else {
+				if provider, ok := runtime.(interface {
+					MemberExit(context.Context, string, string) (MemberExit, error)
+				}); ok {
+					call = provider.MemberExit
+				}
+			}
+			if call == nil {
+				http.Error(w, "member exit unavailable", 503)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, 128)
+			var body struct {
+				Ticket string `json:"ticket"`
+			}
+			decoder := json.NewDecoder(r.Body)
+			decoder.DisallowUnknownFields()
+			if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !instanceID.MatchString(body.Ticket) {
+				http.Error(w, "fixed member exit ticket required", 400)
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+			defer cancel()
+			result, err := call(ctx, r.PathValue("id"), body.Ticket)
+			if err != nil {
+				http.Error(w, "member exit could not be confirmed", 503)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(result)
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 128)
-		var body struct {
-			Ticket string `json:"ticket"`
-		}
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if decoder.Decode(&body) != nil || decoder.Decode(new(any)) != io.EOF || !instanceID.MatchString(body.Ticket) {
-			http.Error(w, "fixed member exit ticket required", 400)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
-		defer cancel()
-		result, err := provider.MemberExit(ctx, r.PathValue("id"), body.Ticket)
-		if err != nil {
-			http.Error(w, "member exit could not be confirmed", 503)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(result)
-	})
+	}
+	mux.HandleFunc("POST /v1/instances/{id}/members/exit", memberExit(false))
+	mux.HandleFunc("POST /v1/instances/{id}/members/exit/status", memberExit(true))
 	mux.HandleFunc("POST /v1/instances/{id}/members/invitation", member(false))
 	mux.HandleFunc("POST /v1/instances/{id}/members/invitation/withdraw", member(true))
 	mux.HandleFunc("POST /v1/instances/{id}/export", func(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +383,7 @@ func Handler(runtime Runtime) http.Handler {
 			mux.ServeHTTP(w, r)
 			return
 		}
-		for _, suffix := range []string{"/members/invitation", "/members/invitation/withdraw", "/members/exit"} {
+		for _, suffix := range []string{"/members/invitation", "/members/invitation/withdraw", "/members/exit", "/members/exit/status"} {
 			if r.Method == "POST" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, suffix) && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), suffix)) {
 				mux.ServeHTTP(w, r)
 				return

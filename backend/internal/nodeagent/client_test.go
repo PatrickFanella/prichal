@@ -24,6 +24,16 @@ type clientRuntime struct {
 	withdrawalResult   *Enrollment
 	exitResult         *MemberExit
 	exits              int
+	exitInspections    int
+}
+
+func (r *clientRuntime) MemberExitStatus(_ context.Context, id, ticket string) (MemberExit, error) {
+	r.exitInspections++
+	if r.exitResult != nil {
+		return *r.exitResult, nil
+	}
+	now := time.Now()
+	return MemberExit{InstanceID: id, Ticket: ticket, DID: exitDID, State: "migration_window", RequestedAt: now.UnixMilli(), DeactivateAfter: now.Add(MemberMigrationWindow).UnixMilli()}, nil
 }
 
 func (r *clientRuntime) MemberExit(_ context.Context, id, ticket string) (MemberExit, error) {
@@ -128,6 +138,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if exitErr != nil || result.State != "migration_window" {
 		t.Fatalf("authenticated member exit: %+v %v", result, exitErr)
 	}
+	if inspected, err := client.MemberExitStatus(context.Background(), peer, nodeID, nodeID); err != nil || inspected.State != "migration_window" || runtime.exits != 1 || runtime.exitInspections != 1 {
+		t.Fatalf("read-only authenticated member exit: %+v %v", inspected, err)
+	}
 	for _, mutate := range []func(*MemberExit){
 		func(m *MemberExit) { m.Ticket = exitTicket },
 		func(m *MemberExit) { m.InstanceID = exitTicket },
@@ -140,6 +153,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 		runtime.exitResult = &bad
 		if _, err := client.MemberExit(context.Background(), peer, nodeID, nodeID); err == nil {
 			t.Fatal("unsafe member exit response accepted")
+		}
+		if _, err := client.MemberExitStatus(context.Background(), peer, nodeID, nodeID); err == nil {
+			t.Fatal("unsafe member exit inspection accepted")
 		}
 	}
 	runtime.exitResult = nil
@@ -185,6 +201,9 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 		t.Run(entry.name, func(t *testing.T) {
 			if _, err := client.MemberExit(context.Background(), entry.peer, nodeID, nodeID); err == nil {
 				t.Fatal("unregistered exit peer accepted")
+			}
+			if _, err := client.MemberExitStatus(context.Background(), entry.peer, nodeID, nodeID); err == nil {
+				t.Fatal("unregistered exit inspection peer accepted")
 			}
 			if _, err := client.WithdrawEnrollment(context.Background(), entry.peer, nodeID, nodeID); err == nil {
 				t.Fatal("unregistered withdrawal peer accepted")

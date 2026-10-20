@@ -322,13 +322,20 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 	if exitCalls != 0 {
 		t.Fatal("unaccepted ticket dispatched native exit")
 	}
+	if _, err := runtime.MemberExitStatus(ctx, id, ticket(2)); err == nil || exitCalls != 0 {
+		t.Fatal("inspection created an exit window")
+	}
 	started := time.Now()
 	window, err := runtime.memberExitAt(ctx, id, ticket(2), started)
 	if err != nil || window.DID != accepted.DID || window.State != "migration_window" || exitCalls != 1 || exitWrites != 0 {
 		t.Fatalf("retained member window: %+v %v", window, err)
 	}
+	inspected, err := runtime.MemberExitStatus(ctx, id, ticket(2))
+	if err != nil || inspected != window || exitCalls != 2 || exitWrites != 0 {
+		t.Fatalf("read-only member exit: %+v %v", inspected, err)
+	}
 	replayExit, err := runtime.memberExitAt(ctx, id, ticket(2), started.Add(MemberMigrationWindow-time.Millisecond))
-	if err != nil || replayExit != window || exitCalls != 1 {
+	if err != nil || replayExit != window || exitCalls != 2 {
 		t.Fatal("early exit mutated native account")
 	}
 	complete, err := runtime.memberExitAt(ctx, id, ticket(2), started.Add(MemberMigrationWindow))
