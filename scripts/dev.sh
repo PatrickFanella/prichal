@@ -54,7 +54,8 @@ case "${1:-help}" in
     cd backend
     PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/auth -run '^TestNativeCustomerCLIAuthQualification$' -count=1 -v
     ;;
-  qualify-member-native-recovery)
+  qualify-member-native-recovery|qualify-member-native-rollback)
+    if [[ "${1:-}" == qualify-member-native-rollback ]]; then export PDS_QUALIFY_NATIVE_MEMBER_ROLLBACK=true; else unset PDS_QUALIFY_NATIVE_MEMBER_ROLLBACK; fi
     mkdir -p .local/member-removal-native
     export PDS_NATIVE_MEMBER_WINDOW_DIRECTORY="$PWD/.local/member-removal-native/$(node -e 'console.log(require("node:crypto").randomUUID())')"
     export PDS_QUALIFY_NATIVE_MEMBER_WINDOW=true
@@ -64,5 +65,5 @@ case "${1:-help}" in
     ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|qualify-member-management-recovery|qualify-member-native-recovery|qualify-cli-native-auth|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|qualify-member-management-recovery|qualify-member-native-recovery|qualify-member-native-rollback|qualify-cli-native-auth|smoke|down}\n'; exit 2 ;;
 esac

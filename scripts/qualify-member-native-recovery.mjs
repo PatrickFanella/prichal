@@ -11,6 +11,7 @@ import {memberRecoveryFiles,restoreMemberRecoveryFiles} from './member-recovery-
 import {recoverySubnets,composeLiterals} from './recovery-networks.mjs';
 
 assert.equal(process.env.PDS_QUALIFY_NATIVE_MEMBER_RECOVERY,'true','Explicit disposable native recovery opt-in required');
+const rollback=process.env.PDS_QUALIFY_NATIVE_MEMBER_ROLLBACK==='true';
 const [rootText,tenant,...extra]=process.argv.slice(2),root=resolve(rootText??'');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 assert.equal(extra.length,0);assert.match(tenant??'',uuid);
@@ -23,17 +24,18 @@ assert.ok(Array.isArray(logins)&&logins.length===2&&logins.every(v=>typeof v.han
 assert.notEqual(logins[0].did,logins[1].did);
 const image='ghcr.io/bluesky-social/pds:0.4@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336';
 const id=randomUUID(),prefix='pds-ass-member-recovery-'+id,work=join(root,'cold-recovery');mkdirSync(work,{mode:0o700});
-const resources={id,containers:[]},report={result:'failed',tenant,id,stage:'preflight',productionRecoveryQualified:false};
+const resources={id,containers:[]},report={result:'failed',tenant,id,stage:'preflight',rollbackRequested:rollback,productionRecoveryQualified:false};
 function receipt(){writeFileSync(join(work,'report.json'),JSON.stringify(report,null,2),{mode:0o600});}
 function register(name){resources.containers.push(name);writeFileSync(join(work,'resources.json'),JSON.stringify(resources),{mode:0o600});}
 function command(args,options={}){const result=spawnSync('docker',args,{encoding:'utf8',timeout:60000,maxBuffer:8<<20,...options});if(result.status!==0){report.failedOperation=args[0];writeFileSync(join(work,'subprocess-error.log'),result.stderr??'',{mode:0o600});}assert.equal(result.status,0,'Fixed member recovery operation failed');return result.stdout;}
 const inspect=name=>JSON.parse(command(['inspect',name]))[0];
 const names={pds:'pds-ass-tenant-'+tenant,edge:'pds-ass-edge-'+tenant,guard:'pds-ass-enrollment-'+tenant,protocol:'pds-ass-runtime-protocol-fixtures-1'};
 const state=join(root,'agent-state'),host=join(work,'host');mkdirSync(host,{mode:0o700});privateDirectory(state);
-const cloneNames=[prefix+'-pds-1',prefix+'-protocol-1'];let composePath,started=false;
+const cloneNames=[prefix+'-pds-1',prefix+'-protocol-1'];let composePath,started=false,resumedSource=false;
 function fenced(volumes){for(const volume of Object.values(volumes))assert.equal(command(['ps','--filter','volume='+volume,'--format','{{.ID}}']).trim(),'','Checkpoint source still has an active container');}
 function stopClones(){for(const name of cloneNames){const value=spawnSync('docker',['inspect',name],{encoding:'utf8'});if(value.status!==0)continue;assert.equal(JSON.parse(value.stdout)[0].Config.Labels['pds-ass.member-recovery'],id);command(['stop','--time','10',name]);}}
-for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{stopClones();process.exit(130);});
+function stopResumedSource(){if(resumedSource)command(['stop','--time','10',names.pds,names.protocol]);}
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{try{stopClones();}finally{stopResumedSource();}process.exit(130);});
 let tool=0;
 function run(args,options={}){const name=prefix+'-tool-'+(++tool);register(name);return command(['run','--rm','--name',name,'--label','pds-ass.member-recovery='+id,'--network','none','--memory','192m','--cpus','0.5','--pids-limit','64',...args],options);}
 function mounts(volumes,path,readonly=true){return [...Object.entries(volumes).flatMap(([name,volume])=>['--mount',`type=volume,src=${volume},dst=/snapshot/${name}${readonly?',readonly':''}`]),'--mount',`type=bind,src=${path},dst=/snapshot/host${readonly?',readonly':''}`];}
@@ -80,6 +82,7 @@ try {
  const networks=JSON.parse(command(['network','inspect',...command(['network','ls','-q']).trim().split(/\s+/)]));const [subnet]=recoverySubnets(networks.flatMap(n=>(n.IPAM?.Config??[]).map(v=>v.Subnet).filter(Boolean)));
  const bounded={restart:'no',pull_policy:'never',mem_limit:'768m',cpus:1,pids_limit:128,labels:{'pds-ass.member-recovery':id}};
  const compose={name:prefix,services:{pds:{...bounded,image,environment,volumes:[{type:'volume',source:'data',target:'/pds'},{type:'volume',source:'blobs',target:'/blobs'}],networks:['private']},protocol:{...bounded,image,command:protocol.Config.Cmd,environment:{PDS_FIXTURE_MODE:'local'},volumes:[{type:'volume',source:'protocol',target:'/fixture-data'},{type:'bind',source:join(restoredHost,'protocol-services.mjs'),target:'/fixtures/protocol-services.mjs',read_only:true}],networks:{private:{aliases:['pds-ass-protocol-fixtures']}},mem_limit:'192m',cpus:0.25,pids_limit:64}},networks:{private:{internal:true,ipam:{config:[{subnet}]}}},volumes:Object.fromEntries(Object.entries(fresh).map(([name,value])=>[name,{name:value,external:true}]))};
+ if(rollback)compose.services.pds.healthcheck={test:['CMD','node','-e','process.exit(73)'],interval:'1s',timeout:'1s',retries:1,start_period:'0s'};
  composePath=join(work,'restore.compose.json');writeFileSync(composePath,composeLiterals(compose),{mode:0o600});for(const name of cloneNames)register(name);fenced(source);started=true;command(['compose','-f',composePath,'-p',prefix,'up','-d']);
  for(const name of cloneNames){const value=inspect(name);assert.equal(value.Config.Labels['pds-ass.member-recovery'],id);assert.ok(Object.values(value.NetworkSettings.Ports??{}).every(v=>!v?.length));assert.equal(Object.keys(value.NetworkSettings.Networks).length,1);assert.equal(JSON.parse(command(['network','inspect',Object.keys(value.NetworkSettings.Networks)[0]]))[0].Internal,true);}
  report.stage='restored-native-qualification';receipt();let signedRestored,startupReadRetries=0;
@@ -87,8 +90,24 @@ try {
  assert.deepEqual(signedRestored,signedBefore);const writes=execJSON(cloneNames[0],nativeProgram,{logins,blobs:false,text:'Restored cold recovery '+id});assert.equal(writes.authenticatedAccounts,2);
  const afterWrites=JSON.parse(command(['exec',cloneNames[0],'node','-e',signedProgram]));assert.equal(afterWrites.signedRecords,signedBefore.signedRecords+2);assert.deepEqual(afterWrites.referencedBlobs,signedBefore.referencedBlobs);
  const coldRecoveryMilliseconds=Math.round(performance.now()-recoveryStarted);
+ if(rollback){
+  report.stage='candidate-health-failure';receipt();let health;
+  for(let attempt=0;;attempt++){health=inspect(cloneNames[0]).State.Health;if(health?.Status==='unhealthy')break;assert.ok(attempt<39,'Candidate did not reach fixed unhealthy state');await new Promise(done=>setTimeout(done,250));}
+  assert.equal(health.Log.at(-1).ExitCode,73);fenced(source);
+ }
+
  stopClones();fenced(fresh);fenced(source);assert.deepEqual(inventory(source,host,true),coldBefore);assert.deepEqual(files.map(([path])=>hash(readFileSync(path))),protectedHashes);
+ if(rollback){
+  // The unhealthy restored writer is stopped before the retained source resumes.
+  // No candidate SQLite files are ever copied back onto the retained volumes.
+  report.stage='retained-source-resume';receipt();resumedSource=true;command(['start',names.protocol,names.pds]);
+  for(let attempt=0;;attempt++){try{assert.deepEqual(JSON.parse(command(['exec',names.pds,'node','-e',signedProgram])),signedBefore);break;}catch(error){if(attempt>=39)throw error;await new Promise(done=>setTimeout(done,250));}}
+  fenced(fresh);const resumed=execJSON(names.pds,nativeProgram,{logins,blobs:false,text:'Retained source after failed candidate '+id});assert.equal(resumed.authenticatedAccounts,2);
+  const sourceAfter=JSON.parse(command(['exec',names.pds,'node','-e',signedProgram]));assert.equal(sourceAfter.signedRecords,signedBefore.signedRecords+2);assert.deepEqual(sourceAfter.referencedBlobs,signedBefore.referencedBlobs);
+  stopResumedSource();resumedSource=false;fenced(source);fenced(fresh);assert.deepEqual(files.map(([path])=>hash(readFileSync(path))),protectedHashes);
+  Object.assign(report,{candidateHealthFailureObserved:true,candidateHealthExitCode:73,candidateWritersStoppedBeforeSourceResume:true,sourceFilesUnchangedBeforeRollback:true,rollbackOriginalAccountLogins:2,rollbackSignedWrites:2,rollbackReferencedBlobsUnchanged:true,sourceStoppedAfterRollback:true,candidateDataCopiedBack:false,crossVersionRecoveryQualified:false});
+ }
  delete report.failedOperation;
- Object.assign(report,{result:'passed',stage:'complete',completedAt:new Date().toISOString(),capturedAt,coldRecoveryMilliseconds,startupReadRetries,sourceWritersFenced:true,sourceFilesUnchanged:true,sourceProtectedMetadataRetained:true,authenticatedEncryptedCheckpoint:true,checkpointBytes:readFileSync(bundle).length,checkpointSha256:hash(readFileSync(bundle)),sqliteDatabases:normalized.databases,signedRepositories:signedBefore.repositories,signedRecords:signedBefore.signedRecords,referencedBlobs:signedBefore.referencedBlobs.length,restoredOriginalAccountLogins:2,restoredSignedWrites:2,memberHostFilesRetained:3,restoredContainersStopped:true,isolatedPrivateNetwork:true,includesSharedLocalIdentityFixture:true,agentActivated:false,publicEndpointCutoverQualified:false,independentCustodyQualified:false});receipt();console.log(JSON.stringify(report));
+ Object.assign(report,{result:'passed',stage:'complete',completedAt:new Date().toISOString(),capturedAt,coldRecoveryMilliseconds,startupReadRetries,sourceWritersFenced:true,sourceFilesUnchanged:!rollback,sourceProtectedMetadataRetained:true,authenticatedEncryptedCheckpoint:true,checkpointBytes:readFileSync(bundle).length,checkpointSha256:hash(readFileSync(bundle)),sqliteDatabases:normalized.databases,signedRepositories:signedBefore.repositories,signedRecords:signedBefore.signedRecords,referencedBlobs:signedBefore.referencedBlobs.length,restoredOriginalAccountLogins:2,restoredSignedWrites:2,memberHostFilesRetained:3,restoredContainersStopped:true,isolatedPrivateNetwork:true,includesSharedLocalIdentityFixture:true,agentActivated:false,publicEndpointCutoverQualified:false,independentCustodyQualified:false});receipt();console.log(JSON.stringify(report));
 } catch {receipt();console.error('Disposable member cold recovery failed; inspect the private stage receipt.');process.exitCode=1;}
-finally{if(started)stopClones();}
+finally{try{if(started)stopClones();}finally{stopResumedSource();}}
