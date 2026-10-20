@@ -1,6 +1,6 @@
 # Disposable native member deactivation
 
-Issue [#117](https://git.subcult.tv/subculture-collective/prichal/issues/117) requires a member to keep working during a migration window and then be deactivated rather than deleted. This delivery qualifies the native operation needed at the end of that window. It does not yet connect it to an agent route, management request, timer or browser removal control.
+Issue [#117](https://git.subcult.tv/subculture-collective/prichal/issues/117) requires a member to keep working during a migration window and then be deactivated rather than deleted. This delivery qualifies the native operation needed at the end of that window. The restricted host broker described below now enforces the fixed local migration window. Management requests, scheduling and browser removal controls remain unfinished.
 
 ## Fixed native operation
 
@@ -10,7 +10,7 @@ For an active member it calls only `com.atproto.admin.updateSubjectStatus` with 
 
 The read action is named `native_status` because Node treats `inspect` as its debugger command even when supplied after `-e`. Fixed callers must use the allowlisted action.
 
-A future restricted host broker must resolve the DID from its retained accepted-invitation journal and enforce the migration deadline before invoking this primitive. The helper itself does not know the membership policy or elapsed migration window and is not exposed through the agent HTTP handler or management API. This qualification does not authorize immediate customer-account removal.
+The restricted host broker resolves the DID from its retained accepted-invitation journal and enforces the migration deadline before invoking this primitive. The helper itself does not know the membership policy or elapsed migration window. It has no arbitrary-DID HTTP endpoint; the agent accepts only a retained ticket. Management removal remains unconnected.
 
 ## Qualification command
 
@@ -34,6 +34,16 @@ The private receipt is `.local/pds-member-exit/56365f97-9914-4b91-a952-7ec38e60a
 
 Three Node boundary tests also cover owner/foreign/uninvited/nonlocal refusal, arbitrary actions, preserved existing deactivation, policy conflicts, foreign status, failed writes and lost responses. Full pinned smoke passed with 50 Node tests, frontend build, Go vet and all Go race packages; the final renamed read action passed its focused tests and the native fixture. Shell and JavaScript syntax checks passed.
 
+## Restricted host migration window
+
+`POST /v1/instances/{instanceId}/members/exit` accepts only `{ "ticket": "accepted-invitation-uuid" }` through the existing worker mTLS boundary. The registered-node client verifies the certificate identity and key pin. The Docker implementation requires isolated local identity mode and a healthy, unheld runtime, refuses public pilot mode, and resolves the member DID from the retained accepted ticket. Unknown or pending tickets fail before native execution. Requests cannot supply a DID, deadline or immediate-deactivation flag.
+
+The first call uses `native_status` to confirm the member and atomically persists a private, versioned journal with a fixed 30-day deadline. Repeated calls and agent reconstruction retain the original deadline; calls before it do not mutate the native account. A call after the deadline invokes the fixed native helper and records completion only after confirmed native deactivation and journal persistence. Uncertain native results or receipt-write failures return no success; replay can reconcile the helper's idempotent result. There is no autonomous timer in this delivery: a later management reconciler must call again when due.
+
+The journal is bounded to 25 members, rejects duplicate identities/tickets, changed bindings, shortened windows, unknown fields, corrupt JSON, symlinks and public permissions. Its entries remain retained after deactivation. This does not free quota or delete data. The local 30-day constant qualifies the proposed window; production policy and organization termination remain separate decisions. Deadline enforcement trusts the host clock; callers cannot supply a clock value.
+
+Go race tests cover the fixed Docker helper/ticket binding, pre-deadline refusal, restart and clock-backward replay, lost native responses, receipt-write failure after native success, corrupt/unsafe journal refusal, strict HTTP bodies and authenticated client refusal of foreign peers or premature completion. Elapsed time is simulated in tests through an unexported clock argument. These tests do not claim a physical 30-day soak or a combined native broker/management/browser run; the separate native helper fixture above proves the underlying PDS operation.
+
 ## Remaining #117 work
 
-The host broker still needs a retained accepted-ticket binding and enforced migration deadline. Management still needs durable removal intent, audit, scheduling/reconciliation and browser review. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.
+Management still needs durable removal intent, audit, scheduling/reconciliation and browser review. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.

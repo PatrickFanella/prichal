@@ -313,3 +313,38 @@ func (c *Client) Export(ctx context.Context, peer Peer, id, did string) (Portabl
 	}
 	return result, nil
 }
+
+// MemberExit authenticates the registered node and supplies only its retained ticket.
+func (c *Client) MemberExit(ctx context.Context, peer Peer, id, ticket string) (MemberExit, error) {
+	if !instanceID.MatchString(id) || !instanceID.MatchString(ticket) {
+		return MemberExit{}, errors.New("invalid member exit request")
+	}
+	client, err := c.httpClient(peer)
+	if err != nil {
+		return MemberExit{}, err
+	}
+	defer client.CloseIdleConnections()
+	body, _ := json.Marshal(struct {
+		Ticket string `json:"ticket"`
+	}{ticket})
+	request, err := http.NewRequestWithContext(ctx, "POST", peer.Endpoint+"/v1/instances/"+id+"/members/exit", bytes.NewReader(body))
+	if err != nil {
+		return MemberExit{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return MemberExit{}, errors.New("registered member exit node unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return MemberExit{}, errors.New("registered node could not confirm member exit")
+	}
+	var result MemberExit
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 4096))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || !result.Valid(id, ticket) {
+		return MemberExit{}, errors.New("invalid node member exit response")
+	}
+	return result, nil
+}

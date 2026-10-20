@@ -178,6 +178,7 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 	helpers := map[string][]string{}
 	counter := 0
 	loseIssue := false
+	exitCalls, exitWrites := 0, 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/v1.44")
 		switch {
@@ -201,7 +202,7 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 			if json.NewDecoder(r.Body).Decode(&body) != nil {
 				t.Error("invalid fixed helper")
 			}
-			if strings.Contains(path, "/pds-ass-tenant-") && body.Cmd[3] != memberHelperScript {
+			if strings.Contains(path, "/pds-ass-tenant-") && body.Cmd[3] != memberHelperScript && body.Cmd[3] != memberExitHelperScript {
 				t.Error("unexpected native helper")
 			}
 			counter++
@@ -210,7 +211,18 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 		case strings.HasPrefix(path, "/exec/") && strings.HasSuffix(path, "/start"):
 			args := helpers[strings.TrimSuffix(strings.TrimPrefix(path, "/exec/"), "/start")]
 			var value any
-			if strings.Contains(args[3], "/enrollment/members.json") {
+			if args[3] == memberExitHelperScript {
+				exitCalls++
+				if len(args) != 6 || args[5] != exitDID {
+					t.Error("exit helper did not use retained member DID")
+				}
+				if args[4] == "deactivate" {
+					exitWrites++
+				} else if args[4] != "native_status" {
+					t.Error("unexpected exit action")
+				}
+				value = nativeMemberExit{DID: exitDID, Handle: "member.test", Deactivated: exitWrites > 0}
+			} else if strings.Contains(args[3], "/enrollment/members.json") {
 				data, err := os.ReadFile(filepath.Join(enrollmentDirectory, "members.json"))
 				if err != nil {
 					t.Error(err)
@@ -299,6 +311,29 @@ func TestMemberInvitationsBoundCodesCeilingAndAdmission(t *testing.T) {
 	}
 	if admission := view(); len(admission.Invitations) != 1 || admission.Invitations[0].Ticket != ticket(3) {
 		t.Fatal("accepted invitation kept admission open")
+	}
+
+	// Only retained accepted tickets can start the fixed exit window.
+	for _, pending := range []string{ticket(3), ticket(99)} {
+		if _, err := runtime.MemberExit(ctx, id, pending); err == nil {
+			t.Fatal("unaccepted member reached exit helper")
+		}
+	}
+	if exitCalls != 0 {
+		t.Fatal("unaccepted ticket dispatched native exit")
+	}
+	started := time.Now()
+	window, err := runtime.memberExitAt(ctx, id, ticket(2), started)
+	if err != nil || window.DID != accepted.DID || window.State != "migration_window" || exitCalls != 1 || exitWrites != 0 {
+		t.Fatalf("retained member window: %+v %v", window, err)
+	}
+	replayExit, err := runtime.memberExitAt(ctx, id, ticket(2), started.Add(MemberMigrationWindow-time.Millisecond))
+	if err != nil || replayExit != window || exitCalls != 1 {
+		t.Fatal("early exit mutated native account")
+	}
+	complete, err := runtime.memberExitAt(ctx, id, ticket(2), started.Add(MemberMigrationWindow))
+	if err != nil || complete.State != "deactivated" || exitWrites != 1 {
+		t.Fatalf("mature member exit: %+v %v", complete, err)
 	}
 
 	// A code used just before withdrawal is reported as accepted, not withdrawn.
