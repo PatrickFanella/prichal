@@ -109,3 +109,13 @@ A separate fault probe changed one expected completion in a private copy of the 
 Private evidence is `.local/cli-shells/d1b9cdb8-d78e-41ec-a7c6-308154f31a66/report.json`, its private PTY transcripts, and `.local/issue-audit/native-cli-shells-failure.json`. Receipts retain the exact qualifier and binary hashes. The unchanged binary is the same `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` artifact used above. No CLI Go source, account, management API, PDS tenant, persistent user profile or published release changed.
 
 This closes the representative Bash/Zsh shell-session registration gap on this Linux host. Fish was unavailable and remains unqualified. These checks do not qualify every completion prefix, persistent user installation, other shell/OS versions or signed release installation. The wider #27 release and authorization gates remain open.
+
+## Interrupted shell qualification — October 20, 2026
+
+A private paused-session probe sent SIGTERM to the original qualifier while it owned a Bash PTY. The driver exited through signal status `-15`; its failed receipt had no shell-exit/reaping record. Independent `/proc` readback found the child absent. This established a cleanup-evidence gap, without establishing an orphaned process.
+
+The qualifier now handles SIGINT and SIGTERM during its active shell-session checks by recording the signal and unwinding through the owned shell's existing close/reap path. Stop signals are ignored during cleanup, then the previous signal handlers are restored. An interrupted qualification exits 1 and retains a failed receipt.
+
+The revised source passed the ordinary eight completion cases in drill `b693eee9-38cc-415a-8f6b-db24b92eba7d`, completed at `2026-10-20T12:11:38Z`. Separate private probes paused after signal-handler registration in Bash and Zsh and sent each signal to the driver. All four exited 1, recorded the matching signal and reaped each owned shell with exit 0. Independent `/proc` checks found the signaled session's child absent; standard personal history/cache metadata matched before and after the matrix.
+
+Evidence is `.local/issue-audit/shell-signal-before.json`, `.local/issue-audit/shell-signal-matrix.json` and `.local/issue-audit/shell-interruption-positive.json`, with private receipts/transcripts under `.local/cli-shells/`. The matrix retains the final qualifier hash. These probes cover the active session and ordinary cleanup path. They do not qualify SIGKILL, signals before handler registration, repeated-signal delivery or a stuck shell requiring forced termination. No CLI implementation, account, tenant, user profile or release changed.

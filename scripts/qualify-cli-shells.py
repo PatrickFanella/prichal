@@ -20,6 +20,10 @@ import time
 import uuid
 
 
+class QualificationInterrupted(Exception):
+    """Unwind an active PTY session through its ordinary cleanup."""
+
+
 def main():
     assert os.environ.get('PDS_QUALIFY_CLI_SHELLS') == 'true', 'Explicit isolated shell qualification required'
     assert sys.platform == 'linux' and platform.machine() in {'x86_64', 'amd64'}, 'Native Linux AMD64 required'
@@ -47,6 +51,14 @@ def main():
         path = root / 'report.json'
         path.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         path.chmod(0o600)
+
+    def interrupted(number, _frame):
+        # Repeated stop signals must not interrupt child reaping or receipt writes.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        report.update(result='failed', interruptedSignal=signal.Signals(number).name)
+        receipt()
+        raise QualificationInterrupted('Received ' + signal.Signals(number).name)
 
     class Shell:
         def __init__(self, name):
@@ -124,8 +136,11 @@ def main():
         path = completions / ('pds-ass.bash' if name == 'bash' else '_pds-ass')
         path.write_bytes(generated.stdout)
         path.chmod(0o600)
+        previous_handlers = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
         shell = Shell(name)
         try:
+            for number in previous_handlers:
+                signal.signal(number, interrupted)
             if name == 'bash':
                 setup = r'''set +o history; set -o emacs; PS1='cli> '; source FILE; _capture_cli_buffer() { printf '\n__CLI_CAPTURE_BEGIN__%s__CLI_CAPTURE_END__\n' "$READLINE_LINE"; READLINE_LINE=; READLINE_POINT=0; }; bind -x '"\C-x\C-g":_capture_cli_buffer';'''
                 setup = setup.replace('FILE', shlex.quote(str(path)))
@@ -148,10 +163,16 @@ def main():
             results.append({'shell': name, 'version': version.stdout.splitlines()[0], 'cases': cases})
             assert all(case['passed'] for case in cases), 'Shell completion buffer did not match its contract'
         finally:
-            exit_code = shell.close()
-            report.setdefault('shellExits', []).append({'shell': name, 'exit': exit_code, 'reaped': shell.reaped})
-            receipt()
-            assert exit_code == 0 and shell.reaped, 'Owned shell did not exit cleanly'
+            try:
+                for number in previous_handlers:
+                    signal.signal(number, signal.SIG_IGN)
+                exit_code = shell.close()
+                report.setdefault('shellExits', []).append({'shell': name, 'exit': exit_code, 'reaped': shell.reaped})
+                receipt()
+                assert exit_code == 0 and shell.reaped, 'Owned shell did not exit cleanly'
+            finally:
+                for number, handler in previous_handlers.items():
+                    signal.signal(number, handler)
     assert personal_metadata() == before_personal, 'Personal shell history/cache metadata changed'
     assert hashlib.sha256(binary.read_bytes()).hexdigest() == checksum
     assert not (root / 'unused-compdump').exists()
@@ -163,6 +184,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except (AssertionError, OSError, subprocess.SubprocessError) as error:
+    except (AssertionError, OSError, subprocess.SubprocessError, QualificationInterrupted) as error:
         print('CLI shell qualification failed: ' + str(error), file=sys.stderr)
         raise SystemExit(1)
