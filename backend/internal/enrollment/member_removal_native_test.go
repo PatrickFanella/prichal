@@ -87,15 +87,6 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	if os.Getenv("PDS_QUALIFY_NATIVE_MEMBER_RECOVERY") == "true" && wasRunning {
 		t.Fatal("cold recovery requires the shared protocol fixture to be initially stopped")
 	}
-	if !wasRunning {
-		docker("start", protocolID)
-		t.Cleanup(func() {
-			cmd := exec.Command("docker", "stop", "--time", "10", protocolID)
-			if cmd.Run() != nil {
-				t.Error("protocol fixture stop failed")
-			}
-		})
-	}
 	socket := strings.TrimSpace(string(docker("context", "inspect", "--format", "{{.Endpoints.docker.Host}}")))
 	if !strings.HasPrefix(socket, "unix:///") {
 		t.Fatal("local Unix Docker socket required")
@@ -112,12 +103,34 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 	}
 	// Retained stopped namespaces still reserve slots. Admit exactly one new test
 	// namespace without pruning or starting them; measured host limits still apply.
-	if err = runtime.SetCapacityCeiling(len(capacity.InstanceIDs) + 1); err != nil {
-		t.Fatal("retained namespaces exhaust the bounded local ceiling")
+	requestedCeiling := len(capacity.InstanceIDs) + 1
+	blocked := func(reason string) {
+		t.Helper()
+		receipt := map[string]any{"result": "blocked", "stage": "capacity_preflight", "reason": reason, "retainedNamespaces": len(capacity.InstanceIDs), "requestedCeiling": requestedCeiling, "protocolOriginallyRunning": wasRunning, "protocolFixtureStarted": false, "tenantAllocated": false}
+		data, writeErr := json.MarshalIndent(receipt, "", "  ")
+		if writeErr != nil || os.WriteFile(filepath.Join(root, "preflight.json"), data, 0600) != nil {
+			t.Fatal("capacity preflight receipt unavailable")
+		}
+		t.Fatalf("native qualification capacity blocked (%s): %d retained namespaces; no fixture started or tenant allocated; see private preflight.json", reason, len(capacity.InstanceIDs))
+	}
+	if err = runtime.SetCapacityCeiling(requestedCeiling); err != nil {
+		blocked("bounded_namespace_ceiling")
 	}
 	capacity, err = runtime.Capacity(ctx)
-	if err != nil || capacity.MaximumSlots <= len(capacity.InstanceIDs) {
-		t.Fatal("no free disposable qualification slot")
+	if err != nil {
+		t.Fatal("capacity preflight read failed before fixture startup")
+	}
+	if capacity.MaximumSlots <= len(capacity.InstanceIDs) {
+		blocked("measured_host_capacity")
+	}
+	if !wasRunning {
+		t.Cleanup(func() {
+			cmd := exec.Command("docker", "stop", "--time", "10", protocolID)
+			if cmd.Run() != nil {
+				t.Error("protocol fixture stop failed")
+			}
+		})
+		docker("start", protocolID)
 	}
 	f := newStoreFixture(t)
 	id := f.deployment

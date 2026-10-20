@@ -1206,3 +1206,54 @@ Added a separate opt-in `./scripts/dev.sh qualify-member-native-rollback` profil
 Native execution is blocked at admission: eight retained tenant namespaces fill the existing eight-slot host ceiling. The attempt allocated no new tenant and did not invoke the recovery driver. Independent readback confirmed the shared protocol fixture stopped with its original container ID and four network attachments. No retained namespace or volume was pruned and no ceiling changed. Failure evidence is in `.local/issue-audit/member-native-rollback.log`. The new path is unqualified pending a permitted free slot or another prepared disposable host; see [the profile and remaining gate](../local-member-native-recovery.md#failed-candidate-rehearsal--awaiting-native-qualification). Issues #12 and #15 remain open.
 
 Validation: the complete pinned-toolchain `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and the full Go race suite), plus Node/Bash syntax and diff checks. Ordinary smoke does not run the blocked native profile.
+
+
+### Member removal in short landscape — October 20, 2026
+
+Controlled T3 browser checks of the actual component on `43fc8ec` passed 568×320 and 844×390 landscape plus 320×568 portrait layouts, keyboard acknowledgement/confirmation with automatic focus scrolling, orientation changes during review and a pending POST, lost-response reconciliation with one POST, history disclosure, denied-receipt clearing and focused-error recovery. No measured horizontal overflow or escaping element was found. Private evidence `.local/member-removal-landscape.json` includes source hashes; [scope and results](../local-member-deactivation.md#short-landscape-and-orientation-changes--october-20) distinguish desktop Chromium CSS viewports with synthetic API responses from physical-device, screen-reader and full native qualification. This documentation-only change does not close #24 or #117. No management/native service or tenant was mutated.
+
+
+### Native qualification capacity preflight — October 20, 2026
+
+Moved read-only capacity admission ahead of shared-protocol startup and management-fixture creation in the opt-in native member/removal recovery harness. A capacity refusal now records a private `preflight.json` with counts and no-start/no-allocation fields. Cleanup is registered before any admitted shared-fixture start attempt. No runtime policy or capacity ceiling changed.
+
+A real full-host invocation refused the ninth requested slot with eight retained namespaces. Its expected exit 1 and private receipt were checked independently; the shared fixture's complete state, restart count and network attachments plus the retained tenant-container list were identical before and after. See `.local/issue-audit/native-capacity-preflight-verification.json` and [the bounded admission evidence](../local-member-deactivation.md#admission-before-shared-fixture-startup--october-20). This qualifies refusal without service churn, not the still-blocked successful native recovery path. No issue is closed by this harness change.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages). The real full-capacity refusal check passed independently and retained the final harness source hash. Successful native allocation/recovery remains blocked and is not counted as passing.
+
+
+### Native Linux AMD64 CLI runtime — October 20, 2026
+
+Extended the existing offline CLI runtime checker to execute the native Linux AMD64 binary without Docker, preserving the Apple Silicon matrix. Fresh pinned-toolchain builds produced all five binaries and checksums. Native drill `d3ffca9d-f553-47f6-a996-aab6cb41393b` passed version/help/completion plus unknown-command and missing-sign-in exit contracts, unchanged binary/checksum hashes and an empty private configuration directory. A refusing Docker shim received no invocation. Evidence `.local/issue-audit/native-linux-cli-runtime.json` records the current source revision and script hashes; [the exact scope and remaining platforms](../local-customer-cli.md#native-linux-amd64-offline-runtime--october-20-2026) keep this distinct from authorized API, Windows/macOS/current-build ARM64, signed release and installation qualification. No account, tenant or release was changed; #27 remains open.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages), plus Node syntax and diff checks. Native CLI execution and checksum/configuration assertions passed independently; other runtime platforms were not rerun.
+
+
+### Native CLI loopback process contracts — October 20, 2026
+
+Added an explicit-opt-in native Linux AMD64 qualification using only synthetic loopback HTTP fixtures and the retained checksum-verified CLI artifact. Final drill `99f85ae0-6cf4-41ba-affd-f50b8655050d` passed 12 real process cases and 30 assertions: synthetic device/token exchange, private-file and symlink refusal, scoped/secret-free output, actual SIGINT exit 130, byte-stable same-key replay, changed-payload refusal, pending/failed/ready exits, redirect refusal and revoked-credential logout. The driver closes both listeners and all children before recording success. A separate real SIGTERM probe produced a failed qualification receipt and verified listener cleanup and independent child readback. [Evidence and boundaries](../local-customer-cli.md#native-linux-loopback-protocol-and-interruption--october-20-2026) keep these client checks separate from real approval, authorization, durable server jobs, native PDS and release installation. No issue is closed and no retained tenant, production service or release was changed.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages). The final source separately passed all native loopback cases and the interrupted-harness cleanup probe, with matching qualifier hashes, plus Node syntax and diff checks.
+
+
+### Native CLI completion sessions — October 20, 2026
+
+Added an explicit-opt-in standard-library Python PTY qualifier for generated Bash/Zsh completions on Linux AMD64. Drill `d1b9cdb8-d78e-41ec-a7c6-308154f31a66` passed four real Tab/editor-buffer cases in each shell, normal child exit/reaping, unchanged artifact/checksum metadata, absent private completion cache and unchanged standard personal history/cache metadata. A deliberately wrong expectation in a private qualifier copy failed with exit 1 and still reaped its Bash PTY. [Exact versions, evidence and limits](../local-customer-cli.md#private-bash-and-zsh-completion-sessions--october-20-2026) keep this separate from Fish, persistent profile/package installation and real authorization. No CLI implementation, user profile, account, tenant or release changed; #27 remains open.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages). The final qualifier separately passed the eight live completion cases and the private assertion-failure cleanup probe. The owned verification database contained zero generated smoke/recovery databases afterward and was stopped with its volume retained.
+
+### Interrupted CLI shell qualifier — October 20, 2026
+
+A private SIGTERM probe reproduced missing shell cleanup records in the original qualifier; the child was absent independently, so no orphan was inferred. Active-session SIGINT/SIGTERM handlers now record a failed interruption and unwind through close/reaping, protecting cleanup from further stop signals and restoring previous handlers afterward. The revised source passed all eight ordinary completion cases and four private Bash/Zsh signal probes, with exit 1, matching signal receipts, clean owned shell exits/reaping and independent child absence. Standard personal history/cache metadata matched. [Evidence and limits](../local-customer-cli.md#interrupted-shell-qualification--october-20-2026) distinguish this from startup, forced termination and repeated-signal qualification. No account, tenant, release or issue state changed.
+
+Validation: the full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages). The final qualifier hash matched the positive drill and signal matrix. The owned verification database contained zero generated smoke/recovery databases afterward and was stopped with its volume retained.
+
+### Native CLI device authorization — October 20, 2026
+
+Added an explicit-opt-in native Linux AMD64 process qualification against the current management authentication handlers, local OIDC fixture and a fresh disposable PostgreSQL database. Drill `run-1473503287` passed both real CLI logins, owner-scoped organization reads, denied privileged mutation and foreign revocation, individual revocation with the other owner's credential remaining usable, both logouts, private credential-file permissions, absent output tokens and unchanged binary/checksum metadata. The passing receipt is written after fixture cleanup. [Exact evidence and limits](../local-customer-cli.md#native-linux-device-authorization-and-scoped-reads--october-20-2026) preserve browser UI, external identity provider, deployment/interruption and published installation as separate gates. No retained tenant, production service or release changed; #27 remains open.
+
+Validation: the focused qualification passed with the race detector and a matching final qualifier hash. The full pinned `./scripts/dev.sh smoke` gate passed (55 Node checks, frontend build, Go vet and all Go race packages), plus Bash syntax and diff checks. The owned verification database contained zero generated smoke/recovery databases afterward and was stopped with its volume retained.
+
+### Recovery rehearsal integration — October 20, 2026
+
+Resolved the recovery-profile branch against main at `1904932`, preserving both native recovery/rollback and CLI authorization commands and both branches' progress evidence. Three dispatch checks with a recording Go substitute passed, including removal of an inherited rollback flag for ordinary recovery; these checks invoked no native fixture. The complete pinned smoke gate passed (55 Node checks, frontend build, Go vet and all Go race packages), plus Node/Bash syntax and diff checks. The owned verification database contained zero generated smoke/recovery databases and was stopped with its volume retained. Fresh readback still showed eight retained tenant namespaces. The failed-candidate native path remains unqualified; merging the opt-in rehearsal does not complete #12 or #15.

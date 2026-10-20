@@ -30,17 +30,17 @@ Management recovery qualification `236cbd45-e887-401d-b10a-9709f92279a1` copied 
 
 ## Distribution and remaining gates
 
-`./scripts/build-customer-cli.sh` prepares five binaries and `SHA256SUMS` in ignored `.local/cli-build/`. All five checksum digests matched. The macOS ARM64 binary completed the actual authorization/deployment drill. Linux ARM64 executed version/help/completion in a separate disposable container using the already-pinned local PostgreSQL image, with no network, a read-only binary mount and dropped capabilities. macOS AMD64, Linux AMD64 and Windows AMD64 were cross-compiled only. No release was published.
+`./scripts/build-customer-cli.sh` prepares five binaries and `SHA256SUMS` in ignored `.local/cli-build/`. In the initial October 1 qualification, all five checksum digests matched. The macOS ARM64 binary completed the actual authorization/deployment drill. Linux ARM64 executed version/help/completion in a separate disposable container using the already-pinned local PostgreSQL image, with no network, a read-only binary mount and dropped capabilities. At that initial stage, macOS AMD64, Linux AMD64 and Windows AMD64 were cross-compiled only; later runtime observations follow below. No release was published.
 
 Twenty macOS launches measured about 6 ms median startup. The first cold launch took about 541 ms, so the under-50-ms cold-start target is not qualified. Responsive browser verification remains open: the collaborative preview reported page metadata but its snapshot failed. Windows credential ACL behavior, platform runtime installation tests, signing and published integrity metadata remain release gates. CLI first-account setup remains in the browser. Public DNS/TLS/email/federation and the 15-minute live onboarding target still require selected infrastructure. Issue #27 remains open.
 
 ## Repeated offline runtime checks
 
-Build fresh local binaries with `./scripts/build-customer-cli.sh`, then run `node scripts/qualify-cli-runtimes.mjs` on this Apple Silicon macOS workstation. The qualifier checks all five checksum entries and runs eight offline cases on native macOS ARM64, macOS AMD64 through Rosetta, and Linux ARM64 in the existing pinned image. It pulls no image, publishes no release and performs no account authorization or API request. Each configuration directory is separate and private; missing-sign-in checks leave it empty. Linux runs without networking, with a read-only binary/root, dropped capabilities and bounded resources. Existing containers and volume names must match afterward.
+Build fresh local binaries with `./scripts/build-customer-cli.sh`, then run `node scripts/qualify-cli-runtimes.mjs` on an Apple Silicon macOS workstation. The qualifier checks all five checksum entries and runs eight offline cases on native macOS ARM64, macOS AMD64 through Rosetta, and Linux ARM64 in the existing pinned image. It pulls no image, publishes no release and performs no account authorization or API request. Each configuration directory is separate and private; missing-sign-in checks leave it empty. Linux runs without networking, with a read-only binary/root, dropped capabilities and bounded resources. Existing containers and volume names must match afterward.
 
 Drill `f5740f1d-b4b4-40b7-b6e8-fd48983a66aa` completed at 2026-10-01T20:22:34Z. Version, root/deploy help, bash/zsh/fish completions, unknown-command exit 2 and missing-sign-in exit 1 passed on all three runtimes. Error cases had empty stdout and actionable stderr. All five checksums matched before and after. No credentials were created, no binary changed, and existing containers/volumes matched the baseline. Private results remain in `.local/cli-runtimes/`.
 
-This adds Rosetta execution evidence to the earlier cross-build evidence. It does not qualify Intel hardware, Linux AMD64, Windows execution/credential ACLs, installation, signing, published delivery or live onboarding. The first translated version launch took 1,879 ms; subsequent translated cases took 14–17 ms. Linux timings include container startup. The cold-start target remains unqualified.
+That October 1 drill added Rosetta execution evidence to the earlier cross-build evidence. It did not qualify Intel hardware, Linux AMD64, Windows execution/credential ACLs, installation, signing, published delivery or live onboarding. The first translated version launch took 1,879 ms; subsequent translated cases took 14–17 ms. Linux timings include container startup. The cold-start target remains unqualified.
 
 Completion checks validate generated text, not installation into a shell session. Shell integration remains unqualified. The final full smoke gate passed after adding the qualifier and evidence.
 
@@ -51,3 +51,90 @@ Completion checks validate generated text, not installation into a shell session
 Drill `cba280d7-3676-4139-a61a-2f2037beaf34` completed at 2026-10-01T20:27:20Z. Both device approvals and owner-scoped reads passed. Alice could not read Bob's server or revoke his credential. Bob's own revocation blocked further reads; logout removed his credential file even after server revocation. Alice's logout also revoked/removed her credential. Neither token appeared in CLI output. Both qualifier credential IDs were absent from active credentials afterward. No server deployment, worker pause or native mutation occurred, and source work/native custody/binary matched the baseline. Private report remains under `.local/translated-cli-auth/`.
 
 This proves the local translated binary's authorization/read/revocation path. The earlier macOS ARM64 interruption/retry drill remains the deployment evidence. Intel hardware, other platform authorization, published installation and live onboarding remain open. No universal platform qualification follows from this drill.
+
+
+## Native Linux AMD64 offline runtime — October 20, 2026
+
+The offline checker now also runs on a native Linux AMD64 host:
+
+```sh
+./scripts/build-customer-cli.sh
+node scripts/qualify-cli-runtimes.mjs
+```
+
+Use the repository's pinned Go and Node toolchains. The build prepares all five binaries and `SHA256SUMS` locally; the checker validates every digest before and after execution. On Linux AMD64 it executes only that native binary and needs no Docker daemon or image. The existing Apple Silicon matrix retains its native macOS ARM64, Rosetta macOS AMD64 and pinned-container Linux ARM64 paths. Unsupported hosts still refuse execution. Reports list the current host, binary hashes and platforms not exercised by that run. A Linux run explicitly records no Docker resource comparison, rather than inferring unchanged containers from an omitted comparison.
+
+Drill `d3ffca9d-f553-47f6-a996-aab6cb41393b` completed on Linux x64 at `2026-10-20T10:14:20.112Z`, using fresh binaries from CLI source at `79f53f03aa97e55447e0c3b654992652e4c1cbb5`. All eight cases passed: version, root/deploy help, bash/zsh/fish completions, unknown-command exit 2 and missing-sign-in exit 1. Error cases emitted actionable stderr and empty stdout. The private 0700 configuration directory stayed empty. The native binary's SHA-256 was `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad`; all five binary digests and the checksum file stayed unchanged.
+
+The same run passed with a Docker shim that would record and refuse any invocation; its marker remained absent. No account authorization, API request, tenant allocation or release publication occurred. Private evidence is `.local/cli-runtimes/d3ffca9d-f553-47f6-a996-aab6cb41393b/report.json` and `.local/issue-audit/native-linux-cli-runtime.json`, the latter retaining the source revision, qualifier/build-script hashes and shim check. Local build artifacts remain in `.local/cli-build/`; this checkout had no prior build directory.
+
+This closes the native Linux AMD64 offline-execution gap for this build. It does not combine earlier macOS/Linux ARM64 observations into a current-build pass. Those platforms, Windows runtime/credential ACLs, signing, published integrity and installation checks, authorized API journeys and live onboarding remain separate release gates. No cold-start performance target or installation claim follows from eight command executions. Issue #27 remains open.
+
+
+## Native Linux loopback protocol and interruption — October 20, 2026
+
+With a checksum-verified native binary in `.local/cli-build/`, run:
+
+```sh
+PDS_QUALIFY_CLI_LOOPBACK=true node scripts/qualify-cli-loopback.mjs
+```
+
+The opt-in driver supports Linux AMD64 and binds two ephemeral HTTP listeners only on `127.0.0.1`. One simulates device/token and organization/deployment responses; the other detects an incorrectly followed redirect. All credentials, identities and operation data are synthetic. No real management service, browser approval, database, Docker daemon or PDS tenant is used. The fixture issues its token directly and does not test account authority, issuer policy or browser approval.
+
+Final drill `99f85ae0-6cf4-41ba-affd-f50b8655050d` completed at `2026-10-20T10:47:51.828Z`. Twelve actual CLI processes passed 30 assertions. Starting with an empty configuration directory, synthetic device/token exchange returned safe JSON and wrote a private 0600 credential file under a 0700 directory. Public-mode and symlink credential files were refused before protected HTTP requests. Organization and operation output stripped injected unknown secret fields; the synthetic access token and device code were absent from every captured process output.
+
+The driver sent a real SIGINT after the waiting CLI's first status poll. The executable handled it and exited **130**, rather than terminating through an unhandled signal. Its saved 0600 request file retained the original payload and key. A new process retried that key, received pending exit **3** and the same fixture deployment identity, and left the request bytes unchanged. Changed payload reuse exited **2** before another POST. The two same-key POSTs referred to one fixture operation. Explicitly simulated failed/ready status responses produced exits **4/0**. The redirect target received no request. A simulated revoked credential produced actionable denial; logout after that denial removed its credential file while retaining the saved request.
+
+Both listeners and every owned child closed before the driver wrote a passing receipt. A separate SIGTERM probe interrupted the qualification driver while it owned a native child: the driver exited 1, wrote a failed receipt with verified cleanup, and independent `/proc` readback confirmed the original child exited. The public-mode test restores credential permissions even on failure. These cleanup checks do not require freeing or modifying a retained tenant.
+
+Private evidence is `.local/cli-loopback/99f85ae0-6cf4-41ba-affd-f50b8655050d/report.json`, `.local/issue-audit/native-cli-loopback-final.log` and `.local/issue-audit/native-cli-loopback-interruption.json`. The driver reused the unchanged `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` binary from the native offline drill above, built from CLI source at `79f53f0`. No customer CLI Go source changed between that source and this qualification. The report retains the exact qualifier hash; checksum metadata and binary bytes matched afterward.
+
+This qualifies native process, file and client-protocol behavior against a synthetic loopback fixture. It does not prove durable server work, real device approval/revocation, management authorization, native provisioning, published installation or other platforms. Issue #27 remains open.
+
+
+## Private Bash and Zsh completion sessions — October 20, 2026
+
+With Bash, Zsh, standard-library Python and the checksum-verified Linux AMD64 binary available:
+
+```sh
+PDS_QUALIFY_CLI_SHELLS=true python scripts/qualify-cli-shells.py
+```
+
+The opt-in qualifier generates the native binary's completion text, then registers it in fresh interactive Bash and Zsh PTYs. The sessions use private completion files, an isolated command path/configuration location and disabled personal startup/history settings. Zsh uses a private cache path with dump creation disabled. Nothing is installed into the user's shell profiles. Typed test lines receive a real Tab key, then a private editor widget captures and clears the buffer before it can execute a CLI command.
+
+Drill `d1b9cdb8-d78e-41ec-a7c6-308154f31a66` completed at `2026-10-20T11:30:59Z` with Bash **5.3.15** and Zsh **5.9.2**. Four editor-buffer checks passed in each shell: `sta` completed to `status`, `--dep` to `--deployment`, `--idem` to `--idempotency-key`, and an unmatched prefix stayed unchanged. Both shells exited 0 and were reaped. The private Zsh dump remained absent; standard personal history/cache metadata, the retained native binary and checksum metadata matched afterward.
+
+A separate fault probe changed one expected completion in a private copy of the qualifier. It exited 1 with a failed Bash-stage receipt, recorded the mismatch and still reaped the owned Bash PTY with exit 0. Independent before/after personal-history/cache metadata also matched. This verifies failure reporting and ordinary assertion cleanup; no stuck-shell or external-signal behavior is inferred from that probe.
+
+Private evidence is `.local/cli-shells/d1b9cdb8-d78e-41ec-a7c6-308154f31a66/report.json`, its private PTY transcripts, and `.local/issue-audit/native-cli-shells-failure.json`. Receipts retain the exact qualifier and binary hashes. The unchanged binary is the same `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` artifact used above. No CLI Go source, account, management API, PDS tenant, persistent user profile or published release changed.
+
+This closes the representative Bash/Zsh shell-session registration gap on this Linux host. Fish was unavailable and remains unqualified. These checks do not qualify every completion prefix, persistent user installation, other shell/OS versions or signed release installation. The wider #27 release and authorization gates remain open.
+
+## Interrupted shell qualification — October 20, 2026
+
+A private paused-session probe sent SIGTERM to the original qualifier while it owned a Bash PTY. The driver exited through signal status `-15`; its failed receipt had no shell-exit/reaping record. Independent `/proc` readback found the child absent. This established a cleanup-evidence gap, without establishing an orphaned process.
+
+The qualifier now handles SIGINT and SIGTERM during its active shell-session checks by recording the signal and unwinding through the owned shell's existing close/reap path. Stop signals are ignored during cleanup, then the previous signal handlers are restored. An interrupted qualification exits 1 and retains a failed receipt.
+
+The revised source passed the ordinary eight completion cases in drill `b693eee9-38cc-415a-8f6b-db24b92eba7d`, completed at `2026-10-20T12:11:38Z`. Separate private probes paused after signal-handler registration in Bash and Zsh and sent each signal to the driver. All four exited 1, recorded the matching signal and reaped each owned shell with exit 0. Independent `/proc` checks found the signaled session's child absent; standard personal history/cache metadata matched before and after the matrix.
+
+Evidence is `.local/issue-audit/shell-signal-before.json`, `.local/issue-audit/shell-signal-matrix.json` and `.local/issue-audit/shell-interruption-positive.json`, with private receipts/transcripts under `.local/cli-shells/`. The matrix retains the final qualifier hash. These probes cover the active session and ordinary cleanup path. They do not qualify SIGKILL, signals before handler registration, repeated-signal delivery or a stuck shell requiring forced termination. No CLI implementation, account, tenant, user profile or release changed.
+
+## Native Linux device authorization and scoped reads — October 20, 2026
+
+With the pinned toolchains and checksum-verified Linux AMD64 artifact available, start the separate disposable local PostgreSQL and run:
+
+```sh
+./scripts/dev.sh db
+./scripts/dev.sh qualify-cli-native-auth
+```
+
+Use the same isolated Compose project setting for both commands. The opt-in Go qualification reuses the authentication package's real management handlers, migrations and local OIDC issuer fixture. It creates a fresh guarded `pds_smoke_*` database and ephemeral loopback HTTP listeners. The native CLI starts its own device grants; disposable Alice and Bob management sessions review and approve them through the real CSRF-protected endpoints. Token issuance, organization scoping and credential revocation use the real PostgreSQL-backed service. No existing management API, worker or issuer needs to be started or stopped.
+
+Drill `run-1473503287` passed with the Go race detector, completing at `2026-10-20T15:25:38.339451853Z`. Both native CLI logins returned signed-in JSON and wrote 0600 credential files under private 0700 directories. Each CLI saw exactly its owner's fresh organization. A bearer attempt to create an organization returned 403. Bob's attempt to revoke Alice's credential returned 404, after which Alice's CLI still worked. Alice's own revocation returned 200; the bearer read then returned 401 and her CLI read exited 1 with empty stdout. Bob's CLI remained usable. Logout returned signed-out JSON for both owners, removed both credential files and left zero CLI credentials in the disposable database. Issued tokens were absent from captured CLI stdout/stderr.
+
+The unchanged binary SHA-256 was `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad`, the artifact built from CLI source at `79f53f0` and used in the earlier native drills. CLI implementation files were unchanged through qualification base `41d0afb`. Binary bytes and checksum metadata matched afterward. The final receipt is written after the fixture's HTTP and database cleanup; cleanup failures prevent a passing receipt.
+
+Private evidence is `.local/cli-native-auth/run-1473503287/report.json` and `.local/issue-audit/native-cli-auth-final.log`. The receipt retains the qualifier source hash. Bounded process capture withholds instructions and credentials from test diagnostics; process contexts also cancel and reap a login if approval or an assertion fails. The normal smoke suite skips this explicit opt-in drill while compiling its test code.
+
+This qualifies native Linux CLI device authorization and organization reads against the current local management authentication service. The OIDC identity provider is disposable, and approval uses HTTP clients. Browser UI, a real external identity provider, deployment submission/interruption, native tenant provisioning, published installation and other platforms remain separate gates. No retained tenant, production service or release changed; #27 remains open.
