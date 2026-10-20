@@ -313,7 +313,7 @@ func TestMemberRemovalMigrationPreservesAcceptedAccounts(t *testing.T) {
 	if err != nil || kept.State != "accepted" || kept.DID != m.DID {
 		t.Fatal("migration changed accepted account", err)
 	}
-	if _, err = f.store.GetMemberRemoval(ctx, f.owner, m.ID); !errors.Is(err, ErrNotFound) {
+	if _, err = f.store.GetMemberRemoval(ctx, f.owner, m.ID); !errors.Is(err, ErrRemovalNotRequested) {
 		t.Fatal("migration invented a removal", err)
 	}
 }
