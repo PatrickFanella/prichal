@@ -14,6 +14,7 @@ button,input{font:inherit}button,.button{border:0;background:var(--ink);color:#f
 .public-account-records{min-width:0;max-width:100%;margin-block:16px;overflow-wrap:anywhere}.public-account-records h5{margin:0 0 6px}
 .native-account-security{min-width:0;max-width:100%;margin-block:16px;overflow-wrap:anywhere}.native-account-security h5{margin:0 0 6px}
 .enrollment-withdrawal-review{min-width:0;max-width:100%;margin:14px 0;padding:12px;border:1px solid #bdb8aa;border-radius:6px;background:#fffdf8}.enrollment-withdrawal-review h5{margin:0 0 10px}.enrollment-withdrawal-review button{max-width:100%;white-space:normal}.enrollment-withdrawal-review input[type="checkbox"]{width:auto}.first-account [tabindex="-1"]:focus{outline:3px solid var(--steel);outline-offset:3px}
+.deployments [tabindex="-1"]:focus{outline:3px solid var(--steel);outline-offset:3px}
 
 .handle-setup { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .handle-setup form { display: grid; gap: .5rem; }
