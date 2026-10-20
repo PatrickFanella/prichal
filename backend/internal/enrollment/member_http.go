@@ -136,6 +136,15 @@ func memberRemovalReply(w http.ResponseWriter, value any, err error) {
 		respond(w, 200, value)
 		return
 	}
+	if errors.Is(err, ErrRemovalNotRequested) {
+		result, ok := value.(MemberRemoval)
+		if !ok {
+			respond(w, 503, map[string]string{"error": "Member removal status unavailable."})
+			return
+		}
+		respond(w, 200, map[string]string{"state": "not_requested", "invitationId": result.InvitationID, "deploymentId": result.DeploymentID, "did": result.DID})
+		return
+	}
 	status, message := 503, "Member removal could not be confirmed. Retry with the same request key."
 	switch {
 	case errors.Is(err, ErrNotFound):

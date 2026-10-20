@@ -74,3 +74,5 @@ button,input{font:inherit}button,.button{border:0;background:var(--ink);color:#f
 .pds-release { overflow-wrap: anywhere; }
 
 .member-invitations{min-width:0;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}.member-invitations ul{padding-left:20px}.member-invitations li{margin:18px 0;overflow-wrap:anywhere}.member-invitations button{max-width:100%;white-space:normal}.member-invitations label{display:block}
+
+.member-invitations [tabindex="-1"]:focus{outline:3px solid var(--steel);outline-offset:3px}

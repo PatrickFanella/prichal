@@ -1,6 +1,6 @@
 # Disposable native member deactivation
 
-Issue [#117](https://git.subcult.tv/subculture-collective/prichal/issues/117) requires a member to keep working during a migration window and then be deactivated rather than deleted. This delivery qualifies the native operation needed at the end of that window. The restricted host broker described below now enforces the fixed local migration window. Management requests and scheduled reconciliation now connect to that broker. Browser removal controls remain unfinished.
+Issue [#117](https://git.subcult.tv/subculture-collective/prichal/issues/117) requires a member to keep working during a migration window and then be deactivated rather than deleted. This delivery qualifies the native operation needed at the end of that window. The restricted host broker described below now enforces the fixed local migration window. Management requests and scheduled reconciliation now connect to that broker. Browser removal review and retained-key retries are described below.
 
 ## Fixed native operation
 
@@ -51,7 +51,7 @@ Schema 38 adds independent `member_removals` and `member_removal_events` tables.
 | Route | Purpose |
 |---|---|
 | `POST /api/member-invitations/{id}/removal` | Record removal for this accepted invitation with `{ "idempotencyKey": "UUID" }`. |
-| `GET /api/member-invitations/{id}/removal` | Read the retained request, original request key, host window, completion and newest 100 audit events. Returns 404 if no request exists or access is denied. |
+| `GET /api/member-invitations/{id}/removal` | Read the retained request, original request key, host window, completion and newest 100 audit events. Returns an explicit target-bound `not_requested` status for an authorized accepted member with no removal, and 404 for denied access. |
 
 These routes use the existing local-only member session, exact origin and CSRF boundary. Current owners can request removal; active organization administrators require the existing independent `PDS_LOCAL_MEMBER_ADMINISTRATION` opt-in alongside organization access. Viewers, revoked or foreign members are denied. An organization lock serializes permission checks with role revocation. Previously authorized work remains valid after the initiating manager loses access; current reads and retries require permission again. No member password, email, posting or signing access is added.
 
@@ -65,6 +65,16 @@ PostgreSQL race tests cover concurrent idempotency, request/audit/job atomicity 
 
 Upgrade through normal startup migration. A schema-37 binary rejects schema 38; rollback requires a compatible binary or separately qualified restore. Do not decrement the schema marker or drop populated removal/audit tables. No running API, worker, production database or native account was upgraded for this source delivery.
 
+## Browser removal review — October 20
+
+The accepted-member roster opens one removal panel at a time, independently of invitation history. Closed panels fetch no removal status. Owners and explicitly enabled current administrators use the same server authorization as invitations. The panel shows the retained request, confirmed migration deadline and newest 100 audit events. Only explicit absence or a review outcome offers a mutation; requested, migration-window and deactivated receipts are read-only.
+
+The GET route now returns `not_requested` with the exact deployment, accepted invitation and DID only after current accepted-member authorization. Denied, unknown, pending or inconsistent identities still return an error. This separates absence from access denial and unsupported older APIs. The browser rejects missing/foreign identifiers, malformed actors, shortened windows and premature completion. The matching API must be deployed with this UI; an older 404-only route pauses removal controls.
+
+Review identifies the member and explains the fixed window, existing account restrictions, deactivation with retained data/quota, unchanged handle and lack of cancellation. A checkbox is required before confirmation. A fresh read precedes every POST, which carries only an idempotency key and CSRF token. Only request identifiers are kept in session storage. An uncertain response retains its key across panel/session remounts; a review retry uses the original server key. Blocked storage prevents mutation. A changed management session or loss of the parent roster unmounts the panel and aborts its request; reopening reconciles its retained key. Polling is read-only, bounded to one active read per open panel, and stops on unmount. Failed, denied or malformed reads clear the receipt and controls.
+
+Controlled T3 browser checks used the actual React components with synthetic fetch responses. They passed review acknowledgement, keyboard Tab/Space, focused headings/errors and focus return; lost POST reply and same-key retry; remount without another POST; abort-on-unmount with retained-key reconciliation; blocked-storage refusal; denied/foreign data cleanup; read-only completed receipts; closed-panel idleness and parent-denial unmount. Integrated roster/review layouts fit 320, 768 and 1280 CSS pixels without horizontal overflow. Private evidence is `.local/member-removal-browser.json`. These checks did not mutate a native account or management service and do not establish combined native qualification or a physical 30-day run.
+
 ## Remaining #117 work
 
-Browser review and combined native/management/browser qualification remain open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.
+Combined native/management/browser qualification remains open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.

@@ -9,6 +9,9 @@ import (
 	"github.com/riverqueue/river"
 )
 
+// ErrRemovalNotRequested is returned only after current accepted-member access is confirmed.
+var ErrRemovalNotRequested = errors.New("member removal not requested")
+
 type MemberRemovalArgs struct {
 	RemovalID string `json:"removalId"`
 }
@@ -133,9 +136,24 @@ func (s *Store) GetMemberRemoval(ctx context.Context, actor, invitation string) 
 	if err != nil {
 		return result, err
 	}
+	var acceptedOwner, memberState, did string
+	if err = tx.QueryRow(ctx, `SELECT owner_id::text,state,coalesce(account_did,'') FROM member_invitations WHERE id=$1 FOR SHARE`, invitation).Scan(&acceptedOwner, &memberState, &did); err != nil {
+		return result, err
+	}
+	if acceptedOwner != owner || memberState != "accepted" {
+		return result, ErrNotFound
+	}
+	result.InvitationID, result.DeploymentID, result.DID = invitation, deployment, did
 	err = tx.QueryRow(ctx, `SELECT r.id::text,r.idempotency_key::text,r.invitation_id::text,r.deployment_id::text,r.account_did,r.state,r.message,r.requested_by::text,r.created_at,r.host_requested_at,r.deactivate_after,r.completed_at FROM member_removals r JOIN member_invitations m ON m.id=r.invitation_id WHERE r.invitation_id=$1 AND r.owner_id=$2 AND m.owner_id=$2 AND m.state='accepted' AND m.account_did=r.account_did FOR SHARE OF r,m`, invitation, owner).Scan(&result.ID, &result.RequestKey, &result.InvitationID, &result.DeploymentID, &result.DID, &result.State, &result.Message, &result.RequestedBy, &result.CreatedAt, &result.HostRequestedAt, &result.DeactivateAfter, &result.CompletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, ErrNotFound
+		var exists bool
+		if e := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM member_removals WHERE invitation_id=$1)`, invitation).Scan(&exists); e != nil {
+			return result, e
+		}
+		if exists {
+			return result, ErrNotFound
+		}
+		return result, ErrRemovalNotRequested
 	}
 	if err != nil {
 		return result, err

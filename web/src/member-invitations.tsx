@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MemberRemoval } from "./member-removal";
 import { enrollmentObject as object, enrollmentUUID as uuid } from "./enrollment-contract";
 import { validMemberInvitation, validMemberSummary, type MemberSummary } from "./member-invitation-contract";
 
@@ -17,6 +18,7 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [review, setReview] = useState("");
+  const [removal, setRemoval] = useState("");
   const [understood, setUnderstood] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
@@ -116,7 +118,10 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
     {withdrawal && <p role="status">Withdrawal confirmation is pending. Its code is hidden. Review a retry only if fresh status still shows that invitation as open.</p>}
     {summary && summary.invitations.length === 0 && <p>No member invitations yet.</p>}
     {summary && <div aria-label="Accepted member roster"><h5>Accepted members</h5>
-      {summary.accounts.length === 0 ? <p>No accepted members yet.</p> : <ul>{summary.accounts.map(member => <li key={member.did}>{member.handle} · <code>{member.did}</code></li>)}</ul>}
+      {summary.accounts.length === 0 ? <p>No accepted members yet.</p> : <ul>{summary.accounts.map(member => <li key={member.did}>{member.handle} · <code>{member.did}</code>
+        <button type="button" aria-label={`Open removal status for ${member.handle}`} disabled={busy} ref={node => { if(node) launchers.current.set(`removal:${member.invitationId}`,node);else launchers.current.delete(`removal:${member.invitationId}`); }} onClick={() => setRemoval(member.invitationId)}>Open member removal status</button>
+        {removal === member.invitationId && <MemberRemoval key={member.invitationId} target={{deploymentId,invitationId:member.invitationId,did:member.did}} handle={member.handle} csrfToken={csrfToken} onClose={() => { setRemoval(""); window.setTimeout(() => launchers.current.get(`removal:${member.invitationId}`)?.focus(),0); }}/>}
+      </li>)}</ul>}
       <p>This roster includes all recorded accepted members, independently of invitation history. It does not inspect live account status.</p>
     </div>}
     {summary && <h5>Newest 100 invitations</h5>}

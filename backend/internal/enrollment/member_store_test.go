@@ -448,6 +448,13 @@ func TestMemberHTTPEnforcesOwnerCSRFAndCodeBoundary(t *testing.T) {
 
 	accepted := acceptedRemovalMember(t, f, 950, "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb")
 	removalPath := "/api/member-invitations/" + accepted.ID + "/removal"
+	if w := request(true, "GET", removalPath, aliceToken, "", "", ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"not_requested"`) || !strings.Contains(w.Body.String(), accepted.DID) {
+		t.Fatalf("accepted absence status: %d %s", w.Code, w.Body.String())
+	}
+	if w := request(true, "GET", removalPath, bobToken, "", "", ""); w.Code != 404 {
+		t.Fatal("revoked actor received an absent removal receipt")
+	}
+
 	for _, entry := range []struct {
 		token, origin, csrf, body string
 		status                    int

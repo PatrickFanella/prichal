@@ -1,6 +1,6 @@
 # Local member invitations
 
-Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Local member removal now has a [durable request and migration-window worker](local-member-deactivation.md); browser review remains separate work. Administrator invitation permission now has its own local opt-in.
+Issue [#117](https://git.subcult.tv/PatrickFanella/pds-ass/issues/117). An owner whose first account exists can invite members to create their own native accounts on the same PDS. Each invitation is one native single-use code. Members enter their password and email directly on the PDS; management never receives them. The owner browser controls below use these existing local routes. Local member removal now has a [durable request and migration-window worker](local-member-deactivation.md); [browser removal review](local-member-deactivation.md#browser-removal-review--october-20) uses the same accepted roster. Administrator invitation permission now has its own local opt-in.
 
 ## Owner routes
 
@@ -97,4 +97,4 @@ A PostgreSQL regression fixture places one accepted invitation behind 105 newer 
 
 Full pinned smoke passed: 47 Node tests, frontend build, Go vet and all Go race packages. The qualification PostgreSQL retained its volume, had zero generated test databases and was stopped. Hosted PR/main CI and deployment remain separate proof states.
 
-The [member removal implementation](local-member-deactivation.md) now connects a durable local management request and scheduled worker to the restricted host broker. Browser review and combined native/management qualification remain open.
+The [member removal implementation](local-member-deactivation.md) now connects a durable local management request and scheduled worker to the restricted host broker. Browser review is now connected to the same accepted roster; combined native/management qualification remains open.
