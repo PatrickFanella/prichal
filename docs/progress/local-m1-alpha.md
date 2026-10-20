@@ -1119,3 +1119,13 @@ The existing pinned local PLC/mail fixture was reused and restored to stopped wi
 Full pinned smoke exited 0 with 52 Node tests, frontend build, Go vet and all Go race packages; the opt-in native test is skipped in that ordinary run. Shell syntax, qualification-command dispatch, focused dev-script tests, documentation links and diff checks passed. The separate real native test passed with -race. Disposable PostgreSQL had zero generated test databases and was stopped with its volume retained. Issue #117 remains open for the unobserved combined/post-deadline gates and the existing organization termination, verified-domain and plan-limit criteria. Production services were preserved.
 
 Subsequent readback confirmed PR #170 merged-main smoke passed at `ad29d457e28655b9d0ed1409195ec954bd5a0b6d`.
+
+## Managed recovery member metadata, October 20, 2026
+
+PR #171 merged as `523a906fcfa2bbaedba3641df2fbf80b10a405e0` after exact-head hosted smoke passed. Its merged-main smoke passed separately.
+
+The managed-local recovery checkpoint now includes existing member invitation journals, retained exit journals and admission policy through a fixed filename allowlist. Capture and restoration preserve original bytes, including invitation codes, accepted identities and migration deadlines. Foreign identities, orphaned exit bindings, oversized or public files, symlinks and existing restore targets are refused. Restored private journals remain in a separate agent-state candidate directory; the guard receives only its lease and admission policy. Source file-set and hash checks detect changes during the rehearsal. Owner-only checkpoints remain supported.
+
+Focused Node tests passed for byte retention, refusal paths, guard-policy separation and owner-only compatibility. The management database inventory already discovers all public tables and needs no special list for member-removal rows. This change prepares the existing recovery rehearsal; it does not qualify a populated multi-account encrypted restore, activate a recovered agent, observe an elapsed migration window or change production backup policy. Those gates remain open under the existing recovery and member-exit scope.
+
+Full pinned smoke exited 0 with 55 Node tests, frontend build, Go vet and all Go race packages. Recovery-script syntax and diff checks passed. Disposable PostgreSQL had zero generated test databases afterward and was stopped with its volume retained. Retained native fixtures and production services were preserved.
