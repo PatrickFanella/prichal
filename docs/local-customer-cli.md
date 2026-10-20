@@ -69,3 +69,24 @@ Drill `d3ffca9d-f553-47f6-a996-aab6cb41393b` completed on Linux x64 at `2026-10-
 The same run passed with a Docker shim that would record and refuse any invocation; its marker remained absent. No account authorization, API request, tenant allocation or release publication occurred. Private evidence is `.local/cli-runtimes/d3ffca9d-f553-47f6-a996-aab6cb41393b/report.json` and `.local/issue-audit/native-linux-cli-runtime.json`, the latter retaining the source revision, qualifier/build-script hashes and shim check. Local build artifacts remain in `.local/cli-build/`; this checkout had no prior build directory.
 
 This closes the native Linux AMD64 offline-execution gap for this build. It does not combine earlier macOS/Linux ARM64 observations into a current-build pass. Those platforms, Windows runtime/credential ACLs, signing, published integrity and installation checks, authorized API journeys and live onboarding remain separate release gates. No cold-start performance target or installation claim follows from eight command executions. Issue #27 remains open.
+
+
+## Native Linux loopback protocol and interruption — October 20, 2026
+
+With a checksum-verified native binary in `.local/cli-build/`, run:
+
+```sh
+PDS_QUALIFY_CLI_LOOPBACK=true node scripts/qualify-cli-loopback.mjs
+```
+
+The opt-in driver supports Linux AMD64 and binds two ephemeral HTTP listeners only on `127.0.0.1`. One simulates device/token and organization/deployment responses; the other detects an incorrectly followed redirect. All credentials, identities and operation data are synthetic. No real management service, browser approval, database, Docker daemon or PDS tenant is used. The fixture issues its token directly and does not test account authority, issuer policy or browser approval.
+
+Final drill `99f85ae0-6cf4-41ba-affd-f50b8655050d` completed at `2026-10-20T10:47:51.828Z`. Twelve actual CLI processes passed 30 assertions. Starting with an empty configuration directory, synthetic device/token exchange returned safe JSON and wrote a private 0600 credential file under a 0700 directory. Public-mode and symlink credential files were refused before protected HTTP requests. Organization and operation output stripped injected unknown secret fields; the synthetic access token and device code were absent from every captured process output.
+
+The driver sent a real SIGINT after the waiting CLI's first status poll. The executable handled it and exited **130**, rather than terminating through an unhandled signal. Its saved 0600 request file retained the original payload and key. A new process retried that key, received pending exit **3** and the same fixture deployment identity, and left the request bytes unchanged. Changed payload reuse exited **2** before another POST. The two same-key POSTs referred to one fixture operation. Explicitly simulated failed/ready status responses produced exits **4/0**. The redirect target received no request. A simulated revoked credential produced actionable denial; logout after that denial removed its credential file while retaining the saved request.
+
+Both listeners and every owned child closed before the driver wrote a passing receipt. A separate SIGTERM probe interrupted the qualification driver while it owned a native child: the driver exited 1, wrote a failed receipt with verified cleanup, and independent `/proc` readback confirmed the original child exited. The public-mode test restores credential permissions even on failure. These cleanup checks do not require freeing or modifying a retained tenant.
+
+Private evidence is `.local/cli-loopback/99f85ae0-6cf4-41ba-affd-f50b8655050d/report.json`, `.local/issue-audit/native-cli-loopback-final.log` and `.local/issue-audit/native-cli-loopback-interruption.json`. The driver reused the unchanged `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad` binary from the native offline drill above, built from CLI source at `79f53f0`. No customer CLI Go source changed between that source and this qualification. The report retains the exact qualifier hash; checksum metadata and binary bytes matched afterward.
+
+This qualifies native process, file and client-protocol behavior against a synthetic loopback fixture. It does not prove durable server work, real device approval/revocation, management authorization, native provisioning, published installation or other platforms. Issue #27 remains open.
