@@ -34,6 +34,12 @@ The private receipt is `.local/pds-member-exit/56365f97-9914-4b91-a952-7ec38e60a
 
 Three Node boundary tests also cover owner/foreign/uninvited/nonlocal refusal, arbitrary actions, preserved existing deactivation, policy conflicts, foreign status, failed writes and lost responses. Full pinned smoke passed with 50 Node tests, frontend build, Go vet and all Go race packages; the final renamed read action passed its focused tests and the native fixture. Shell and JavaScript syntax checks passed.
 
+### Admission before shared-fixture startup — October 20
+
+The native member/removal and cold-recovery qualifications check the retained namespace count and measured host capacity before starting the canonical shared protocol fixture or creating a management fixture. A refusal writes a private `preflight.json` with the reason, observed namespace count, requested ceiling and explicit no-start/no-allocation fields. A failed capacity read also returns before startup. This does not change the existing eight-namespace maximum or the separate disposable account ceiling. Once admitted, cleanup is registered before the shared fixture start attempt so an uncertain startup still has a stop path.
+
+On the full local host, the real opt-in command refused admission with eight retained namespaces and a rejected requested ceiling of nine. Before/after Docker readback matched the entire shared-fixture state (including start/finish times), restart count and network attachments, as well as the retained tenant-container list. No new tenant or recovery driver ran. The command's exit 1 was the expected refusal, not a passed native recovery run. Private evidence is `.local/issue-audit/native-capacity-preflight-verification.json` and its referenced fresh-directory preflight receipt. The positive native path remains blocked by capacity; no retained namespace or volume was removed.
+
 ## Restricted host migration window
 
 `POST /v1/instances/{instanceId}/members/exit` accepts only `{ "ticket": "accepted-invitation-uuid" }` through the existing worker mTLS boundary. The registered-node client verifies the certificate identity and key pin. The Docker implementation requires isolated local identity mode and a healthy, unheld runtime, refuses public pilot mode, and resolves the member DID from the retained accepted ticket. Unknown or pending tickets fail before native execution. Requests cannot supply a DID, deadline or immediate-deactivation flag.
