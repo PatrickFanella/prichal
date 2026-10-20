@@ -109,6 +109,23 @@ The private receipt is `.local/member-metadata-recovery/56303ff0-5131-4088-9dcc-
 
 This qualifies encrypted restoration of the retained native host metadata only. The bundle and its key are on the same machine, so independent custody and retention are unqualified. PDS SQLite databases, signed repositories, blobs, native writes, management PostgreSQL, physical elapsed-window behavior and production recovery were outside this drill. Those wider gates remain open.
 
+## Disposable management snapshot recovery — October 20
+
+With the pinned Go/Node tools on PATH, start only the separate qualification PostgreSQL and run the explicit opt-in test:
+
+```sh
+COMPOSE_PROJECT_NAME=prichal-storage-qualification ./scripts/dev.sh db
+./scripts/dev.sh qualify-member-management-recovery
+```
+
+The test requires the exact local loopback port/user, qualification Compose project/service and pinned PostgreSQL image. It allocates fresh `pds_smoke_*` source databases and `pds_recovery_*` restore databases through the guarded allocator. It never dumps the parent management database. Ordinary smoke/CI skips it before Docker or database access unless explicitly enabled.
+
+Both requested and confirmed migration-window cases passed with `-race`. Real `pg_dump -Fc`/`pg_restore` round trips preserved accepted-member rows, invitation/removal audit, original intent/actor/key/ticket/DID/timestamps, River job rows and the removal-event sequence value/`is_called` state. Introducing a recovery hold fenced direct worker execution and same-key submission without changing those rows or calling the removal agent. A changed host deadline retained the hold. Exact read-only reconciliation released only the confirmed case; same-key replay then retained its original identity/window and the pre-deadline worker snoozed without another host call. The unconfirmed request remained held without dispatching an observation. Source ledgers were unchanged in both cases.
+
+Final private receipts are `.local/member-removal-recovery/requested-2731983829/report.json` and `.local/member-removal-recovery/migration_window-3883985132/report.json`. Their synthetic PostgreSQL dumps remain alongside them; `qualification-source.json` records the parent commit and tested harness/wrapper hashes. Allocator cleanup removed the source/restore databases. Earlier successful rehearsal receipts remain separate.
+
+This proves the logical management snapshot and recovery-fence path with synthetic management identities, simulated host observations and direct worker calls. No native PDS, deployed API/worker process, live River execution, physical 30-day timer, off-host custody, encrypted production dump or production recovery was qualified. The actual native host-file encryption drill above remains separate evidence.
+
 ## Remaining #117 work
 
 The initial real management/native window is qualified above. Combined browser/native and post-deadline management qualification remain open. The complete exit policy must cover organization hosting termination and handles under verified organization domains. Administrator/native end-to-end qualification, plan limits and production enablement remain separate. No issue is closed by this native primitive.

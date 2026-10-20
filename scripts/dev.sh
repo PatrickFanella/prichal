@@ -44,7 +44,12 @@ case "${1:-help}" in
     cd backend
     PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/enrollment -run '^TestMemberRemovalNativeMigrationWindow$' -count=1 -v
     ;;
+  qualify-member-management-recovery)
+    export PDS_QUALIFY_MEMBER_MANAGEMENT_RECOVERY=true
+    cd backend
+    PDS_TEST_ADMIN_URL="$PDS_DATABASE_URL" exec go test -race ./internal/enrollment -run '^TestMemberRemovalManagementSnapshotRecovery$' -count=1 -v
+    ;;
   smoke) exec ./scripts/smoke.sh ;;
   down) docker compose down ;;
-  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|smoke|down}\n'; exit 2 ;;
+  *) printf 'Usage: scripts/dev.sh {db|issuer|api|worker|billing-fixture-admin|entitlement-admin|service-admin|owner-admin|deployment-admin|enrollment-admin|node-admin|node-enroll|web|qualify-member-removal|qualify-member-management-recovery|smoke|down}\n'; exit 2 ;;
 esac
