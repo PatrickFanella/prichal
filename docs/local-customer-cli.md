@@ -30,17 +30,17 @@ Management recovery qualification `236cbd45-e887-401d-b10a-9709f92279a1` copied 
 
 ## Distribution and remaining gates
 
-`./scripts/build-customer-cli.sh` prepares five binaries and `SHA256SUMS` in ignored `.local/cli-build/`. All five checksum digests matched. The macOS ARM64 binary completed the actual authorization/deployment drill. Linux ARM64 executed version/help/completion in a separate disposable container using the already-pinned local PostgreSQL image, with no network, a read-only binary mount and dropped capabilities. macOS AMD64, Linux AMD64 and Windows AMD64 were cross-compiled only. No release was published.
+`./scripts/build-customer-cli.sh` prepares five binaries and `SHA256SUMS` in ignored `.local/cli-build/`. In the initial October 1 qualification, all five checksum digests matched. The macOS ARM64 binary completed the actual authorization/deployment drill. Linux ARM64 executed version/help/completion in a separate disposable container using the already-pinned local PostgreSQL image, with no network, a read-only binary mount and dropped capabilities. At that initial stage, macOS AMD64, Linux AMD64 and Windows AMD64 were cross-compiled only; later runtime observations follow below. No release was published.
 
 Twenty macOS launches measured about 6 ms median startup. The first cold launch took about 541 ms, so the under-50-ms cold-start target is not qualified. Responsive browser verification remains open: the collaborative preview reported page metadata but its snapshot failed. Windows credential ACL behavior, platform runtime installation tests, signing and published integrity metadata remain release gates. CLI first-account setup remains in the browser. Public DNS/TLS/email/federation and the 15-minute live onboarding target still require selected infrastructure. Issue #27 remains open.
 
 ## Repeated offline runtime checks
 
-Build fresh local binaries with `./scripts/build-customer-cli.sh`, then run `node scripts/qualify-cli-runtimes.mjs` on this Apple Silicon macOS workstation. The qualifier checks all five checksum entries and runs eight offline cases on native macOS ARM64, macOS AMD64 through Rosetta, and Linux ARM64 in the existing pinned image. It pulls no image, publishes no release and performs no account authorization or API request. Each configuration directory is separate and private; missing-sign-in checks leave it empty. Linux runs without networking, with a read-only binary/root, dropped capabilities and bounded resources. Existing containers and volume names must match afterward.
+Build fresh local binaries with `./scripts/build-customer-cli.sh`, then run `node scripts/qualify-cli-runtimes.mjs` on an Apple Silicon macOS workstation. The qualifier checks all five checksum entries and runs eight offline cases on native macOS ARM64, macOS AMD64 through Rosetta, and Linux ARM64 in the existing pinned image. It pulls no image, publishes no release and performs no account authorization or API request. Each configuration directory is separate and private; missing-sign-in checks leave it empty. Linux runs without networking, with a read-only binary/root, dropped capabilities and bounded resources. Existing containers and volume names must match afterward.
 
 Drill `f5740f1d-b4b4-40b7-b6e8-fd48983a66aa` completed at 2026-10-01T20:22:34Z. Version, root/deploy help, bash/zsh/fish completions, unknown-command exit 2 and missing-sign-in exit 1 passed on all three runtimes. Error cases had empty stdout and actionable stderr. All five checksums matched before and after. No credentials were created, no binary changed, and existing containers/volumes matched the baseline. Private results remain in `.local/cli-runtimes/`.
 
-This adds Rosetta execution evidence to the earlier cross-build evidence. It does not qualify Intel hardware, Linux AMD64, Windows execution/credential ACLs, installation, signing, published delivery or live onboarding. The first translated version launch took 1,879 ms; subsequent translated cases took 14–17 ms. Linux timings include container startup. The cold-start target remains unqualified.
+That October 1 drill added Rosetta execution evidence to the earlier cross-build evidence. It did not qualify Intel hardware, Linux AMD64, Windows execution/credential ACLs, installation, signing, published delivery or live onboarding. The first translated version launch took 1,879 ms; subsequent translated cases took 14–17 ms. Linux timings include container startup. The cold-start target remains unqualified.
 
 Completion checks validate generated text, not installation into a shell session. Shell integration remains unqualified. The final full smoke gate passed after adding the qualifier and evidence.
 
@@ -51,3 +51,21 @@ Completion checks validate generated text, not installation into a shell session
 Drill `cba280d7-3676-4139-a61a-2f2037beaf34` completed at 2026-10-01T20:27:20Z. Both device approvals and owner-scoped reads passed. Alice could not read Bob's server or revoke his credential. Bob's own revocation blocked further reads; logout removed his credential file even after server revocation. Alice's logout also revoked/removed her credential. Neither token appeared in CLI output. Both qualifier credential IDs were absent from active credentials afterward. No server deployment, worker pause or native mutation occurred, and source work/native custody/binary matched the baseline. Private report remains under `.local/translated-cli-auth/`.
 
 This proves the local translated binary's authorization/read/revocation path. The earlier macOS ARM64 interruption/retry drill remains the deployment evidence. Intel hardware, other platform authorization, published installation and live onboarding remain open. No universal platform qualification follows from this drill.
+
+
+## Native Linux AMD64 offline runtime — October 20, 2026
+
+The offline checker now also runs on a native Linux AMD64 host:
+
+```sh
+./scripts/build-customer-cli.sh
+node scripts/qualify-cli-runtimes.mjs
+```
+
+Use the repository's pinned Go and Node toolchains. The build prepares all five binaries and `SHA256SUMS` locally; the checker validates every digest before and after execution. On Linux AMD64 it executes only that native binary and needs no Docker daemon or image. The existing Apple Silicon matrix retains its native macOS ARM64, Rosetta macOS AMD64 and pinned-container Linux ARM64 paths. Unsupported hosts still refuse execution. Reports list the current host, binary hashes and platforms not exercised by that run. A Linux run explicitly records no Docker resource comparison, rather than inferring unchanged containers from an omitted comparison.
+
+Drill `d3ffca9d-f553-47f6-a996-aab6cb41393b` completed on Linux x64 at `2026-10-20T10:14:20.112Z`, using fresh binaries from CLI source at `79f53f03aa97e55447e0c3b654992652e4c1cbb5`. All eight cases passed: version, root/deploy help, bash/zsh/fish completions, unknown-command exit 2 and missing-sign-in exit 1. Error cases emitted actionable stderr and empty stdout. The private 0700 configuration directory stayed empty. The native binary's SHA-256 was `00f25c3b1d80e350726bb066bcb056fd88d66b9ffab19e84607e15ab88fea6ad`; all five binary digests and the checksum file stayed unchanged.
+
+The same run passed with a Docker shim that would record and refuse any invocation; its marker remained absent. No account authorization, API request, tenant allocation or release publication occurred. Private evidence is `.local/cli-runtimes/d3ffca9d-f553-47f6-a996-aab6cb41393b/report.json` and `.local/issue-audit/native-linux-cli-runtime.json`, the latter retaining the source revision, qualifier/build-script hashes and shim check. Local build artifacts remain in `.local/cli-build/`; this checkout had no prior build directory.
+
+This closes the native Linux AMD64 offline-execution gap for this build. It does not combine earlier macOS/Linux ARM64 observations into a current-build pass. Those platforms, Windows runtime/credential ACLs, signing, published integrity and installation checks, authorized API journeys and live onboarding remain separate release gates. No cold-start performance target or installation claim follows from eight command executions. Issue #27 remains open.

@@ -4,7 +4,10 @@ import {createHash,randomUUID} from 'node:crypto';
 import {lstatSync,mkdirSync,readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
-assert.equal(process.platform,'darwin');assert.equal(process.arch,'arm64');
+const appleSilicon=process.platform==='darwin'&&process.arch==='arm64';
+const nativeLinux=process.platform==='linux'&&process.arch==='x64';
+assert.ok(appleSilicon||nativeLinux,'Requires Apple Silicon macOS or native Linux AMD64');
+const platforms=appleSilicon?['darwin-arm64','darwin-amd64','linux-arm64']:['linux-amd64'];
 const id=randomUUID(),root='.local/cli-runtimes/'+id;mkdirSync(root,{recursive:true,mode:0o700});
 const checksums=readFileSync('.local/cli-build/SHA256SUMS','utf8');
 const expected=['pds-ass-darwin-amd64','pds-ass-darwin-arm64','pds-ass-linux-amd64','pds-ass-linux-arm64','pds-ass-windows-amd64.exe'];
@@ -14,10 +17,10 @@ assert.deepEqual([...hashes.keys()].sort(),expected);
 function digest(path){const info=lstatSync(path);assert.ok(info.isFile()&&!info.isSymbolicLink());return createHash('sha256').update(readFileSync(path)).digest('hex');}
 for(const [name,hash] of hashes)assert.equal(digest('.local/cli-build/'+name),hash);
 const image='sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73';
-const inspect=spawnSync('docker',['image','inspect',image,'--format','{{.Architecture}}'],{encoding:'utf8',timeout:10000});assert.equal(inspect.status,0);assert.equal(inspect.stdout.trim(),'arm64');
+if(appleSilicon){const inspect=spawnSync('docker',['image','inspect',image,'--format','{{.Architecture}}'],{encoding:'utf8',timeout:10000});assert.equal(inspect.status,0);assert.equal(inspect.stdout.trim(),'arm64');}
 function resources(){const ps=spawnSync('docker',['ps','-aq'],{encoding:'utf8',timeout:10000}),volumes=spawnSync('docker',['volume','ls','--format','{{.Name}}'],{encoding:'utf8',timeout:10000});assert.equal(ps.status,0);assert.equal(volumes.status,0);return {containers:ps.stdout.trim().split('\n').filter(Boolean).sort(),volumes:volumes.stdout.trim().split('\n').filter(Boolean).sort()};}
-const before=resources(),matrix=[];
-for(const platform of ['darwin-arm64','darwin-amd64','linux-arm64']) {
+const before=appleSilicon?resources():null,matrix=[];
+for(const platform of platforms) {
  const binary=resolve('.local/cli-build/pds-ass-'+platform),config=resolve(root+'/config-'+platform);mkdirSync(config,{mode:0o700});
  const prefix=platform==='linux-arm64'?['run','--rm','--pull','never','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','32','--memory','64m','--cpus','.25','--user','65534:65534','--label','pds-ass.disposable-cli=true','--tmpfs','/tmp:rw,noexec,nosuid,size=1048576,mode=1777','--mount','type=bind,source='+binary+',target=/usr/local/bin/pds-ass,readonly','--entrypoint','/usr/local/bin/pds-ass',image]:platform==='darwin-amd64'?['-x86_64',binary]:[];
  const command=platform==='linux-arm64'?'docker':platform==='darwin-amd64'?'arch':binary;
@@ -31,8 +34,9 @@ for(const platform of ['darwin-arm64','darwin-amd64','linux-arm64']) {
   passed.push({command:test.args[0],exit:result.status,milliseconds:Math.round(performance.now()-started)});
  }
  assert.equal(lstatSync(config).mode&0o777,0o700);assert.deepEqual(readdirSync(config),[]);
- matrix.push({platform,runtime:platform==='darwin-amd64'?'Rosetta translation':platform==='linux-arm64'?'existing isolated Docker image':'native Apple Silicon',cases:passed});
+ matrix.push({platform,runtime:platform==='darwin-amd64'?'Rosetta translation':platform==='linux-arm64'?'existing isolated Docker image':nativeLinux?'native Linux AMD64':'native Apple Silicon',cases:passed});
 }
-assert.deepEqual(resources(),before);
+if(appleSilicon)assert.deepEqual(resources(),before);
 assert.equal(readFileSync('.local/cli-build/SHA256SUMS','utf8'),checksums);for(const [name,hash] of hashes)assert.equal(digest('.local/cli-build/'+name),hash);
-const report={id,completedAt:new Date().toISOString(),matrix,allFiveChecksumsMatched:true,binariesUnchanged:true,offlineOnly:true,existingContainersAndVolumesUnchanged:true,accountAuthorizationQualified:false,releasePublished:false,remaining:['Intel hardware','Linux AMD64 runtime','Windows runtime and credential ACLs','signed publication and installation','live onboarding']};writeFileSync(root+'/report.json',JSON.stringify(report,null,2),{mode:0o600,flag:'wx'});console.log(JSON.stringify(report));
+const remainingPlatforms=['darwin-arm64','darwin-amd64','linux-amd64','linux-arm64','windows-amd64'].filter(platform=>!platforms.includes(platform));
+const report={id,completedAt:new Date().toISOString(),host:{platform:process.platform,architecture:process.arch},matrix,allFiveChecksumsMatched:true,binarySha256:Object.fromEntries(hashes),binariesUnchanged:true,offlineOnly:true,dockerUsed:appleSilicon,dockerResourceComparisonPerformed:appleSilicon,existingContainersAndVolumesUnchanged:appleSilicon?true:null,accountAuthorizationQualified:false,releasePublished:false,remaining:[...remainingPlatforms.map(platform=>platform+' runtime on this build'),...(appleSilicon?['native Intel macOS hardware']:[]),'Windows credential ACLs','signed publication and installation','live onboarding']};writeFileSync(root+'/report.json',JSON.stringify(report,null,2),{mode:0o600,flag:'wx'});console.log(JSON.stringify(report));
