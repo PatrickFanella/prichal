@@ -1,6 +1,8 @@
 # Roadmap for standalone managed PDS hosting
 
-Status: local implementation and qualification in progress across six milestones. Updated October 1, 2026. No milestone has a production-qualified exit gate. The user has requested continued local work and deferred live infrastructure selection.
+Status: **M0 complete; M1–M5 remain open.** Updated October 20, 2026 (October 21 UTC). The live issue audit found 13 already closed issues and 27 open issues; none of the remaining issues has complete closure evidence. The [acceptance audit](issue-acceptance-audit-2026-10-20.md) names the remaining gate for each open issue. Completed checkboxes below reflect hosted issue state, not an estimate of implementation percentage.
+
+A public homelab pilot has recorded real account/email, signed records/media and downstream federation evidence. General managed provisioning and public launch remain unqualified. The owner selected the homelab as an interim private pilot until a VPS is available, while retaining M4's independent production/recovery requirement.
 
 The product is a standalone service with browser onboarding and an optional later CLI. Earlier application-suite research does not define this roadmap. No calendar promises are assigned before the first runnable slice establishes delivery speed.
 
@@ -12,44 +14,49 @@ Each issue is a bounded demonstrable behavior with its own acceptance and verifi
 
 Local browser/API/database and PDS fixtures run reproducibly; staging infrastructure and resumable deployment intent are ready.
 
-- [#1: Run the standalone local stack and CI smoke journey](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1)
-- [#2: Sign in and create an owner-scoped organization](https://git.subcult.tv/PatrickFanella/pds-ass/issues/2)
-- [#3: Bootstrap and register a staging hosting node](https://git.subcult.tv/PatrickFanella/pds-ass/issues/3)
-- [#4: Qualify a disposable official PDS runtime](https://git.subcult.tv/PatrickFanella/pds-ass/issues/4)
-- [#5: Submit and resume a durable deployment request](https://git.subcult.tv/PatrickFanella/pds-ass/issues/5)
+Complete: all six M0 issues are accepted and closed. Production hosting and paid provisioning are outside this foundation milestone.
+
+- [x] [#1: Run the standalone local stack and CI smoke journey](https://git.subcult.tv/subculture-collective/prichal/issues/1)
+- [x] [#2: Sign in and create an owner-scoped organization](https://git.subcult.tv/subculture-collective/prichal/issues/2)
+- [x] [#3: Bootstrap and register a staging hosting node](https://git.subcult.tv/subculture-collective/prichal/issues/3)
+- [x] [#4: Qualify a disposable official PDS runtime](https://git.subcult.tv/subculture-collective/prichal/issues/4)
+- [x] [#5: Submit and resume a durable deployment request](https://git.subcult.tv/subculture-collective/prichal/issues/5)
+- [x] [#128: Separate the dev.sh enrollment key variables](https://git.subcult.tv/subculture-collective/prichal/issues/128)
 
 ### M1 - Private deployment alpha
 
 An invited owner deploys a real managed-domain PDS, creates an account, verifies federation and configures a BYO handle.
 
-- [#6: Provision a real PDS through the restricted host agent](https://git.subcult.tv/PatrickFanella/pds-ass/issues/6)
-- [#7: Expose stable managed PDS hostnames with HTTPS](https://git.subcult.tv/PatrickFanella/pds-ass/issues/7)
-- [#8: Guide the owner through first-account enrollment](https://git.subcult.tv/PatrickFanella/pds-ass/issues/8)
-- [#9: Prove signed records, media and downstream federation](https://git.subcult.tv/PatrickFanella/pds-ass/issues/9)
-- [#10: Attach and verify a customer-owned domain handle](https://git.subcult.tv/PatrickFanella/pds-ass/issues/10)
+- [ ] [#6: Provision a real PDS through the restricted host agent](https://git.subcult.tv/subculture-collective/prichal/issues/6)
+- [ ] [#7: Expose stable managed PDS hostnames with HTTPS](https://git.subcult.tv/subculture-collective/prichal/issues/7)
+- [ ] [#8: Guide the owner through first-account enrollment](https://git.subcult.tv/subculture-collective/prichal/issues/8)
+- [x] [#9: Prove signed records, media and downstream federation](https://git.subcult.tv/subculture-collective/prichal/issues/9)
+- [ ] [#10: Attach and verify a customer-owned domain handle](https://git.subcult.tv/subculture-collective/prichal/issues/10)
+- [x] [#125: Fix edge and guard bind-mount permissions on native Linux Docker](https://git.subcult.tv/subculture-collective/prichal/issues/125)
+- [ ] [#126: Choose the PDS hostname and handle domain](https://git.subcult.tv/subculture-collective/prichal/issues/126)
 
 ### M2 - Recoverable managed service
 
 Identity custody, full restores, monitoring, safe upgrades, tenant isolation and operator suspension are demonstrated.
 
-- [#11: Protect credentials and prove identity-key recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/11)
-- [#12: Back up and restore a complete customer PDS](https://git.subcult.tv/PatrickFanella/pds-ass/issues/12)
-- [#13: Restore management state and reconcile recovered jobs](https://git.subcult.tv/PatrickFanella/pds-ass/issues/13)
-- [#14: Detect outages, failed backups and exhausted capacity](https://git.subcult.tv/PatrickFanella/pds-ass/issues/14)
-- [#15: Upgrade a PDS with staged rollout and safe recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/15)
-- [#16: Enforce tenant isolation and runtime resource boundaries](https://git.subcult.tv/PatrickFanella/pds-ass/issues/16)
-- [#17: Suspend and resume service through audited operator actions](https://git.subcult.tv/PatrickFanella/pds-ass/issues/17)
+- [ ] [#11: Protect credentials and prove identity-key recovery](https://git.subcult.tv/subculture-collective/prichal/issues/11)
+- [ ] [#12: Back up and restore a complete customer PDS](https://git.subcult.tv/subculture-collective/prichal/issues/12)
+- [ ] [#13: Restore management state and reconcile recovered jobs](https://git.subcult.tv/subculture-collective/prichal/issues/13)
+- [ ] [#14: Detect outages, failed backups and exhausted capacity](https://git.subcult.tv/subculture-collective/prichal/issues/14)
+- [ ] [#15: Upgrade a PDS with staged rollout and safe recovery](https://git.subcult.tv/subculture-collective/prichal/issues/15)
+- [ ] [#16: Enforce tenant isolation and runtime resource boundaries](https://git.subcult.tv/subculture-collective/prichal/issues/16)
+- [ ] [#17: Suspend and resume service through audited operator actions](https://git.subcult.tv/subculture-collective/prichal/issues/17)
 
 ### M3 - Paid pilot
 
 Subscription entitlements, usage limits, fleet capacity, exports and support workflows operate through a measured invited pilot.
 
-- [#18: Gate paid deployment with subscription entitlements](https://git.subcult.tv/PatrickFanella/pds-ass/issues/18)
-- [#19: Show usage and enforce plan limits without surprise loss](https://git.subcult.tv/PatrickFanella/pds-ass/issues/19)
-- [#20: Add capacity and drain a hosting node safely](https://git.subcult.tv/PatrickFanella/pds-ass/issues/20)
-- [#21: Export data and cancel hosting with a safe exit window](https://git.subcult.tv/PatrickFanella/pds-ass/issues/21)
-- [#22: Give operators a tenant support and audit workspace](https://git.subcult.tv/PatrickFanella/pds-ass/issues/22)
-- [#23: Run an invited pilot and measure the deployment target](https://git.subcult.tv/PatrickFanella/pds-ass/issues/23)
+- [ ] [#18: Gate paid deployment with subscription entitlements](https://git.subcult.tv/subculture-collective/prichal/issues/18)
+- [ ] [#19: Show usage and enforce plan limits without surprise loss](https://git.subcult.tv/subculture-collective/prichal/issues/19)
+- [ ] [#20: Add capacity and drain a hosting node safely](https://git.subcult.tv/subculture-collective/prichal/issues/20)
+- [ ] [#21: Export data and cancel hosting with a safe exit window](https://git.subcult.tv/subculture-collective/prichal/issues/21)
+- [ ] [#22: Give operators a tenant support and audit workspace](https://git.subcult.tv/subculture-collective/prichal/issues/22)
+- [ ] [#23: Run an invited pilot and measure the deployment target](https://git.subcult.tv/subculture-collective/prichal/issues/23)
 
 ### M4 - Public launch
 
@@ -57,47 +64,54 @@ Browser onboarding and independent production infrastructure pass the documented
 
 The owner confirmed on October 20, 2026 that the homelab is an interim private pilot until a VPS is available. M4's independence requirement remains unchanged. See the [M4 release gate](m4-release-gate.md) for the selected approach, bounded browser evidence and remaining production/launch checks.
 
-- [#24: Finish accessible browser onboarding and lifecycle guidance](https://git.subcult.tv/PatrickFanella/pds-ass/issues/24)
-- [#25: Qualify independent production deployment and incident recovery](https://git.subcult.tv/PatrickFanella/pds-ass/issues/25)
-- [#26: Pass the public-launch gate and open bounded signup](https://git.subcult.tv/PatrickFanella/pds-ass/issues/26)
+- [ ] [#24: Finish accessible browser onboarding and lifecycle guidance](https://git.subcult.tv/subculture-collective/prichal/issues/24)
+- [ ] [#25: Qualify independent production deployment and incident recovery](https://git.subcult.tv/subculture-collective/prichal/issues/25)
+- [ ] [#26: Pass the public-launch gate and open bounded signup](https://git.subcult.tv/subculture-collective/prichal/issues/26)
 
 ### M5 - Additional access and portability
 
 Optional CLI, custom PDS endpoints, account migration and organization collaboration extend the qualified API.
 
-- [#27: Deploy through a downloadable Go CLI](https://git.subcult.tv/PatrickFanella/pds-ass/issues/27)
-- [#28: Deploy on a verified customer-owned PDS endpoint](https://git.subcult.tv/PatrickFanella/pds-ass/issues/28)
-- [#29: Migrate an existing AT account with resumable verification](https://git.subcult.tv/PatrickFanella/pds-ass/issues/29)
-- [#30: Invite organization members with scoped management roles](https://git.subcult.tv/PatrickFanella/pds-ass/issues/30)
+- [ ] [#27: Deploy through a downloadable Go CLI](https://git.subcult.tv/subculture-collective/prichal/issues/27)
+- [ ] [#28: Deploy on a verified customer-owned PDS endpoint](https://git.subcult.tv/subculture-collective/prichal/issues/28)
+- [ ] [#29: Migrate an existing AT account with resumable verification](https://git.subcult.tv/subculture-collective/prichal/issues/29)
+- [ ] [#30: Invite organization members with scoped management roles](https://git.subcult.tv/subculture-collective/prichal/issues/30)
+- [ ] [#117: Let an organization invite members to create accounts on its PDS](https://git.subcult.tv/subculture-collective/prichal/issues/117)
 
-## Current local evidence and remaining gates
+## Accepted evidence and remaining gates
 
-This snapshot includes schema-32 durable fixture checkout preparation and bounded customer/session dispatch and local exclusive endpoint claims and queued enrollment cancellation and deployment/enrollment admission and bounded collaboration pagers and the retained October 1 local drills. Each linked runbook names its qualification and limits. The PostgreSQL management service, restricted agent and two populated native PDSs run on one workstation. This environment cannot prove independent commercial hosting.
+Completed cross-phase follow-ups are [#127 preview hardening](https://git.subcult.tv/subculture-collective/prichal/issues/127), [#133 strict PR CI context](https://git.subcult.tv/subculture-collective/prichal/issues/133), [#153 native email sign-in codes](https://git.subcult.tv/subculture-collective/prichal/issues/153), [#154 runtime-release observations](https://git.subcult.tv/subculture-collective/prichal/issues/154) and [#155 public-record browsing](https://git.subcult.tv/subculture-collective/prichal/issues/155). These accepted slices do not close their broader launch dependencies.
 
-| Phase | Verified locally | Remaining before the phase closes |
+This snapshot incorporates merged work through #194, including private/public staging, the real pilot, preview backup execution, native member recovery, native CLI qualification and the recent browser retry/layout fixes. Each linked runbook names its revision, environment and limits. These are dated observations, not a fresh health or running-release assertion. Source main, PR-head CI, merged-main CI, installed preview/pilot releases and production qualification remain distinct.
+
+| Phase | Accepted or recorded evidence | Remaining before the phase closes |
 | --- | --- | --- |
-| M0 | Owner-scoped OIDC organizations, durable deployment intent, separate PostgreSQL, official PDS fixture and private node enrollment. See [local development](local-development.md) and [node enrollment](local-node-enrollment.md). | Staging-node bootstrap on the selected live environment, production identity configuration and deployment packaging. |
-| M1 | Restricted provisioning, localhost HTTPS, one-account enrollment, signed records/media and bounded handle proof. See [agent provisioning](local-agent-provisioning.md), [owner enrollment](local-owner-enrollment.md) and [handle proof](local-handle-proof.md). | Public DNS/TLS, email delivery, downstream federation and a controlled customer-owned handle. Local PLC/mail fixtures do not satisfy these gates. |
-| M2 | Encrypted native/management recovery, held-worker refusal and reconciliation, monitoring, isolation/resource boundaries, audited service/account actions and failed-candidate rehearsal. See [managed recovery](local-managed-recovery.md), [tenant isolation](local-tenant-isolation.md), [monitoring](local-monitoring.md) and [release rehearsal](local-release-rehearsal.md). | Independent backup custody and host-loss drills, scheduled backups/off-host alerts, storage pressure controls, distinct-release upgrades and canary promotion. |
-| M3 | Pilot grants, signed fixture billing inbox, observed usage, capacity admission, portable exports, dated reversible local exit and operator workspace. See [billing inbox](local-billing-inbox.md), [usage](local-usage.md), [customer exports](local-customer-exports.md), [hosting exit](local-hosting-exit.md) and [operator workspace](local-operator-workspace.md). | Paid Checkout/Portal and reconciliation policy, enforced plan/storage limits, populated-node drain, commercial cancellation/retention, notifications and a measured invited pilot. Fixture events are not payments; retention review does not delete data. |
-| M4 | Durable local deployment and first-account request pauses preserve existing requests and recovery paths. Browser collaboration and history have actual DOM/keyboard checks and overflow checks at five representative widths. See [deployment admission](local-deployment-admission.md), [enrollment admission](local-enrollment-admission.md), [browser collaboration](local-collaboration-workspace.md) and [owner history](local-owner-journey.md). | Remaining onboarding/failure journeys, assistive screen-reader checks, independent production design/recovery, support terms and the signed-off public-release gate. Public signup is not qualified. |
-| M5 | Scoped Go CLI authorization/deployment simulation and five build targets; identity-bound viewer/rename-only administrator invitations, bounded collaboration pagers and separately accepted empty-organization handover and read-only custom-address preflight and durable unverified endpoint intent with browser save/reload/cancel checks and transient bounded TXT observation and read-only retained-export migration inventory with owner inspection controls. See [customer CLI](local-customer-cli.md) and [organization access](local-organization-access.md) and [custom address preflight](local-custom-endpoint-preflight.md) and [endpoint choice](local-custom-endpoint-choice.md) and [browser address review](local-custom-endpoint-workspace.md) and [DNS observation](local-endpoint-dns-observation.md) and [browser TXT checks](local-endpoint-observation-controls.md) and [migration inventory](local-migration-preflight.md) and [migration workspace](local-migration-workspace.md). | Published and platform-qualified CLI, custom endpoint activation, inbound/outbound account migration, delegated hosting/domain permissions and populated handover. |
+| M0 — complete (6/6 issues closed) | Owner-scoped organizations, durable deployment intent, disposable official PDS qualification and [accepted staging bootstrap](live-kvant-staging-node.md). #1–#5 and #128 are closed. | None within M0's accepted scope. General public hosting is later work. |
+| M1 — open (2/7 closed) | #125 fixed native Linux readers; #9 accepted [public pilot federation](live-pilot-federation.md). Real pilot account creation and confirmed mail, fixed public TLS and [private worker placement/replay](live-staging-management-connection.md) are recorded. | Non-local management/worker provisioning, general managed namespace/DNS/TLS design (#126/#7), complete managed enrollment/client login and owner-scoped BYO-handle qualification. A fixed pilot is not the general managed product path. |
+| M2 — open (0/7 closed) | [Populated pilot restore](live-pilot-recovery.md), [connected staging recovery](live-staging-connection-recovery.md), [native member recovery](local-member-native-recovery.md), [preview backup execution](live-preview-backup-rollout.md), certificate alerts, local isolation and lifecycle checks. | Accepted custody/rotation, node-loss public cutover with new writes/downstream events, full monitoring coverage, storage/resource-pressure controls and successful/failed distinct-release upgrades. The opt-in failed-candidate native path remains unqualified. |
+| M3 — open (0/6 closed) | Pilot grants, signed fixture billing inbox, observed usage, capacity admission, portable exports, dated reversible local exit and operator workspace. See [billing inbox](local-billing-inbox.md), [usage](local-usage.md), [customer exports](local-customer-exports.md), [hosting exit](local-hosting-exit.md) and [operator workspace](local-operator-workspace.md). | Paid Checkout/Portal and reconciliation policy, enforced plan/storage limits, populated-node drain, commercial cancellation/retention, notifications and a measured invited pilot. Fixture events are not payments; retention review does not delete data. |
+| M4 — open (0/3 closed) | Merged #189–#194 record deployment/domain/enrollment/export retry behavior, focus and positive checkout layout checks. See the [M4 release gate](m4-release-gate.md), which maps exact evidence to #24–#26. | Connected onboarding and real dependency-failure journeys, accessibility progress verification, independent production/recovery, measured service terms, controlled production observation and launch sign-off. Public signup is not qualified. |
+| M5 — open (0/5 closed) | [Native Linux CLI runtime/auth/completion/interruption](local-customer-cli.md), [local management roles](local-organization-access.md), [member invitation/removal](local-member-invitations.md), endpoint preflight/choice and migration inventory. | Published/installed and platform-qualified CLI; custom endpoint activation; inbound/outbound identity migration; complete delegated permissions/populated handover; verified organization-domain member handles, plan limits and remaining post-window removal qualification. |
 
 Implementation and test entrypoints include `backend/internal/auth`, `deployment`, `fleet`, `nodeagent`, `recovery`, `observability`, `lifecycle`, `billing`, `exports`, `support` and `orgaccess`. Each feature package has focused tests. `web/src` contains the corresponding browser controls; `scripts/qualify-*.mjs` exercise bounded disposable local workflows. [Progress](progress/local-m1-alpha.md) records exact drills, retained state, failures and gate results. Source files and passing builds alone do not prove the phase exit gates.
 
 Management-owner creation can now be paused independently of deployment/enrollment. Existing owner sign-in and scoped access remain available; local close/reopen and schema-27 recovery passed. See [owner admission](local-owner-admission.md). Public launch and production operator controls remain open.
 
-## Next local work
+## Next work and explicit decisions
 
-The [issued-invitation withdrawal command](local-enrollment-withdrawal-agent.md), [durable owner intent/worker processing](local-enrollment-withdrawal-intent.md) and [browser review/retry](local-enrollment-withdrawal-workspace.md) have fixture, retained-account preservation, reload and schema-28 recovery evidence. Queued request cancellation and durable dispatch reservation now have disposable integration and retained-account refusal/recovery evidence. See [queued cancellation](local-enrollment-cancellation.md). Its [browser review](local-enrollment-cancellation-workspace.md) now has keyboard/error/reload and exact-ticket retry evidence. Visual and assistive checks remain open. Qualify real empty-PDS/browser withdrawal without deleting retained tenants to free capacity.
+1. Continue M4's connected browser journeys and failure/accessibility qualification, using the [release gate](m4-release-gate.md) and [per-issue acceptance audit](issue-acceptance-audit-2026-10-20.md). Preserve recent component evidence without treating it as full end-to-end acceptance.
+2. Advance the managed-product prerequisites in [#129](https://git.subcult.tv/subculture-collective/prichal/issues/129). Its original no-real-PDS premise is superseded by the public pilot; its general provisioning, namespace, enrollment and custody/recovery steps remain unfinished.
+3. Record the general managed PDS/default-handle namespace under [#126](https://git.subcult.tv/subculture-collective/prichal/issues/126). The existing pilot hostname and handle do not choose it.
+4. Prepare independent production/recovery for the eventual VPS. Provider/account, region, spend ceiling, production issuer/mail ownership and independent backup custody remain explicit choices. No purchase, production deployment or public change is authorized by this roadmap.
+5. Keep production quotas and plan/commercial terms in #16/#18/#19. The closed #4 disposable qualification keeps its existing ceiling; it does not require production total-disk quotas.
 
-Continue browser onboarding/failure and assistive screen-reader checks, production signup/operator and issued-invitation controls, controlled public ownership qualification and routing/activation preparation and account migration preparation. Implement each as a bounded behavior with appropriate owner scope, recovery holds and retained custody. Qualify real endpoint activation and identity switching only when designated targets are available. Do not free occupied native slots by deleting retained tenants or recovery storage.
+Do not delete retained tenants or recovery storage to free occupied qualification slots. The member-removal migration window has real initial-window evidence, but elapsed-window and combined live qualification remain separate. Keep optional M5 breadth behind the current M4 objective.
 
-Live provider/region, management/PDS domains, spend ceiling, production issuer, mail sender, backup custody and commercial billing remain deferred. Do not invent defaults or close issues on the strength of local rehearsal. The 15-minute target needs fresh measured pilot attempts; retries and management simulations do not establish it.
+The 15-minute target still needs the stated fresh managed-domain pilot attempts, all failures/retries and provisioning versus onboarding measurements. Fixture timings and one public pilot do not establish that target.
 
 ## Foundation dependency order
 
-The original foundation order started with [PDS-01 / Gitea #1](https://git.subcult.tv/PatrickFanella/pds-ass/issues/1). That runnable foundation supports local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 establishes durable deployment intent. PDS-06 connects those pieces into restricted provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
+The original foundation order started with [PDS-01 / Gitea #1](https://git.subcult.tv/subculture-collective/prichal/issues/1). That runnable foundation supports local PDS qualification, identity/organization onboarding and the staging-node bootstrap. PDS-05 establishes durable deployment intent. PDS-06 connects those pieces into restricted provisioning. Work can branch wherever blockers permit it; avoid inventing a serial dependency between independent tests or infrastructure tasks.
 
 M0 proves runnable foundations. M1 proves new-account deployment and BYO handles with invited testing. M2 must pass before hosting customer identities commercially. M3 proves paid service operation and a recoverable exit. M4 is the public-signup gate. M5 features are optional extensions, and none gates the first public launch.
 
@@ -113,18 +127,10 @@ Default to one region and prepared shared hosts with isolated PDS containers. Pr
 
 [Implementation plan](implementation-plan.md) describes architecture, failure behavior and recovery. [Issue index](issues/README.md) provides the complete backlog and blockers.
 
-Exclusive hostname claims now have local competition, expiry/release, recovery-hold and namespace-refusal evidence. See [local claims](local-exclusive-endpoint-claims.md). Positive public reservations and activation remain unqualified. Disposable populated-claim recovery is verified; see [recovery evidence](local-populated-claim-recovery.md). An unverified choice still reserves no hostname.
+## Supporting qualification reports
 
-Local endpoint claim review and exact-choice retry are implemented and verified; [browser evidence](local-endpoint-claim-workspace.md) separates fixture reservations from live qualification. Public DNS and routing/TLS/activation remain open. Disposable populated-claim snapshot recovery is verified; see [recovery evidence](local-populated-claim-recovery.md).
+[Endpoint claims](local-exclusive-endpoint-claims.md), [browser claim review](local-endpoint-claim-workspace.md) and [populated claim recovery](local-populated-claim-recovery.md) record local reservation and custody checks. Public activation remains a separate #28 gate.
 
-[Durable fixture checkout preparation](local-checkout-preparation.md) and [hosted session transport](local-billing-sessions.md) now have local qualification. Preparation creates no payment capability or entitlement. Durable customer mapping/dispatch, owner routes, actual sandbox billing and commercial policy remain open.
+Fixture billing has [preparation](local-checkout-preparation.md), [dispatch](local-checkout-dispatch.md), [owner routes](local-checkout-owner-routes.md), [signed intake](local-checkout-completion-inbox.md), [completion mapping](local-checkout-completion-mapping.md) and [actual synthetic authority](local-checkout-completion-authority.md) evidence. [Hosted fixture review](local-checkout-hosted-review.md) and [checkout workspace/layout checks](local-checkout-workspace.md) cover bounded browser behavior. These results do not establish actual Stripe qualification or accepted commercial entitlement policy.
 
-[Durable fixture checkout dispatch](local-checkout-dispatch.md) now has queue/checkpoint/SDK/retry and authority-binding evidence. Ordinary source billing sessions stay disabled; no source payment capability or entitlement was created. Owner routes, hosted-session recovery, completion reconciliation and actual sandbox/commercial gates remain open.
-
-[Signed completion intake](local-checkout-completion-inbox.md) now has local atomic delivery, concurrent deduplication and schema-33 recovery/replay evidence. Claims remain pending and choose no ownership or access. Current owner/resource/subscription mapping and commercial entitlement policy remain open; ordinary source billing stays disabled.
-
-[Local completion mapping](local-checkout-completion-mapping.md) now has atomic custody/graph/binding/audit/observation evidence and schema-34 recovery/replay qualification. Unpaid or adverse states grant no access; ordinary source billing stays disabled. Populated mapping replay, actual completion/browser journey and commercial/sandbox/live gates remain open.
-
-[Actual synthetic completion authority](local-checkout-completion-authority.md) now verifies the Node registry, signed management intake and real checkout/completion workers together. Separate host-only controls remain disabled by default; unpaid/past-due evidence grants no access. Interactive browser, commercial policy and sandbox/live gates remain open.
-
-[Actual hosted fixture review](local-checkout-hosted-review.md) now has credential-free navigation, open/completed responsive and keyboard-return evidence. This qualifies a synthetic read-only page; authenticated round-trip, positive-state management widths, commercial policy and sandbox/live gates remain open.
+Use the [dated progress log](progress/local-m1-alpha.md) for individual drills and retained evidence. Use the [acceptance audit](issue-acceptance-audit-2026-10-20.md) for current closure decisions; do not treat an older runbook's remaining-work paragraph as the latest project status.
