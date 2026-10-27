@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { CheckoutWorkspace } from './checkout-workspace';
 import { EndpointPreflight } from './endpoint-preflight';
@@ -28,29 +28,37 @@ export function OwnerWorkspace() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const read = useRef<AbortController | null>(null);
+  const stopRead = useCallback(() => { read.current?.abort(); read.current = null; }, []);
   const load = useCallback(async (signal?: AbortSignal) => {
+    stopRead();
+    const controller = new AbortController(); read.current = controller;
+    const current = () => read.current === controller && !controller.signal.aborted && !signal?.aborted;
     try {
-      const options = { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000) } satisfies RequestInit;
+      const options = { cache: 'no-store', signal: AbortSignal.any([controller.signal, ...(signal ? [signal] : []), AbortSignal.timeout(5000)]) } satisfies RequestInit;
       const response = await fetch('/api/session', options);
-      if (signal?.aborted) return;
+      if (!current()) return;
       if (response.status === 401) { setWorkspace({ kind: 'signed-out' }); return; }
       const session: unknown = await response.json();
+      if (!current()) return;
       if (!response.ok || !isSession(session)) throw new Error('Invalid session response');
       const organizationResponse = await fetch('/api/organizations', options);
       const organizations: unknown = await organizationResponse.json();
       if (!organizationResponse.ok || !Array.isArray(organizations) || !organizations.every(isOrganization)) throw new Error('Invalid organization response');
-      if (!signal?.aborted) setWorkspace({ kind: 'signed-in', session, organizations });
-    } catch { if (!signal?.aborted) setWorkspace({ kind: 'unavailable' }); }
-  }, []);
-  useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, [load]);
+      if (current()) setWorkspace({ kind: 'signed-in', session, organizations });
+    } catch { if (current()) setWorkspace({ kind: 'unavailable' }); }
+    finally { if (read.current === controller) read.current = null; }
+  }, [stopRead]);
+  useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => { controller.abort(); stopRead(); }; }, [load, stopRead]);
   async function createOrganization(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (workspace.kind !== 'signed-in') return;
+    stopRead();
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/organizations', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': workspace.session.csrfToken }, body: JSON.stringify({ name }), signal: AbortSignal.timeout(5000) });
       const result: unknown = await response.json();
-      if (response.status === 401) { setWorkspace({ kind: 'signed-out' }); return; }
+      if (response.status === 401) { stopRead(); setWorkspace({ kind: 'signed-out' }); return; }
       if (!response.ok) { setError(message(result)); return; }
       if (!isOrganization(result)) throw new Error('Invalid organization response');
       setName(''); await load();
@@ -59,17 +67,18 @@ export function OwnerWorkspace() {
   }
   async function signOut(all: boolean) {
     if (workspace.kind !== 'signed-in') return;
+    stopRead();
     setBusy(true); setError('');
     try {
       const response = await fetch(all ? '/api/auth/revoke-all' : '/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': workspace.session.csrfToken }, signal: AbortSignal.timeout(5000) });
-      if (response.ok || response.status === 401) setWorkspace({ kind: 'signed-out' });
+      if (response.ok || response.status === 401) { stopRead(); setWorkspace({ kind: 'signed-out' }); }
       else setError(message(await response.json()));
     } catch { setError('Sign-out could not be confirmed. Try again.'); }
     finally { setBusy(false); }
   }
   if (workspace.kind === 'checking') return <section className="owner-card" aria-label="Owner workspace"><p role="status">Checking your sign-in…</p></section>;
   if (workspace.kind === 'signed-out') return <section className="owner-card" aria-labelledby="owner-title"><h2 id="owner-title">Start with your organization</h2><p>Sign in to create an organization for your servers. This sign-in manages hosting. It is separate from the account you post with.</p><a className="button" href="/api/auth/login">Sign in</a></section>;
-  if (workspace.kind === 'unavailable') return <section className="owner-card" aria-label="Owner workspace"><p role="alert">Your workspace did not load. Nothing was changed.</p><button onClick={() => { void load(); }}>Try again</button></section>;
+  if (workspace.kind === 'unavailable') return <section className="owner-card" aria-label="Owner workspace"><p role="alert">Your workspace could not be loaded. Refresh to check its current state before creating another organization.</p><button onClick={() => { void load(); }}>Try again</button></section>;
   return <section className="owner-card" aria-labelledby="owner-title">
     <div className="owner-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id="owner-title">Welcome, {workspace.session.displayName}</h2></div><button className="text-button" disabled={busy} onClick={() => { void signOut(false); }}>Sign out</button></div>
     {error && <p className="form-error" role="alert">{error}</p>}
