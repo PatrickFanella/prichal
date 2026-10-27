@@ -90,7 +90,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
       <label htmlFor={`kind-${organizationId}`}>Deployment mode</label>
       <select id={`kind-${organizationId}`} value={kind} disabled={busy || uncertain} onChange={event => setKind(event.target.value === 'agent' ? 'agent' : 'test')}><option value="test">Simulate deployment</option><option value="agent">Create a local PDS</option></select>
       <label htmlFor={`server-${organizationId}`}>Server name</label>
-      <div className="form-row"><input id={`server-${organizationId}`} value={name} onChange={event => setName(event.target.value)} disabled={busy || uncertain} pattern="[a-z][a-z0-9-]*" maxLength={63} required placeholder="my-studio"/><button disabled={busy || !name} type="submit" aria-describedby={uncertain ? `deployment-retry-${organizationId}` : undefined}>{busy ? 'Submitting...' : uncertain ? 'Retry request' : kind === 'agent' ? 'Create local PDS' : 'Run deployment test'}</button></div>
+      <div className="form-row"><input id={`server-${organizationId}`} value={name} onChange={event => setName(event.target.value)} disabled={busy || uncertain} pattern="[a-z](?:[a-z0-9]|-)*" maxLength={63} required placeholder="my-studio"/><button disabled={busy || !name} type="submit" aria-describedby={uncertain ? `deployment-retry-${organizationId}` : undefined}>{busy ? 'Submitting...' : uncertain ? 'Retry request' : kind === 'agent' ? 'Create local PDS' : 'Run deployment test'}</button></div>
     </form>
   </div>;
 }

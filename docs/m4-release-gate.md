@@ -16,12 +16,12 @@ Public signup must remain closed while a critical launch gate is incomplete. Kee
 
 ## Browser evidence and remaining work — #24
 
-The following are bounded component checks, not a completed end-to-end onboarding journey:
+The following combine bounded component checks with a connected local management qualification. They do not complete the supported end-to-end onboarding journey:
 
 | Area | Recorded evidence | Remaining acceptance |
 | --- | --- | --- |
-| Workspace sign-in and refresh | [Owner workspace context](local-owner-workspace-context.md): sign-out/read races, superseded 401, confirmed-creation/read-failure guidance and manual read recovery. | Qualify actual identity-provider/session behavior in the connected journey. Controlled responses do not prove external revocation or authorization. |
-| Deployment submission and return | [Retry guidance](local-deployment-retry-guidance.md): retained payload, poll failure/recovery, reopening, errors and focused retries. | Run the supported deployment journey with its actual dependencies and provisioning failures on designated release artifacts. |
+| Workspace sign-in and refresh | [Owner workspace context](local-owner-workspace-context.md): sign-out/read races, superseded 401, confirmed-creation/read-failure guidance and manual read recovery. [Connected local management](local-connected-management-browser.md): local OIDC sign-in, real sessions, creation and Alice/Bob isolation. | External identity-provider revocation and the complete supported journey remain open. |
+| Deployment submission and return | [Retry guidance](local-deployment-retry-guidance.md): retained payload, poll failure/recovery, reopening, errors and focused retries. [Connected local management](local-connected-management-browser.md): persisted queued simulation, reload/retry without a duplicate job and real River completion. | Native provisioning and its failures on designated release artifacts remain open. |
 | Domain instructions | [Request context](local-domain-instruction-context.md): stale reads/submissions, unsaved edits, read retry and timeout. | Qualify actual domain proof, account ownership and DNS failure recovery; preserve #10 and domain-selection gates. |
 | First-account preparation | [Invitation retry guidance](local-enrollment-retry-guidance.md): retained original/recovery payloads, full navigation, keyboard retry and result focus. | Include actual enrollment and ownership boundaries in the complete journey. Controlled responses do not prove invitation delivery or native account creation. |
 | Checkout review | [Positive receipt layouts and focus](local-checkout-workspace.md#positive-receipt-layouts-and-focus--october-20-2026): five fixture receipt states at five widths, keyboard review and unavailable-read behavior. | Complete the actual-authority payment journey and its failure recovery. Fixture receipt/session responses do not qualify real provider behavior or commercial entitlement. |
