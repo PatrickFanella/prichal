@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "purpose": "issue-6-disposable-private-staging",
+  "status": "native-private-provisioning-qualified",
+  "provider": "owned-homelab",
+  "region": "home-lan",
+  "incrementalMonthlyProviderSpendCeilingUSD": 0,
+  "host": "kvant",
+  "isolation": "dedicated-ubuntu-kvm-guest",
+  "nodeName": "prichal-staging-02",
+  "resources": {
+    "vcpus": 3,
+    "memoryMiB": 4096,
+    "diskGiB": 40,
+    "initialPdsSlotCeiling": 1
+  },
+  "storage": {
+    "proposedDirectory": "/mnt/fast1/apps/prichal-staging-02",
+    "requiredMountUUID": "6d24966a-f7db-42e5-b136-e3a6f6c3ac01"
+  },
+  "network": {
+    "mode": "user-nat",
+    "administration": "loopback-forward-over-pinned-ssh",
+    "agentExposure": "private-mtls-only",
+    "publicPortsOnGuest": [],
+    "publicEdgeHost": "almaz",
+    "sshForward": "127.0.0.1:22270",
+    "agentForward": "127.0.0.1:22271"
+  },
+  "domains": {
+    "newManagementDomain": null,
+    "newPdsDomain": null,
+    "existingPilotPdsDomain": "prichal-pds.subcult.tv",
+    "preservedExistingPdsDomain": "pds.subcult.tv"
+  },
+  "backup": {
+    "status": "not-qualified",
+    "restoreQualificationRequiredBeforePublicUse": true
+  },
+  "image": {
+    "url": "https://cloud-images.ubuntu.com/noble/20260926/noble-server-cloudimg-amd64.img",
+    "sha256": "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2",
+    "signingFingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81"
+  },
+  "remainingBeforePublicUse": [
+    "Fresh managed deployment and interrupted-worker qualification",
+    "Independent backup and restore",
+    "Managed hostname and TLS qualification",
+    "No public accounts or signup"
+  ],
+  "nodeId": "60684f10-c6b2-4833-a0b8-fb9f96a7869b",
+  "deploymentId": "2395105c-9958-47b5-ae8b-5b0424cbfc4f"
+}

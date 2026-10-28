@@ -9,9 +9,10 @@ import (
 )
 
 type Config struct {
-	DatabaseURL   string
-	ListenAddress string
-	Auth          auth.Settings
+	StagingProvisioning bool
+	DatabaseURL         string
+	ListenAddress       string
+	Auth                auth.Settings
 }
 
 func Load() (Config, error) {
@@ -29,6 +30,11 @@ func Load() (Config, error) {
 	if c.Auth.Mode == "" {
 		c.Auth.Mode = "production"
 	}
+	var err error
+	c.StagingProvisioning, err = LoadStagingProvisioning(os.Getenv("PDS_MODE"))
+	if err != nil {
+		return Config{}, err
+	}
 	if err := c.Auth.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -41,4 +47,16 @@ func Load() (Config, error) {
 	}
 
 	return c, nil
+}
+
+// LoadStagingProvisioning enables only the private provisioning slice with production authentication.
+func LoadStagingProvisioning(mode string) (bool, error) {
+	value := os.Getenv("PDS_STAGING_PROVISIONING")
+	if value == "" {
+		return false, nil
+	}
+	if value != "true" || mode != "production" {
+		return false, errors.New("PDS_STAGING_PROVISIONING requires explicit production mode and true opt-in")
+	}
+	return true, nil
 }

@@ -1,6 +1,6 @@
 # Roadmap for standalone managed PDS hosting
 
-Status: **M0 complete; M1–M5 remain open.** Updated October 20, 2026 (October 21 UTC). The live issue audit found 13 already closed issues and 27 open issues; none of the remaining issues has complete closure evidence. The [acceptance audit](issue-acceptance-audit-2026-10-20.md) names the remaining gate for each open issue. Completed checkboxes below reflect hosted issue state, not an estimate of implementation percentage.
+Status: **M0 complete; M1–M5 remain open.** Updated October 28, 2026. The refreshed live audit found 13 closed issues and 27 open issues; none of the remaining issues has complete closure evidence. The [acceptance audit](issue-acceptance-audit-2026-10-28.md) names the remaining gate for each open issue and starts #6 with credential validation and an opt-in private provisioning queue. Completed checkboxes below reflect hosted issue state, not an estimate of implementation percentage.
 
 A public homelab pilot has recorded real account/email, signed records/media and downstream federation evidence. General managed provisioning and public launch remain unqualified. The owner selected the homelab as an interim private pilot until a VPS is available, while retaining M4's independent production/recovery requirement.
 
@@ -100,8 +100,8 @@ Management-owner creation can now be paused independently of deployment/enrollme
 ## Next work and explicit decisions
 
 1. Continue M4's connected browser journeys and failure/accessibility qualification, using the [release gate](m4-release-gate.md) and [per-issue acceptance audit](issue-acceptance-audit-2026-10-20.md). Preserve recent component evidence without treating it as full end-to-end acceptance.
-2. Advance the managed-product prerequisites in [#129](https://git.subcult.tv/subculture-collective/prichal/issues/129). Its original no-real-PDS premise is superseded by the public pilot; its general provisioning, namespace, enrollment and custody/recovery steps remain unfinished.
-3. Record the general managed PDS/default-handle namespace under [#126](https://git.subcult.tv/subculture-collective/prichal/issues/126). The existing pilot hostname and handle do not choose it.
+2. Integrate #6's reviewed control path after the [second-node native interruption/replay qualification](live-staging-02-provisioning.md). The [private staging control path](private-staging-provisioning.md) now has an opt-in production-mode API/worker and separate queue; public endpoint policy remains in #7/#126. Advance the managed-product prerequisites in [#129](https://git.subcult.tv/subculture-collective/prichal/issues/129). Its original no-real-PDS premise is superseded by the public pilot; its general provisioning, namespace, enrollment and custody/recovery steps remain unfinished.
+3. Finish the reserved-name/abuse and inventory-routing design under [#126](https://git.subcult.tv/subculture-collective/prichal/issues/126). The owner selected first-level names under `subcult.tv` with no domain purchase on October 28; see [the namespace decision](managed-namespace.md). Existing pilot names remain unchanged.
 4. Prepare independent production/recovery for the eventual VPS. Provider/account, region, spend ceiling, production issuer/mail ownership and independent backup custody remain explicit choices. No purchase, production deployment or public change is authorized by this roadmap.
 5. Keep production quotas and plan/commercial terms in #16/#18/#19. The closed #4 disposable qualification keeps its existing ceiling; it does not require production total-disk quotas.
 

@@ -22,3 +22,36 @@ func TestLocalListenerCannotBePublic(t *testing.T) {
 		t.Fatal("default production mode accepted HTTP fixture configuration")
 	}
 }
+
+func TestStagingProvisioningOptIn(t *testing.T) {
+	for _, mode := range []string{"", "local", "production", "pilot", "staging"} {
+		for _, value := range []string{"", "false", "true", "1"} {
+			t.Run(mode+"/"+value, func(t *testing.T) {
+				t.Setenv("PDS_STAGING_PROVISIONING", value)
+				enabled, err := LoadStagingProvisioning(mode)
+				valid := value == "" || value == "true" && mode == "production"
+				if (err == nil) != valid || enabled != (value == "true" && mode == "production") {
+					t.Fatalf("enabled=%v error=%v", enabled, err)
+				}
+			})
+		}
+	}
+}
+
+func TestStagingAPIKeepsProductionAuthenticationRequirements(t *testing.T) {
+	t.Setenv("PDS_DATABASE_URL", "postgres://staging.invalid/management")
+	t.Setenv("PDS_MODE", "production")
+	t.Setenv("PDS_STAGING_PROVISIONING", "true")
+	t.Setenv("PDS_OIDC_ISSUER", "https://issuer.example.test")
+	t.Setenv("PDS_OIDC_CLIENT_ID", "private-staging")
+	t.Setenv("PDS_PUBLIC_ORIGIN", "https://management.example.test")
+	t.Setenv("PDS_LISTEN_ADDRESS", "127.0.0.1:8080")
+	cfg, err := Load()
+	if err != nil || !cfg.StagingProvisioning {
+		t.Fatalf("private staging configuration: %+v %v", cfg, err)
+	}
+	t.Setenv("PDS_OIDC_ISSUER", "http://localhost:5556")
+	if _, err := Load(); err == nil {
+		t.Fatal("staging opt-in accepted local issuer with production authentication")
+	}
+}

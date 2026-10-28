@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 )
 
@@ -23,10 +24,17 @@ func main() {
 	}
 }
 func run() error {
-	// Pilot mode is a host-only slice; the management worker remains local-only.
+	// Private staging keeps local runtime identity until managed ingress is qualified.
 	mode := os.Getenv("PDS_MODE")
-	if mode != "local" && mode != "pilot" {
-		return errors.New("node agent requires explicit local or pilot mode")
+	staging, err := config.LoadStagingProvisioning(mode)
+	if err != nil {
+		return err
+	}
+	if staging && (os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") != "" || os.Getenv("PDS_AGENT_PILOT_POLICY_FILE") != "" || os.Getenv("PDS_AGENT_PILOT_ENROLLMENT") != "") {
+		return errors.New("private staging refuses pilot and local identity overrides")
+	}
+	if mode != "local" && mode != "pilot" && !staging {
+		return errors.New("node agent requires explicit local or pilot mode, or production with PDS_STAGING_PROVISIONING=true")
 	}
 	if mode == "pilot" && (os.Getenv("PDS_AGENT_LOCAL_PROTOCOL_FIXTURES") != "" || os.Getenv("PDS_AGENT_MAXIMUM_SLOTS") != "" || os.Getenv("PDS_AGENT_MEMBER_CEILING") != "") {
 		return errors.New("pilot does not accept local fixtures or capacity overrides")
@@ -64,7 +72,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if mode == "local" {
+	if mode == "local" || staging {
 		if err := runtime.ValidateLocalState(); err != nil {
 			return err
 		}

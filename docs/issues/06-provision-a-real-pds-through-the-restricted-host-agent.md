@@ -34,3 +34,17 @@ Deploy only pinned service-managed PDS runtimes; no customer code hosting or per
 
 Phase: M1 - Private deployment alpha. Priority: P0.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+## Worker credential preflight — October 28, 2026
+
+The [issue audit](../issue-acceptance-audit-2026-10-28.md#next-issue-6-restricted-provisioning) starts #6 with worker startup validation. Configure `PDS_WORKER_AGENT_CA_FILE`, `PDS_WORKER_AGENT_CERT_FILE` and `PDS_WORKER_AGENT_KEY_FILE` together. Partial settings fail before database connection/migration or job processing; complete settings use the existing certificate/private-key checks. Leaving all three empty supports local simulation only.
+
+Credential preflight alone does not enable a non-local worker. The subsequent private control path below separates provisioning from local-only adapters; public endpoint policy and designated staging interruption/replay qualification remain open. The API receives none of these agent credentials or Docker authority.
+
+## Private staging control path — October 28, 2026
+
+The [private staging provisioning contract](../private-staging-provisioning.md) adds explicit production-mode opt-in, agent-only owner submission and a separate durable worker queue. Existing authentication, entitlement, recovery and agent authority checks remain in force. The worker does not enable other local lifecycle consumers. Live acceptance remains open: Kvant's authorized one-slot staging node already has one retained placement, and the fresh native interruption/replay drill requires designated spare capacity.
+
+## Second-node native evidence — October 28, 2026
+
+The owner authorized dedicated spare capacity and the [fresh native staging drill](../live-staging-02-provisioning.md) passed through the production-mode handler, durable River worker and restricted production-mode staging agent. Injected uncertain completion retained the `configuring` checkpoint; a restarted worker reached ready with one placement/native namespace. Live identity/command/image/capacity/cancellation refusals passed. The management session was synthetic; this does not claim a browser login, OS-kill drill or public hosting. Source integration remains pending before closure.
