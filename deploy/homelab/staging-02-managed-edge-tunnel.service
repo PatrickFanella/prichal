@@ -1,0 +1,12 @@
+[Unit]
+Description=Private edge path to the designated managed staging-02 PDS
+
+[Service]
+ExecStart=/usr/bin/ssh -N -T -o ControlMaster=no -o ControlPath=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 172.20.0.1:35000:127.0.0.1:45109 kvant
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

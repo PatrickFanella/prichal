@@ -62,3 +62,5 @@ Private scripts, source hashes, binaries, archives, proofs and receipts are unde
 Do not restore an older private agent over managed state. Fence the worker and agent before reviewed cold recovery; preserve new writes and both sets of resources, restore a compatible native/management checkpoint, and verify one writer and the expected identity. The automated abort refuses after new managed resources exist. Full post-creation rollback, independent/off-host recovery and unattended certificate renewal remain unqualified. The node transport leaf expires October 29, 2026 at 09:55:18 UTC.
 
 Next #7 work is the restricted publisher and durable public DNS/TLS/issuer/WebSocket readiness, including controlled failure and same-identity retry. Keep account enrollment closed until #8.
+
+Subsequently, PR #207 merged this conversion as `939dfb2624ca3ad9e607aeb4b054e2bd9f588693`. The [initial managed staging publisher](managed-staging-publication.md) now records a public route and its rollback/republication qualification. The conversion-time no-public-route observations above are historical; management still remains checking with no serving URL.
