@@ -18,13 +18,16 @@ RECOVERY = re.compile(r'^pds_recovery_[a-f0-9]{32}$')
 
 
 def qualified_root(name):
-    if name not in ('managed-routing', 'managed-conversion'):
+    if name not in ('managed-routing', 'managed-conversion', 'managed-readiness'):
         raise ValueError('Only the fixed staging qualification workspaces are permitted')
     return PARENT / name
 
 
 def retained_snapshot(name):
-    if name not in ('management-before.dump', 'management-after.dump') or ROOT.name != 'managed-conversion':
+    allowed = ('management-before.dump', 'management-after.dump')
+    if ROOT.name == 'managed-readiness':
+        allowed += ('management-pre-upgrade.dump',)
+    if name not in allowed or ROOT.name not in ('managed-conversion', 'managed-readiness'):
         raise ValueError('Only retained before/after staging conversion snapshots are permitted')
     path = ROOT / name
     info = path.lstat()
@@ -128,7 +131,9 @@ def main():
         result = subprocess.run([str(ROOT / 'managed-route-admin'), 'export', '--out', str(target)], env=environment, capture_output=True, text=True, timeout=45)
         if result.returncode == 0 or 'management recovery requires host reconciliation' not in result.stderr or target.exists():
             raise ValueError('Unreconciled recovery exported public routing authority')
-    for table in ['managed_public_endpoints', 'managed_edge_observations']:
+    for table in ['managed_public_endpoints', 'managed_edge_observations', 'managed_native_conversions', 'managed_public_readiness', 'managed_public_checks', 'managed_public_retries']:
+        if table not in before:
+            continue
         if inventory(database, [table])[table] != before[table]:
             raise ValueError('Recovery hold or refused export changed retained routing metadata')
     if inventory('pds_local', tables) != before or json.loads(sql('pds_local', sequence_sql)) != sequences:
@@ -137,7 +142,7 @@ def main():
     sql('pds_local', 'DROP DATABASE ' + recovery_identifier(database) + ' WITH (FORCE)')
     if not retained:
         dump.unlink()
-    report = {'database': database, 'snapshotSHA256': digest, 'schemaVersion': int(sql('pds_local', 'SELECT version FROM schema_version')), 'tablesVerified': len(tables), 'sequencesVerified': True, 'retainedRoutingVerified': True, 'conversionRecordsVerified': before.get('managed_native_conversions', {}).get('count', 0), 'retainedSnapshot': bool(retained), 'unmarkedAndHeldExportsRefused': True, 'sourceUnchanged': True, 'disposableCopyDropped': True, 'publicRoutePublished': False}
+    report = {'database': database, 'snapshotSHA256': digest, 'schemaVersion': int(sql('pds_local', 'SELECT version FROM schema_version')), 'tablesVerified': len(tables), 'sequencesVerified': True, 'retainedRoutingVerified': True, 'conversionRecordsVerified': before.get('managed_native_conversions', {}).get('count', 0), 'publicChecksVerified': before.get('managed_public_checks', {}).get('count', 0), 'publicRetriesVerified': before.get('managed_public_retries', {}).get('count', 0), 'retainedSnapshot': bool(retained), 'unmarkedAndHeldExportsRefused': True, 'sourceUnchanged': True, 'disposableCopyDropped': True, 'publicRoutePublished': False}
     (work / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))
 

@@ -16,6 +16,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/exports"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/hostingexit"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/lifecycle"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managedcheck"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/recovery"
@@ -36,6 +37,10 @@ func run() error {
 		return err
 	}
 	managed, err := config.LoadStagingManagedRuntime(mode, staging)
+	if err != nil {
+		return err
+	}
+	public, err := config.LoadStagingManagedPublicChecks(mode, staging, managed)
 	if err != nil {
 		return err
 	}
@@ -86,7 +91,11 @@ func run() error {
 		return err
 	}
 	if staging {
-		return runStagingWorker(ctx, pool, agentClient, managed)
+		var checker managedcheck.Checker
+		if public {
+			checker = managedcheck.New()
+		}
+		return runStagingWorkerWithPublic(ctx, pool, agentClient, managed, checker)
 	}
 	var exportAgent exports.Agent
 	var enrollmentAgent enrollment.Agent
@@ -200,8 +209,15 @@ func loadAgentClient() (*nodeagent.Client, error) {
 }
 
 func runStagingWorker(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient, managed bool) error {
+	return runStagingWorkerWithPublic(ctx, pool, agent, managed, nil)
+}
+
+func runStagingWorkerWithPublic(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient, managed bool, checker managedcheck.Checker) error {
+	if checker != nil && !managed {
+		return errors.New("public checks require managed runtime")
+	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true, ManagedRuntime: managed}})
+	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true, ManagedRuntime: managed, PublicCheck: checker}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{deployment.StagingQueue: {MaxWorkers: 1}, deployment.ManagedIntentQueue: {MaxWorkers: 1}}})
 	if err != nil {
 		return err

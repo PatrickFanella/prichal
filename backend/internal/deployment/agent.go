@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managedcheck"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managedrouting"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
@@ -29,6 +30,7 @@ type AgentProvisioner struct {
 	Pool           *pgxpool.Pool
 	Client         AgentClient
 	ManagedRuntime bool
+	PublicCheck    managedcheck.Checker
 }
 
 func (p AgentProvisioner) Step(ctx context.Context, id string) error {
@@ -127,6 +129,9 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 			}
 			return ErrHealthPending
 		}
+		if p.PublicCheck != nil {
+			return p.checkPublic(ctx, id)
+		}
 		return ErrManagedEndpointPending
 	}
 	if instance.Endpoint != nodeagent.LocalEndpoint(id) {
@@ -189,6 +194,7 @@ type Router struct {
 	Agent          AgentClient
 	AgentOnly      bool
 	ManagedRuntime bool
+	PublicCheck    managedcheck.Checker
 }
 
 func (p Router) Step(ctx context.Context, id string) error {
@@ -206,7 +212,7 @@ func (p Router) Step(ctx context.Context, id string) error {
 		if p.Agent == nil {
 			return errors.New("local agent provisioner is not configured")
 		}
-		return (AgentProvisioner{Pool: p.Pool, Client: p.Agent, ManagedRuntime: p.ManagedRuntime}).Step(ctx, id)
+		return (AgentProvisioner{Pool: p.Pool, Client: p.Agent, ManagedRuntime: p.ManagedRuntime, PublicCheck: p.PublicCheck}).Step(ctx, id)
 	default:
 		return errors.New("unsupported deployment kind")
 	}

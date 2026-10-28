@@ -87,3 +87,20 @@ func TestManagedRuntimeRequiresExplicitProductionStaging(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicChecksRequireAllWorkerOptIns(t *testing.T) {
+	for _, mode := range []string{"", "local", "production"} {
+		for _, staging := range []bool{false, true} {
+			for _, managed := range []bool{false, true} {
+				for _, value := range []string{"", "true", "false", "1"} {
+					t.Setenv("PDS_STAGING_MANAGED_PUBLIC_CHECKS", value)
+					got, err := LoadStagingManagedPublicChecks(mode, staging, managed)
+					want := value == "true" && mode == "production" && staging && managed
+					if got != want || (err == nil) != (value == "" || want) {
+						t.Fatalf("mode=%s staging=%v managed=%v value=%s got=%v error=%v", mode, staging, managed, value, got, err)
+					}
+				}
+			}
+		}
+	}
+}

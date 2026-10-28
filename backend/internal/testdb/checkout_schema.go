@@ -68,6 +68,7 @@ func ReconstructMembers34(t *testing.T, pool *pgxpool.Pool) {
 // ReconstructManaged38 removes only empty public-routing metadata in allocator-owned fixtures.
 func ReconstructManaged38(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	ReconstructManaged40(t, pool)
 	if !regexp.MustCompile(`^pds_smoke_[a-f0-9]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
 		t.Fatal("allocator-owned migration fixture required")
 	}
@@ -81,6 +82,19 @@ func ReconstructManaged38(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("populated public routing cannot be reconstructed")
 	}
 	if _, err := pool.Exec(ctx, `DROP TABLE managed_edge_observations,managed_public_endpoints; UPDATE schema_version SET version=38`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// ReconstructManaged40 removes only empty readiness metadata in an allocator-owned database.
+func ReconstructManaged40(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if !regexp.MustCompile(`^pds_smoke_[a-f0-9]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
+		t.Fatal("allocator-owned migration fixture required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	if _, err := pool.Exec(ctx, `DO $$ BEGIN IF EXISTS(SELECT 1 FROM managed_public_readiness) OR EXISTS(SELECT 1 FROM managed_public_checks) OR EXISTS(SELECT 1 FROM managed_public_retries) THEN RAISE EXCEPTION 'populated public readiness cannot be reconstructed'; END IF; END $$; DROP TABLE managed_public_retries,managed_public_checks,managed_public_readiness`); err != nil {
 		t.Fatal(err)
 	}
 }

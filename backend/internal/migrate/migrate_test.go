@@ -192,6 +192,7 @@ func TestVersion39UpgradeRetainsReservationWithoutInventingConversion(t *testing
 	if err := pool.QueryRow(ctx, query, id).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
+	testdb.ReconstructManaged40(t, pool)
 	if _, err := pool.Exec(ctx, `DROP TABLE managed_native_conversions; UPDATE schema_version SET version=39`); err != nil {
 		t.Fatal(err)
 	}
@@ -206,5 +207,41 @@ func TestVersion39UpgradeRetainsReservationWithoutInventingConversion(t *testing
 	var count int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM managed_native_conversions`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("migration invented operator conversion authority", err)
+	}
+}
+
+func TestVersion40UpgradeDoesNotInventPublicReadiness(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	if err := pool.QueryRow(ctx, `WITH o AS(INSERT INTO owners(issuer,subject,display_name) VALUES('fixture','public-upgrade','Public upgrade') RETURNING id),g AS(INSERT INTO organizations(id,name,owner_id) SELECT gen_random_uuid(),'Public upgrade',id FROM o RETURNING id),identity AS(SELECT gen_random_uuid()id) INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,state,managed_hostname) SELECT identity.id,g.id,'retained','local','public-upgrade','agent','checking','pds-'||replace(identity.id::text,'-','')||'.subcult.tv' FROM identity,g RETURNING id`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO managed_public_endpoints(deployment_id,hostname,forward_port,reservation_basis,actor) SELECT id,managed_hostname,35000,'queued','operator' FROM deployments WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	var before, after string
+	query := `SELECT coalesce(json_agg(row_to_json(d))::text,'[]') FROM deployments d`
+	if err := pool.QueryRow(ctx, query).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	testdb.ReconstructManaged40(t, pool)
+	if _, err := pool.Exec(ctx, `UPDATE schema_version SET version=40`); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := Apply(ctx, pool); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pool.QueryRow(ctx, query).Scan(&after); err != nil || before != after {
+		t.Fatal("migration changed deployment identity", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM managed_public_readiness)+(SELECT count(*) FROM managed_public_checks)+(SELECT count(*) FROM managed_public_retries)`).Scan(&count); err != nil || count != 0 {
+		t.Fatal("migration invented public readiness", err)
 	}
 }

@@ -12,6 +12,9 @@ class RecoveryScopeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.qualified_root(value)
         self.assertEqual(module.qualified_root('managed-conversion'), module.PARENT / 'managed-conversion')
+        self.assertEqual(module.qualified_root('managed-readiness'), module.PARENT / 'managed-readiness')
+        with self.assertRaises(ValueError):
+            module.retained_snapshot('management-pre-upgrade.dump')
         for value in ['../snapshot.dump', '/etc/shadow', 'arbitrary.dump']:
             with self.assertRaises(ValueError):
                 module.retained_snapshot(value)
