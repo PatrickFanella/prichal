@@ -198,7 +198,7 @@ func loadAgentClient() (*nodeagent.Client, error) {
 func runStagingWorker(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient) error {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true}})
-	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{deployment.StagingQueue: {MaxWorkers: 1}}})
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{deployment.StagingQueue: {MaxWorkers: 1}, deployment.ManagedIntentQueue: {MaxWorkers: 1}}})
 	if err != nil {
 		return err
 	}

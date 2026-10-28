@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/auth"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testissuer"
@@ -99,6 +101,7 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 	}
 
 	store.Staging = true
+	store.ManagedIntents = true
 	requestBody = `{"kind":"agent","name":"staging-native","region":"local","idempotencyKey":"staging-request"}`
 	token := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 403 {
@@ -110,6 +113,18 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 	}
 	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 200 {
 		t.Fatalf("staging admission: %d %s", w.Code, w.Body.String())
+	} else {
+		var operation Operation
+		if err := json.Unmarshal(w.Body.Bytes(), &operation); err != nil {
+			t.Fatal(err)
+		}
+		host, err := managednamespace.Endpoint(operation.ID)
+		if err != nil || operation.ManagedHostname != host || operation.Endpoint != "" || operation.State != "queued" {
+			t.Fatal("managed intent advertised private or ready serving", operation, err)
+		}
+		if w := request(false, "GET", "/api/deployments/"+operation.ID, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", ""); w.Code != 404 {
+			t.Fatal("foreign owner read managed intent", w.Code)
+		}
 	}
 	if w := request(false, "POST", path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "test-csrf"); w.Code != 404 {
 		t.Fatalf("staging owner isolation: %d", w.Code)
@@ -117,6 +132,10 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 	requestBody = `{"kind":"test","name":"simulation","region":"local","idempotencyKey":"simulation"}`
 	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 400 {
 		t.Fatalf("staging admitted simulation: %d", w.Code)
+	}
+	requestBody = `{"kind":"agent","name":"injection","region":"local","idempotencyKey":"injection","hostname":"arbitrary.subcult.tv"}`
+	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 400 {
+		t.Fatal("customer selected managed routing authority", w.Code)
 	}
 	if err := (Router{Pool: pool, AgentOnly: true}).Step(ctx, op.ID); err == nil {
 		t.Fatal("staging router ran retained simulation")

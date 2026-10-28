@@ -64,6 +64,7 @@ func run() error {
 		return err
 	}
 	deployments.Staging = cfg.StagingProvisioning
+	deployments.ManagedIntents = cfg.StagingManagedIntents
 	owners, err := auth.New(startup, pool, cfg.Auth)
 	if err != nil {
 		return err

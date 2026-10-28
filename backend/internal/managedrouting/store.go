@@ -66,6 +66,9 @@ func gate(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
+// CheckTransaction rechecks routing authority within a caller-owned intent transaction.
+func CheckTransaction(ctx context.Context, tx pgx.Tx) error { return gate(ctx, tx) }
+
 func (s Store) begin(ctx context.Context) (pgx.Tx, error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -90,6 +93,12 @@ func (s Store) Reserve(ctx context.Context, actor, id string) (Endpoint, error) 
 	return s.reserve(ctx, actor, id, nil)
 }
 
+// ReserveQueuedTx joins endpoint reservation to the caller's queued intent/job commit.
+// Any error requires the caller to roll back the entire transaction.
+func ReserveQueuedTx(ctx context.Context, tx pgx.Tx, actor, id string) (Endpoint, error) {
+	return reserveTx(ctx, tx, actor, id, nil)
+}
+
 // ReserveEmptyFixture is an explicit operator conversion reservation, not authority to rename the runtime.
 // Its caller must constrain execution to designated disposable infrastructure.
 func (s Store) ReserveEmptyFixture(ctx context.Context, actor, id string, inspector EmptyInspector) (Endpoint, error) {
@@ -99,8 +108,7 @@ func (s Store) ReserveEmptyFixture(ctx context.Context, actor, id string, inspec
 	return s.reserve(ctx, actor, id, inspector)
 }
 func (s Store) reserve(ctx context.Context, actor, id string, inspector EmptyInspector) (Endpoint, error) {
-	hostname, err := managednamespace.Endpoint(id)
-	if err != nil || !actorValid(actor) {
+	if _, err := managednamespace.Endpoint(id); err != nil || !actorValid(actor) {
 		return Endpoint{}, ErrInvalid
 	}
 	tx, err := s.begin(ctx)
@@ -108,6 +116,21 @@ func (s Store) reserve(ctx context.Context, actor, id string, inspector EmptyIns
 		return Endpoint{}, err
 	}
 	defer tx.Rollback(ctx)
+	result, err := reserveTx(ctx, tx, actor, id, inspector)
+	if err != nil {
+		return Endpoint{}, err
+	}
+	return result, tx.Commit(ctx)
+}
+
+func reserveTx(ctx context.Context, tx pgx.Tx, actor, id string, inspector EmptyInspector) (Endpoint, error) {
+	hostname, err := managednamespace.Endpoint(id)
+	if err != nil || !actorValid(actor) {
+		return Endpoint{}, ErrInvalid
+	}
+	if err := gate(ctx, tx); err != nil {
+		return Endpoint{}, err
+	}
 	var kind, state, recordedHostname, recordedEndpoint string
 	if err := tx.QueryRow(ctx, `SELECT kind,state,managed_hostname,coalesce(endpoint_url,'') FROM deployments WHERE id=$1 FOR UPDATE`, id).Scan(&kind, &state, &recordedHostname, &recordedEndpoint); err != nil {
 		return Endpoint{}, err
@@ -120,7 +143,7 @@ func (s Store) reserve(ctx context.Context, actor, id string, inspector EmptyIns
 		if err := gate(ctx, tx); err != nil {
 			return Endpoint{}, err
 		}
-		return existing, tx.Commit(ctx)
+		return existing, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Endpoint{}, err
@@ -182,7 +205,7 @@ func (s Store) reserve(ctx context.Context, actor, id string, inspector EmptyIns
 	if err := gate(ctx, tx); err != nil {
 		return Endpoint{}, err
 	}
-	return result, tx.Commit(ctx)
+	return result, nil
 }
 func lockedPeer(ctx context.Context, tx pgx.Tx, id string) (nodeagent.Peer, error) {
 	var peer nodeagent.Peer

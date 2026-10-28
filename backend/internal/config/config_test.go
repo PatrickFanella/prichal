@@ -55,3 +55,20 @@ func TestStagingAPIKeepsProductionAuthenticationRequirements(t *testing.T) {
 		t.Fatal("staging opt-in accepted local issuer with production authentication")
 	}
 }
+
+func TestManagedIntentsRequireExplicitProductionStaging(t *testing.T) {
+	for _, mode := range []string{"", "local", "production"} {
+		for _, staging := range []bool{false, true} {
+			for _, value := range []string{"", "false", "true", "1"} {
+				t.Run(mode+"/"+value+map[bool]string{false: "/off", true: "/staging"}[staging], func(t *testing.T) {
+					t.Setenv("PDS_STAGING_MANAGED_INTENTS", value)
+					enabled, err := LoadStagingManagedIntents(mode, staging)
+					want := value == "true" && mode == "production" && staging
+					if enabled != want || (err == nil) != (value == "" || want) {
+						t.Fatalf("enabled=%v error=%v", enabled, err)
+					}
+				})
+			}
+		}
+	}
+}
