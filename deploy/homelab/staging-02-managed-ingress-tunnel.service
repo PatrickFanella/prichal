@@ -1,0 +1,14 @@
+[Unit]
+Description=Private managed staging-02 PDS ingress transport
+After=prichal-staging-02-vm.service
+Wants=prichal-staging-02-vm.service
+
+[Service]
+ExecStart=/usr/bin/ssh -N -T -o ControlMaster=no -o ControlPath=none -p 22270 -i /mnt/fast1/apps/prichal-staging-02/admin.key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/mnt/fast1/apps/prichal-staging-02/known_hosts -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:45109:127.0.0.1:45109 prichal@127.0.0.1
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

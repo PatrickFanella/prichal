@@ -67,6 +67,18 @@ func Decode(reader io.Reader) (Inventory, error) {
 // Render verifies each public certificate against its inventory digest and private ingress name.
 // The caller must supply an operator-authorized inventory with previously verified handle bindings.
 func Render(inventory Inventory, certificateDirectory string, now time.Time) (string, error) {
+	return render(inventory, certificateDirectory, now, certificateMount)
+}
+
+// RenderRevision uses an immutable, UUID-scoped public trust directory for publication/rollback.
+func RenderRevision(inventory Inventory, certificateDirectory string, now time.Time, revision string) (string, error) {
+	if _, err := managednamespace.Endpoint(revision); err != nil || inventory.Generation <= 0 {
+		return "", errors.New("publication requires a canonical revision and authoritative inventory")
+	}
+	return render(inventory, certificateDirectory, now, certificateMount+"/"+revision)
+}
+
+func render(inventory Inventory, certificateDirectory string, now time.Time, mount string) (string, error) {
 	if inventory.Generation < 0 || inventory.Generation > 0 && (inventory.ExpiresAt == nil || !now.Before(*inventory.ExpiresAt) || inventory.ExpiresAt.After(now.Add(InventoryLifetime+time.Minute))) {
 		return "", errors.New("authoritative inventory is missing a current bounded deadline")
 	}
@@ -135,7 +147,7 @@ http://%s {
   }
  }
 }
-`, endpoint.CertificateSHA256, endpoint.Hostname, endpoint.ForwardPort, endpoint.Hostname, certificateMount, endpoint.DeploymentID, endpoint.DeploymentID)
+`, endpoint.CertificateSHA256, endpoint.Hostname, endpoint.ForwardPort, endpoint.Hostname, mount, endpoint.DeploymentID, endpoint.DeploymentID)
 	}
 	for _, handle := range handles {
 		fmt.Fprintf(&out, `http://%s {

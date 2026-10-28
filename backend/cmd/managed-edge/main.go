@@ -22,6 +22,7 @@ func run() error {
 	inventoryPath := flags.String("inventory", "", "private operator inventory")
 	certificates := flags.String("certificates", "", "absolute source directory containing public ingress certificates")
 	out := flags.String("out", "", "new candidate file (never an existing live configuration)")
+	revision := flags.String("revision", "", "optional canonical publication UUID for immutable trust paths")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
 	}
@@ -41,7 +42,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	candidate, err := managededge.Render(inventory, *certificates, time.Now())
+	var candidate string
+	if *revision == "" {
+		candidate, err = managededge.Render(inventory, *certificates, time.Now())
+	} else {
+		candidate, err = managededge.RenderRevision(inventory, *certificates, time.Now(), *revision)
+	}
 	if err != nil {
 		return err
 	}
