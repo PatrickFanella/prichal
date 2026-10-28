@@ -1,6 +1,6 @@
 # Retained managed routing inventory
 
-This is the second implementation unit of #7. It reserves first-level names under `subcult.tv` and prepares private routing candidates. It does not publish DNS, install forwards, reload Caddy, change a PDS endpoint or establish public readiness. #7 and #126 remain open.
+PR #204 merged the second implementation unit of #7 as `d6f8314a1b78eef3c1fd1988f416dd2f319ef3bb`, with required head and merged-main checks passing. It reserves first-level names under `subcult.tv` and prepares private routing candidates. It does not publish DNS, install forwards, reload Caddy, change a PDS endpoint or establish public readiness. #7 and #126 remain open.
 
 ## Durable identity and readback
 
@@ -37,13 +37,25 @@ For queued intent, then an activated native placement:
 .local/managed-routing/managed-edge --inventory .local/managed-routing/new-bundle/inventory.json --certificates "$PWD/.local/managed-routing/new-bundle/certificates" --out .local/managed-routing/new-candidate.Caddyfile
 ```
 
-The current API does not call this reservation store; automatic allocation is the next unit. The explicit staging-02 metadata procedure replaces the first command with:
+The API's separate managed-intent opt-in now calls the same reservation logic within its deployment/job transaction, as described below. The explicit staging-02 metadata procedure replaces the first command with:
 
 ```sh
 .local/managed-routing/managed-route-admin reserve-empty --deployment "$DEPLOYMENT_ID" --node "$NODE_ID" --confirm-empty-fixture
 ```
 
 Bundle creation requires a new directory. Directories are mode 0700 and files mode 0600. Certificates are validated before output, copied under canonical UUID filenames and synced; `inventory.json` is written last. Partial output is retained for inspection and never overwritten. Handle exports are empty until authoritative account/identity bindings are available. Keep the bundle private and deliver it explicitly to the future restricted publisher; customer input is not an authority source.
+
+## Atomic API intent preparation
+
+`PDS_STAGING_MANAGED_INTENTS=true` is an additional API-only opt-in requiring explicit `PDS_MODE=production` and `PDS_STAGING_PROVISIONING=true`. It prepares new native intents only. Default production admission, ordinary private staging and local simulation keep their existing policies. No running environment was switched to this setting during this unit.
+
+For a new authorized request, one PostgreSQL transaction commits the deployment, generated public hostname, endpoint/forward reservation, queued progress event and River job. Reservation provenance is `owner:<authenticated owner UUID>`; customers cannot submit a hostname, port or routing manifest. Owner/CSRF checks, admission, custom-endpoint conflict checks, active pilot grants and allowances still apply. Reservation or job failure rolls back every intent row. Recovery authority is rechecked after job insertion before commit, including after waits.
+
+The operation has a public `managedHostname`, an empty `endpoint` and queued guidance that public activation is pending. A reservation does not advertise an active URL. Exact-key replay happens before new-allocation policy and preserves the original identity even when this opt-in, admission or grants change. In particular, replaying an older private intent never assigns it a public hostname. Changing the original request payload still conflicts.
+
+New managed jobs use `staging_managed_deployments`, separate from private `staging_deployments` and the local default queue. Older workers do not consume this queue. The updated staging worker registers only deployment work and consumes both staging queues. It refuses public intent before capacity readback, placement or native reconciliation; either a queued public reservation or a non-private retained hostname is sufficient to refuse private fallback. Such jobs snooze for one minute, retain the queued checkpoint and do not exhaust into a failed deployment while activation remains unsupported. Recovery holds continue to fence processing.
+
+Do not retarget managed jobs into an older private/default queue or force their hostname back to `.localhost`. Disabling the API opt-in changes only new allocations; retained public intents stay queued and exact-key replay stays stable. Pausing the staging worker retains both queues and all intent state. Supporting native public identity and public-readiness checkpoints is the next unit; this preparation path must not be presented as working public hosting.
 
 ## Native evidence and limits
 
@@ -61,4 +73,6 @@ Agent rollback can atomically restore its retained preceding binary and restart 
 
 Schema 39 is additive, but older management binaries reject a newer schema. Do not drop routing evidence or force the schema version backward to run them. Database rollback needs a reviewed compatible snapshot/restore procedure and fencing of all writers. The qualification script drops only its exact allocator-owned recovery copy; it never drops the source.
 
-Next work in #7 must join reservation to durable API intent, carry the retained public identity into native runtime policy, implement the restricted publisher with conflict/rollback checks, and persist public DNS/TLS/issuer/WebSocket readiness. It must qualify failure and same-identity recovery on designated staging capacity. Native enrollment/default handles remain #8 work. API and ordinary workers receive no host, Docker or DNS administration.
+Local PostgreSQL tests qualify atomic managed intent, exact/concurrent replay, retained private identity across opt-in changes, reservation/job rollback and a recovery hold introduced while job insertion is blocked. The actual staging River worker completes private native intent through a synthetic agent, snoozes managed intent without placement and leaves default simulation untouched. HTTP checks use synthetic sessions and verify owner/CSRF/grant boundaries, empty serving URL and refusal of customer hostname fields. These do not qualify native public identity or a real production login.
+
+Next work in #7 must carry the retained public identity into native runtime policy, implement the restricted publisher with conflict/rollback checks, and persist public DNS/TLS/issuer/WebSocket readiness. It must qualify failure and same-identity recovery on designated staging capacity. Native enrollment/default handles remain #8 work. API and ordinary workers receive no host, Docker or DNS administration.

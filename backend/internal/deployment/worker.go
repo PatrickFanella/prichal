@@ -52,6 +52,9 @@ func (p TestProvisioner) Step(ctx context.Context, id string) error {
 // StagingQueue separates production-authenticated private provisioning from local fixture consumers.
 const StagingQueue = "staging_deployments"
 
+// ManagedIntentQueue keeps public intent away from older private-runtime consumers.
+const ManagedIntentQueue = "staging_managed_deployments"
+
 type Provisioner interface {
 	Step(context.Context, string) error
 }
@@ -68,6 +71,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 			return river.JobSnooze(time.Minute)
 		}
 		if err := w.Provisioner.Step(ctx, job.Args.DeploymentID); err != nil {
+			if errors.Is(err, ErrManagedEndpointPending) {
+				return river.JobSnooze(time.Minute)
+			}
 			if errors.Is(err, ErrHealthPending) {
 				return river.JobSnooze(time.Second)
 			}

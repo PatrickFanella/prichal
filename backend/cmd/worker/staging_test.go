@@ -40,7 +40,7 @@ func TestStagingWorkerOnlyConsumesPrivateDeploymentQueue(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots,operator_slots,state,public_key_hash) VALUES('local','https://127.0.0.1:9091',2,2,'active',$1)`, make([]byte, 32)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (entitlement.Store{Pool: pool}).Submit(ctx, "qualification", org, entitlement.Request{Key: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", State: "active", Plan: "local-single", Hours: 1, Reason: "qualification"}); err != nil {
+	if _, err := (entitlement.Store{Pool: pool}).Submit(ctx, "qualification", org, entitlement.Request{Key: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", State: "active", Plan: "local-small", Hours: 1, Reason: "qualification"}); err != nil {
 		t.Fatal(err)
 	}
 	store, err := deployment.New(pool)
@@ -53,6 +53,11 @@ func TestStagingWorkerOnlyConsumesPrivateDeploymentQueue(t *testing.T) {
 	}
 	store.Staging = true
 	native, err := store.Submit(ctx, owner, org, deployment.Request{Kind: "agent", Name: "native", Region: "local", Key: "native"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.ManagedIntents = true
+	managed, err := store.Submit(ctx, owner, org, deployment.Request{Kind: "agent", Name: "managed", Region: "local", Key: "managed"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +79,11 @@ func TestStagingWorkerOnlyConsumesPrivateDeploymentQueue(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if op.State == "ready" {
+		var snoozed bool
+		if err := pool.QueryRow(ctx, `SELECT state='scheduled' AND scheduled_at>now()+interval '20 seconds' FROM river_job WHERE args->>'deploymentId'=$1`, managed.ID).Scan(&snoozed); err != nil {
+			t.Fatal(err)
+		}
+		if op.State == "ready" && snoozed {
 			break
 		}
 		select {
@@ -93,5 +102,12 @@ func TestStagingWorkerOnlyConsumesPrivateDeploymentQueue(t *testing.T) {
 	var instances int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM test_instances`).Scan(&instances); err != nil || instances != 0 {
 		t.Fatalf("simulation runtime created: %d %v", instances, err)
+	}
+	retained, err = store.Get(ctx, owner, managed.ID)
+	if err != nil || retained.State != "queued" || retained.Endpoint != "" || len(retained.Events) != 1 {
+		t.Fatal("managed intent activated or lost its pending checkpoint", retained, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM instance_placements WHERE deployment_id=$1`, managed.ID).Scan(&instances); err != nil || instances != 0 {
+		t.Fatal("managed intent reserved native placement", err)
 	}
 }

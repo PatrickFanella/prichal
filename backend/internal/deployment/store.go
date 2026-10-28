@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managedrouting"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/observability"
 	"github.com/jackc/pgx/v5"
@@ -61,9 +62,10 @@ type Args struct {
 func (Args) Kind() string { return "deploy" }
 
 type Store struct {
-	Pool    *pgxpool.Pool
-	Queue   *river.Client[pgx.Tx]
-	Staging bool
+	Pool           *pgxpool.Pool
+	Queue          *river.Client[pgx.Tx]
+	Staging        bool
+	ManagedIntents bool
 }
 
 func New(pool *pgxpool.Pool) (*Store, error) {
@@ -98,6 +100,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return err
 }
 func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Operation, error) {
+	if s.ManagedIntents && !s.Staging {
+		return Operation{}, ErrInvalid
+	}
 	if r.Kind == "" {
 		r.Kind = "test"
 	}
@@ -157,19 +162,42 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 		return Operation{}, err
 	}
 	if r.Kind == "agent" {
-		if _, err = tx.Exec(ctx, `UPDATE deployments SET endpoint_url=$2 WHERE id=$1`, id, nodeagent.LocalEndpoint(id)); err != nil {
+		if s.ManagedIntents {
+			endpoint, err := managedrouting.ReserveQueuedTx(ctx, tx, "owner:"+owner, id)
+			if err != nil {
+				return Operation{}, err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE deployments SET managed_hostname=$2 WHERE id=$1`, id, endpoint.Hostname); err != nil {
+				return Operation{}, err
+			}
+		} else if _, err = tx.Exec(ctx, `UPDATE deployments SET endpoint_url=$2 WHERE id=$1`, id, nodeagent.LocalEndpoint(id)); err != nil {
 			return Operation{}, err
 		}
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'queued','Waiting for a worker.')`, id); err != nil {
+	message := "Waiting for a worker."
+	if s.ManagedIntents {
+		message = "Managed hostname reserved. Public activation is pending."
+		if _, err = tx.Exec(ctx, `UPDATE deployments SET message=$2 WHERE id=$1`, id, message); err != nil {
+			return Operation{}, err
+		}
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'queued',$2)`, id, message); err != nil {
 		return Operation{}, err
 	}
 	queue := river.QueueDefault
 	if s.Staging {
 		queue = StagingQueue
 	}
+	if s.ManagedIntents {
+		queue = ManagedIntentQueue
+	}
 	if _, err = s.Queue.InsertTx(ctx, tx, Args{id}, &river.InsertOpts{MaxAttempts: 3, Queue: queue}); err != nil {
 		return Operation{}, err
+	}
+	if s.ManagedIntents {
+		if err = managedrouting.CheckTransaction(ctx, tx); err != nil {
+			return Operation{}, err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Operation{}, err

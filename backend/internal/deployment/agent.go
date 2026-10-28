@@ -13,6 +13,9 @@ import (
 // ErrHealthPending requests another bounded readiness check without recreating resources.
 var ErrHealthPending = errors.New("PDS health is pending")
 
+// ErrManagedEndpointPending prevents public intent from falling back to a private runtime.
+var ErrManagedEndpointPending = errors.New("managed public endpoint activation is pending")
+
 // AgentClient authenticates the registered node before reconciling one instance.
 type AgentClient interface {
 	Ensure(context.Context, nodeagent.Peer, string) (nodeagent.Instance, error)
@@ -26,13 +29,17 @@ type AgentProvisioner struct {
 }
 
 func (p AgentProvisioner) Step(ctx context.Context, id string) error {
-	var state string
+	var state, hostname string
+	var reserved bool
 	var created time.Time
-	if err := p.Pool.QueryRow(ctx, `SELECT state,created_at FROM deployments WHERE id=$1`, id).Scan(&state, &created); err != nil {
+	if err := p.Pool.QueryRow(ctx, `SELECT state,created_at,managed_hostname,EXISTS(SELECT 1 FROM managed_public_endpoints WHERE deployment_id=d.id AND reservation_basis='queued') FROM deployments d WHERE id=$1`, id).Scan(&state, &created, &hostname, &reserved); err != nil {
 		return err
 	}
 	if state == "ready" || state == "failed" {
 		return nil
+	}
+	if reserved || hostname != id+".localhost" {
+		return ErrManagedEndpointPending
 	}
 	store := fleet.Store{Pool: p.Pool}
 	if state == "queued" && p.Client != nil {

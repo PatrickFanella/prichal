@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	StagingProvisioning bool
-	DatabaseURL         string
-	ListenAddress       string
-	Auth                auth.Settings
+	StagingProvisioning   bool
+	StagingManagedIntents bool
+	DatabaseURL           string
+	ListenAddress         string
+	Auth                  auth.Settings
 }
 
 func Load() (Config, error) {
@@ -32,6 +33,10 @@ func Load() (Config, error) {
 	}
 	var err error
 	c.StagingProvisioning, err = LoadStagingProvisioning(os.Getenv("PDS_MODE"))
+	if err != nil {
+		return Config{}, err
+	}
+	c.StagingManagedIntents, err = LoadStagingManagedIntents(os.Getenv("PDS_MODE"), c.StagingProvisioning)
 	if err != nil {
 		return Config{}, err
 	}
@@ -57,6 +62,18 @@ func LoadStagingProvisioning(mode string) (bool, error) {
 	}
 	if value != "true" || mode != "production" {
 		return false, errors.New("PDS_STAGING_PROVISIONING requires explicit production mode and true opt-in")
+	}
+	return true, nil
+}
+
+// LoadStagingManagedIntents permits preparation only; runtime/public activation remains closed.
+func LoadStagingManagedIntents(mode string, staging bool) (bool, error) {
+	value := os.Getenv("PDS_STAGING_MANAGED_INTENTS")
+	if value == "" {
+		return false, nil
+	}
+	if value != "true" || mode != "production" || !staging {
+		return false, errors.New("PDS_STAGING_MANAGED_INTENTS requires explicit production staging provisioning and true opt-in")
 	}
 	return true, nil
 }
