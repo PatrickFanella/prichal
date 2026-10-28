@@ -52,6 +52,8 @@ Existing [production pilot agent](production-pilot-agent.md), [management recove
 
 ## Evidence packet and next steps
 
+The [source release inventory](m4-release-inventory.md) records current API/web/worker/agent, configuration and backup boundaries, plus the candidate record and deployment/rollback review sequence. It supplies preparation for #25 without selecting infrastructure or claiming deployment qualification.
+
 For each acceptance result, record the issue/criterion, source revision and image digests, environment, UTC observation time, operation identifier, expected and observed behavior, cleanup/rollback outcome and a secret-free evidence link. State whether the result is local validation, PR-head CI, merged-main CI, deployment, runtime observation or qualification. Keep credentials and private evidence in the approved private storage.
 
 Continue useful browser qualification, release preparation and recovery work that does not require an unresolved external choice. Before paid infrastructure or public changes, prepare a concrete release inventory, migration plan, backup/restore evidence, rollback commands and verification checklist for owner review. Request the selected account, spend ceiling and execution authorization only when the proposed action is concrete. Do not alter milestone scope to bypass unavailable infrastructure.
