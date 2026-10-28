@@ -28,7 +28,7 @@ func (s *Store) Register(owners *auth.Service, local bool) func(*http.ServeMux) 
 			})
 		}
 		bind("POST /api/organizations/{id}/deployments", true, func(w http.ResponseWriter, r *http.Request, session auth.Session) {
-			if !local {
+			if !local && !s.Staging {
 				reply(w, 503, map[string]string{"error": "Live provisioning is not configured."})
 				return
 			}

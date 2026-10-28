@@ -49,6 +49,9 @@ func (p TestProvisioner) Step(ctx context.Context, id string) error {
 	return tx.Commit(ctx)
 }
 
+// StagingQueue separates production-authenticated private provisioning from local fixture consumers.
+const StagingQueue = "staging_deployments"
+
 type Provisioner interface {
 	Step(context.Context, string) error
 }
@@ -92,7 +95,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 					return errors.New("deployment could not be checkpointed")
 				}
 			}
-			return errors.New("local provisioning temporarily unavailable")
+			return errors.New("provisioning temporarily unavailable")
 		}
 	}
 	return nil

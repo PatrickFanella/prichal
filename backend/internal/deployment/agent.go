@@ -11,7 +11,7 @@ import (
 )
 
 // ErrHealthPending requests another bounded readiness check without recreating resources.
-var ErrHealthPending = errors.New("local PDS health is pending")
+var ErrHealthPending = errors.New("PDS health is pending")
 
 // AgentClient authenticates the registered node before reconciling one instance.
 type AgentClient interface {
@@ -111,8 +111,9 @@ func (p AgentProvisioner) transition(ctx context.Context, id, previous, next, me
 
 // Router prevents queued test operations from changing behavior when a real agent is configured.
 type Router struct {
-	Pool  *pgxpool.Pool
-	Agent AgentClient
+	Pool      *pgxpool.Pool
+	Agent     AgentClient
+	AgentOnly bool
 }
 
 func (p Router) Step(ctx context.Context, id string) error {
@@ -122,6 +123,9 @@ func (p Router) Step(ctx context.Context, id string) error {
 	}
 	switch kind {
 	case "test":
+		if p.AgentOnly {
+			return errors.New("staging worker refuses simulation jobs")
+		}
 		return (TestProvisioner{Pool: p.Pool}).Step(ctx, id)
 	case "agent":
 		if p.Agent == nil {

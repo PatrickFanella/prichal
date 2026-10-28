@@ -61,8 +61,9 @@ type Args struct {
 func (Args) Kind() string { return "deploy" }
 
 type Store struct {
-	Pool  *pgxpool.Pool
-	Queue *river.Client[pgx.Tx]
+	Pool    *pgxpool.Pool
+	Queue   *river.Client[pgx.Tx]
+	Staging bool
 }
 
 func New(pool *pgxpool.Pool) (*Store, error) {
@@ -70,7 +71,7 @@ func New(pool *pgxpool.Pool) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{pool, queue}, nil
+	return &Store{Pool: pool, Queue: queue}, nil
 }
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	// Keep a session lock across River's independently committed migrations.
@@ -99,6 +100,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Operation, error) {
 	if r.Kind == "" {
 		r.Kind = "test"
+	}
+	if s.Staging && r.Kind != "agent" {
+		return Operation{}, ErrInvalid
 	}
 	if (r.Kind != "test" && r.Kind != "agent") || !namePattern.MatchString(r.Name) || r.Region != "local" || !keyPattern.MatchString(r.Key) {
 		return Operation{}, ErrInvalid
@@ -160,7 +164,11 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 	if _, err = tx.Exec(ctx, `INSERT INTO deployment_events(deployment_id,state,message) VALUES($1,'queued','Waiting for a worker.')`, id); err != nil {
 		return Operation{}, err
 	}
-	if _, err = s.Queue.InsertTx(ctx, tx, Args{id}, &river.InsertOpts{MaxAttempts: 3}); err != nil {
+	queue := river.QueueDefault
+	if s.Staging {
+		queue = StagingQueue
+	}
+	if _, err = s.Queue.InsertTx(ctx, tx, Args{id}, &river.InsertOpts{MaxAttempts: 3, Queue: queue}); err != nil {
 		return Operation{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {

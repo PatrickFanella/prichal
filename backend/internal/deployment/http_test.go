@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/auth"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/entitlement"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testissuer"
@@ -58,10 +59,11 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	requestBody := `{"name":"studio","region":"local","idempotencyKey":"request"}`
 	request := func(local bool, method, path, token, csrf string) *httptest.ResponseRecorder {
 		mux := http.NewServeMux()
 		store.Register(owners, local)(mux)
-		r := httptest.NewRequest(method, path, strings.NewReader(`{"name":"studio","region":"local","idempotencyKey":"request"}`))
+		r := httptest.NewRequest(method, path, strings.NewReader(requestBody))
 		r.Header.Set("Origin", "http://localhost")
 		r.Header.Set("X-CSRF-Token", csrf)
 		if token != "" {
@@ -94,5 +96,29 @@ func TestHTTPAuthorizationAndLiveGate(t *testing.T) {
 	w := request(false, "POST", path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "test-csrf")
 	if w.Code != 503 || !strings.Contains(w.Body.String(), "not configured") {
 		t.Fatalf("live gate: %d %s", w.Code, w.Body.String())
+	}
+
+	store.Staging = true
+	requestBody = `{"kind":"agent","name":"staging-native","region":"local","idempotencyKey":"staging-request"}`
+	token := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 403 {
+		t.Fatalf("staging bypassed grant: %d %s", w.Code, w.Body.String())
+	}
+	_, err = (entitlement.Store{Pool: pool}).Submit(ctx, "test-operator", org, entitlement.Request{Key: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", State: "active", Plan: "local-single", Hours: 24, Reason: "qualification"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 200 {
+		t.Fatalf("staging admission: %d %s", w.Code, w.Body.String())
+	}
+	if w := request(false, "POST", path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "test-csrf"); w.Code != 404 {
+		t.Fatalf("staging owner isolation: %d", w.Code)
+	}
+	requestBody = `{"kind":"test","name":"simulation","region":"local","idempotencyKey":"simulation"}`
+	if w := request(false, "POST", path, token, "test-csrf"); w.Code != 400 {
+		t.Fatalf("staging admitted simulation: %d", w.Code)
+	}
+	if err := (Router{Pool: pool, AgentOnly: true}).Step(ctx, op.ID); err == nil {
+		t.Fatal("staging router ran retained simulation")
 	}
 }

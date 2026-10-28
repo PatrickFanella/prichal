@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/billing"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/config"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/deployment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/enrollment"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/exports"
@@ -29,8 +30,34 @@ func main() {
 	}
 }
 func run() error {
-	if os.Getenv("PDS_MODE") != "local" {
-		return errors.New("test worker requires explicit local mode")
+	mode := os.Getenv("PDS_MODE")
+	staging, err := config.LoadStagingProvisioning(mode)
+	if err != nil {
+		return err
+	}
+	if mode != "local" && !staging {
+		return errors.New("worker requires local mode or production mode with PDS_STAGING_PROVISIONING=true")
+	}
+	agentClient, err := loadAgentClient()
+	if err != nil {
+		return err
+	}
+	if staging && agentClient == nil {
+		return errors.New("staging worker requires authenticated agent credentials")
+	}
+	if staging {
+		if _, err := billing.LoadSettings(false); err != nil {
+			return err
+		}
+		if _, err := billing.LoadSessionSettings(false, billing.Settings{}); err != nil {
+			return err
+		}
+		if _, err := exports.LoadArtifacts(false); err != nil {
+			return err
+		}
+		if os.Getenv("PDS_ENROLLMENT_KEY_FILE") != "" {
+			return errors.New("staging provisioning worker does not process enrollment jobs")
+		}
 	}
 	url := os.Getenv("PDS_DATABASE_URL")
 	if url == "" {
@@ -54,17 +81,16 @@ func run() error {
 	if err = deployment.Migrate(startup, pool); err != nil {
 		return err
 	}
+	if staging {
+		return runStagingWorker(ctx, pool, agentClient)
+	}
 	var exportAgent exports.Agent
 	var enrollmentAgent enrollment.Agent
 	var memberAgent enrollment.MemberAgent
 	var removalAgent enrollment.MemberRemovalAgent
 	var serviceAgent lifecycle.Agent
 	var agent deployment.AgentClient
-	if os.Getenv("PDS_WORKER_AGENT_CA_FILE") != "" {
-		client, err := nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
-		if err != nil {
-			return err
-		}
+	if client := agentClient; client != nil {
 		agent = client
 		enrollmentAgent = client
 		memberAgent = client
@@ -153,5 +179,35 @@ func run() error {
 	<-ctx.Done()
 	shutdown, done := context.WithTimeout(context.Background(), 10*time.Second)
 	defer done()
+	return client.Stop(shutdown)
+}
+
+func loadAgentClient() (*nodeagent.Client, error) {
+	ca := os.Getenv("PDS_WORKER_AGENT_CA_FILE")
+	cert := os.Getenv("PDS_WORKER_AGENT_CERT_FILE")
+	key := os.Getenv("PDS_WORKER_AGENT_KEY_FILE")
+	if ca == "" && cert == "" && key == "" {
+		return nil, nil
+	}
+	if ca == "" || cert == "" || key == "" {
+		return nil, errors.New("PDS_WORKER_AGENT_CA_FILE, PDS_WORKER_AGENT_CERT_FILE and PDS_WORKER_AGENT_KEY_FILE must be configured together")
+	}
+	return nodeagent.NewClient(ca, cert, key)
+}
+
+func runStagingWorker(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient) error {
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true}})
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{deployment.StagingQueue: {MaxWorkers: 1}}})
+	if err != nil {
+		return err
+	}
+	if err := client.Start(ctx); err != nil {
+		return err
+	}
+	log.Print("private staging deployment worker started; host execution remains in the node agent")
+	<-ctx.Done()
+	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	return client.Stop(shutdown)
 }

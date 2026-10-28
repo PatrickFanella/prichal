@@ -63,6 +63,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	deployments.Staging = cfg.StagingProvisioning
 	owners, err := auth.New(startup, pool, cfg.Auth)
 	if err != nil {
 		return err
