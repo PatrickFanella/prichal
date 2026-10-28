@@ -89,3 +89,15 @@ func LoadStagingManagedRuntime(mode string, staging bool) (bool, error) {
 	}
 	return true, nil
 }
+
+// LoadStagingManagedPublicChecks permits public activation only in an explicitly enabled staging worker.
+func LoadStagingManagedPublicChecks(mode string, staging, managed bool) (bool, error) {
+	value := os.Getenv("PDS_STAGING_MANAGED_PUBLIC_CHECKS")
+	if value == "" {
+		return false, nil
+	}
+	if value != "true" || mode != "production" || !staging || !managed {
+		return false, errors.New("PDS_STAGING_MANAGED_PUBLIC_CHECKS requires explicit production staging, managed runtime and true opt-in")
+	}
+	return true, nil
+}
