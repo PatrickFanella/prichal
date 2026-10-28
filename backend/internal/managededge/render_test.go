@@ -138,3 +138,22 @@ func TestDecodeRefusesExtraAuthorityAndUnboundedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAuthoritativeInventoryRequiresCurrentBoundedDeadline(t *testing.T) {
+	i, d, n := fixture(t)
+	i.Generation = 1
+	if _, err := Render(i, d, n); err == nil {
+		t.Fatal("authoritative generation without a deadline accepted")
+	}
+	for _, expires := range []time.Time{n.Add(-time.Second), n.Add(time.Hour)} {
+		i.ExpiresAt = &expires
+		if _, err := Render(i, d, n); err == nil {
+			t.Fatal("invalid deadline accepted")
+		}
+	}
+	expires := n.Add(5 * time.Minute)
+	i.ExpiresAt = &expires
+	if _, err := Render(i, d, n); err != nil {
+		t.Fatal(err)
+	}
+}
