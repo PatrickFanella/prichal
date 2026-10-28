@@ -46,7 +46,7 @@ func TestFixedRuntimeAndRetry(t *testing.T) {
 	t.Run("pilot", func(t *testing.T) { testFixedRuntimeAndRetry(t, true) })
 }
 func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
-	id := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	id := "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
 	configurations := map[string]map[string]any{}
 	networks := map[string]map[string]any{}
 	running := map[string]bool{}
@@ -197,6 +197,10 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 	result, err := docker.Status(context.Background(), id)
 	if err != nil || !result.Healthy || result.Release == nil || result.Release.ImageRef != PDSImage {
 		t.Fatalf("inspection: %+v %v", result, err)
+	}
+	certificate, err := docker.IngressCertificate(context.Background(), id)
+	if !pilot && (err != nil || strings.Contains(certificate.Certificate, "PRIVATE KEY") || certificate.Validate(id) != nil) {
+		t.Fatalf("read-only public ingress certificate: %v", err)
 	}
 	for _, user := range []string{"", "0", "12345:12345"} {
 		edge["User"] = user

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/migrate"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/orgaccess"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"testing"
 	"time"
 )
@@ -186,6 +187,7 @@ func TestMemberActorMigrationDoesNotInventLegacyAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reconstruct the exact pre-37 event shape inside this disposable database.
+	testdb.ReconstructManaged38(t, f.pool)
 	if _, err = f.pool.Exec(ctx, `DROP TABLE member_removal_events, member_removals; ALTER TABLE member_invitation_events DROP COLUMN actor_id; UPDATE schema_version SET version=36`); err != nil {
 		t.Fatal(err)
 	}
