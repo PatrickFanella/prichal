@@ -62,3 +62,7 @@ The application change is limited to worker credential startup. The local smoke 
 ## Subsequent #6 implementation
 
 The [private staging control path](private-staging-provisioning.md) adds production-mode opt-in and an agent-only queue after this audit. It preserves local endpoint/placement policy for the private staging environment. Its automated queue/admission checks do not close #6: current Kvant inspection found its one authorized slot occupied, so fresh native interrupted-worker qualification awaits designated capacity. No issue has been closed.
+
+## Source integration and acceptance update
+
+PR #202 merged as `143f109a0d572da272de2cbc9bc93540b44cc3ef` after its required PR-head check passed, and #6 was closed with the accepted private native drill and explicit limits. The issue count is now 14 closed and 26 open. The original table above records the earlier source audit; #6 is no longer an open dependency in those rows. #7's managed public DNS/TLS, #8's enrollment and later recovery/launch gates remain open. See the [current roadmap](roadmap.md) and [#7 implementation sequence](managed-https-design.md).
