@@ -63,7 +63,7 @@ func TestStagingWorkerOnlyConsumesPrivateDeploymentQueue(t *testing.T) {
 	}
 	workerCtx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
-	go func() { done <- runStagingWorker(workerCtx, pool, stagingAgent{}) }()
+	go func() { done <- runStagingWorker(workerCtx, pool, stagingAgent{}, false) }()
 	defer func() {
 		stop()
 		if err := <-done; err != nil {

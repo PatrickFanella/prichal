@@ -20,9 +20,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
 )
 
 type clientRuntime struct {
+	managedResult      *Instance
+	managedCalls       int
 	certificateResult  *IngressCertificate
 	certificateCalls   int
 	calls, withdrawals int
@@ -30,6 +34,20 @@ type clientRuntime struct {
 	exitResult         *MemberExit
 	exits              int
 	exitInspections    int
+}
+
+func (r *clientRuntime) EnsureManaged(_ context.Context, id string) (Instance, error) {
+	r.managedCalls++
+	if r.managedResult != nil {
+		return *r.managedResult, nil
+	}
+	return Instance{ID: id, Endpoint: LocalEndpoint(id), State: "running", Healthy: true}, nil
+}
+func (r *clientRuntime) Status(_ context.Context, id string) (Instance, error) {
+	if r.managedResult != nil {
+		return *r.managedResult, nil
+	}
+	return Instance{ID: id, Endpoint: LocalEndpoint(id), State: "running", Healthy: true}, nil
 }
 
 func (r *clientRuntime) IngressCertificate(context.Context, string) (IngressCertificate, error) {
@@ -168,6 +186,27 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	if runtime.certificateCalls != 1 {
 		t.Fatal("certificate inspection not dispatched")
 	}
+	if _, err := client.EnsureManaged(context.Background(), peer, deploymentID); err == nil {
+		t.Fatal("managed reconciliation accepted private identity")
+	}
+	host, _ := managednamespace.Endpoint(deploymentID)
+	runtime.managedResult = &Instance{ID: deploymentID, Endpoint: "https://" + host, State: "running", Healthy: true}
+	if result, err := client.EnsureManaged(context.Background(), peer, deploymentID); err != nil || result.Endpoint != "https://"+host {
+		t.Fatal("authenticated managed reconciliation failed", err)
+	}
+	if result, err := client.ManagedStatus(context.Background(), peer, deploymentID); err != nil || result.Endpoint != "https://"+host {
+		t.Fatal("authenticated managed inspection failed", err)
+	}
+	if _, err := client.Status(context.Background(), peer, deploymentID); err == nil {
+		t.Fatal("private inspection accepted public identity")
+	}
+	wrongManagedPeer := peer
+	wrongManagedPeer.PublicKeyHash = make([]byte, 32)
+	managedCalls := runtime.managedCalls
+	if _, err := client.EnsureManaged(context.Background(), wrongManagedPeer, deploymentID); err == nil || runtime.managedCalls != managedCalls {
+		t.Fatal("managed reconciliation bypassed node key pin")
+	}
+	runtime.managedResult = nil
 
 	result, exitErr := client.MemberExit(context.Background(), peer, nodeID, nodeID)
 	if exitErr != nil || result.State != "migration_window" {

@@ -25,17 +25,18 @@ import (
 const PDSImage = "ghcr.io/bluesky-social/pds:0.4@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336"
 const label = "tv.subcult.pds-ass.instance"
 
-// Docker reconciles isolated local qualification runtimes through a Unix socket.
+// Docker reconciles isolated native runtimes through a local Unix socket.
 type Docker struct {
-	client          *http.Client
-	directory       string
-	mutex           sync.Mutex
-	healthProbe     func(context.Context, string) bool
-	localIdentity   bool
-	maximumSlots    int
-	memberCeiling   int
-	pilot           *PilotPolicy
-	pilotEnrollment bool
+	client           *http.Client
+	directory        string
+	mutex            sync.Mutex
+	healthProbe      func(context.Context, string) bool
+	localIdentity    bool
+	maximumSlots     int
+	memberCeiling    int
+	pilot            *PilotPolicy
+	pilotEnrollment  bool
+	managedEndpoints bool
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -197,11 +198,18 @@ type inspected struct {
 
 // Ensure creates only fixed, labeled resources, then reconciles an existing container by ID.
 func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	if d.ManagedIdentityRetained(id) {
+		return Instance{}, errors.New("private reconciliation cannot use managed identity")
+	}
+	return d.ensure(ctx, id)
+}
+
+func (d *Docker) ensure(ctx context.Context, id string) (Instance, error) {
 	if !d.allowedInstance(id) {
 		return Instance{}, errors.New("instance is outside agent policy")
 	}
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 	held, holdErr := d.serviceHeld(id)
 	if holdErr != nil {
 		return Instance{}, holdErr
@@ -255,14 +263,14 @@ func (d *Docker) Ensure(ctx context.Context, id string) (Instance, error) {
 			Internal bool
 		}
 		status, err = d.call(ctx, "GET", "/networks/"+network, nil, &existing)
-		if err == nil && (existing.Labels[label] != id || existing.Internal != (d.pilot == nil)) {
+		if err == nil && (existing.Labels[label] != id || existing.Internal != !d.publicRuntime(id)) {
 			return Instance{}, errors.New("foreign network name conflict")
 		}
 		if err != nil && status != 404 {
 			return Instance{}, err
 		}
 		if status == 404 {
-			if _, err = d.call(ctx, "POST", "/networks/create", map[string]any{"Name": network, "Internal": d.pilot == nil, "Labels": map[string]string{label: id}}, nil); err != nil {
+			if _, err = d.call(ctx, "POST", "/networks/create", map[string]any{"Name": network, "Internal": !d.publicRuntime(id), "Labels": map[string]string{label: id}}, nil); err != nil {
 				return Instance{}, err
 			}
 		}
@@ -334,12 +342,19 @@ func (d *Docker) runtimeEnvironment(id string, secret secrets) []string {
 		}
 		environment = append(environment, "PDS_EMAIL_FROM_ADDRESS=noreply@fixture.invalid", "PDS_EMAIL_SMTP_URL=smtp://pds-ass-protocol-fixtures:2525")
 	}
-	if d.pilot != nil {
+	if d.publicRuntime(id) {
+		host, handles := "", ".subcult.tv"
+		if d.pilot != nil {
+			host, handles = d.pilot.Hostname, "."+d.pilot.Hostname
+		} else {
+			identity, _ := d.readManagedIdentity(id)
+			host = identity.Hostname
+		}
 		values := map[string]string{
-			"PDS_HOSTNAME":               d.pilot.Hostname,
-			"PDS_SERVICE_DID":            "did:web:" + d.pilot.Hostname,
+			"PDS_HOSTNAME":               host,
+			"PDS_SERVICE_DID":            "did:web:" + host,
 			"PDS_DEV_MODE":               "false",
-			"PDS_SERVICE_HANDLE_DOMAINS": "." + d.pilot.Hostname,
+			"PDS_SERVICE_HANDLE_DOMAINS": handles,
 			"PDS_DID_PLC_URL":            "https://plc.directory",
 			"PDS_CRAWLERS":               "https://bsky.network",
 		}
@@ -349,7 +364,9 @@ func (d *Docker) runtimeEnvironment(id string, secret secrets) []string {
 				environment[i] = key + "=" + value
 			}
 		}
-		environment = append(environment, "PDS_EMAIL_FROM_ADDRESS="+d.pilot.EmailFrom, "PDS_EMAIL_SMTP_URL="+d.pilot.SMTPURL)
+		if d.pilot != nil {
+			environment = append(environment, "PDS_EMAIL_FROM_ADDRESS="+d.pilot.EmailFrom, "PDS_EMAIL_SMTP_URL="+d.pilot.SMTPURL)
+		}
 		environment = append(environment,
 			"PDS_BSKY_APP_VIEW_URL=https://api.bsky.app", "PDS_BSKY_APP_VIEW_DID=did:web:api.bsky.app",
 			"PDS_REPORT_SERVICE_URL=https://mod.bsky.app", "PDS_REPORT_SERVICE_DID=did:plc:ar7c4by46qjdydhdevvrndac")
@@ -401,6 +418,18 @@ func (d *Docker) validateRuntime(id string, current inspected) error {
 		key, value, _ := strings.Cut(entry, "=")
 		if environment[key] != value {
 			return errors.New("runtime environment differs from policy")
+		}
+	}
+	if d.managedRuntime(id) {
+		allowed := map[string]bool{}
+		for _, entry := range d.runtimeEnvironment(id, secret) {
+			key, _, _ := strings.Cut(entry, "=")
+			allowed[key] = true
+		}
+		for key := range environment {
+			if strings.HasPrefix(key, "PDS_") && !allowed[key] {
+				return errors.New("unapproved managed runtime setting")
+			}
 		}
 	}
 	for _, bindings := range current.NetworkSettings.Ports {

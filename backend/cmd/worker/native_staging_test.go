@@ -237,7 +237,7 @@ func TestNativePrivateStagingWorkerRestart(t *testing.T) {
 	interrupted := interruptedNativeAgent{Client: agent, success: make(chan nodeagent.Instance, 1)}
 	firstCtx, stopFirst := context.WithCancel(ctx)
 	firstDone := make(chan error, 1)
-	go func() { firstDone <- runStagingWorker(firstCtx, pool, interrupted) }()
+	go func() { firstDone <- runStagingWorker(firstCtx, pool, interrupted, false) }()
 	defer stopFirst()
 	var first nodeagent.Instance
 	select {
@@ -262,7 +262,7 @@ func TestNativePrivateStagingWorkerRestart(t *testing.T) {
 	}
 	workerCtx, stopSecond := context.WithCancel(ctx)
 	secondDone := make(chan error, 1)
-	go func() { secondDone <- runStagingWorker(workerCtx, pool, agent) }()
+	go func() { secondDone <- runStagingWorker(workerCtx, pool, agent, false) }()
 	defer func() {
 		stopSecond()
 		if err := <-secondDone; err != nil && !errors.Is(err, context.Canceled) {

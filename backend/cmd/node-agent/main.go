@@ -24,9 +24,13 @@ func main() {
 	}
 }
 func run() error {
-	// Private staging keeps local runtime identity until managed ingress is qualified.
+	// Private staging requires a separate opt-in for managed native identity.
 	mode := os.Getenv("PDS_MODE")
 	staging, err := config.LoadStagingProvisioning(mode)
+	if err != nil {
+		return err
+	}
+	managed, err := config.LoadStagingManagedRuntime(mode, staging)
 	if err != nil {
 		return err
 	}
@@ -71,6 +75,11 @@ func run() error {
 	runtime, err := nodeagent.NewDocker(os.Getenv("PDS_AGENT_DOCKER_SOCKET"), os.Getenv("PDS_AGENT_STATE_DIRECTORY"))
 	if err != nil {
 		return err
+	}
+	if managed {
+		if err := runtime.EnableManagedEndpoints(); err != nil {
+			return err
+		}
 	}
 	if mode == "local" || staging {
 		if err := runtime.ValidateLocalState(); err != nil {

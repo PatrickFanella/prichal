@@ -61,7 +61,7 @@ func (p PilotPolicy) validate() error {
 // EnablePilot binds a fresh private state directory to an immutable operator policy.
 // A changed policy or retained local namespace requires explicit recovery, never adoption.
 func (d *Docker) EnablePilot(path string) error {
-	if d.localIdentity || d.pilot != nil || !filepath.IsAbs(path) {
+	if d.localIdentity || d.pilot != nil || d.managedEndpoints || !filepath.IsAbs(path) {
 		return errors.New("pilot cannot share local identity configuration")
 	}
 	info, err := os.Lstat(path)
@@ -150,6 +150,9 @@ func (d *Docker) allowedInstance(id string) bool {
 	if !instanceID.MatchString(id) {
 		return false
 	}
+	if d.ManagedIdentityRetained(id) {
+		return d.managedRuntime(id)
+	}
 	if d.pilot != nil {
 		return !d.localIdentity && id == d.pilot.InstanceID
 	}
@@ -158,6 +161,10 @@ func (d *Docker) allowedInstance(id string) bool {
 }
 
 func (d *Docker) endpoint(id string) string {
+	if d.managedRuntime(id) {
+		identity, _ := d.readManagedIdentity(id)
+		return "https://" + identity.Hostname
+	}
 	if d.pilot != nil {
 		return "https://" + d.pilot.Hostname
 	}
@@ -170,11 +177,11 @@ func (d *Docker) ValidateLocalState() error {
 	if !errors.Is(err, os.ErrNotExist) {
 		return errors.New("local agent cannot use pilot state")
 	}
-	return nil
+	return d.validateManagedState()
 }
 
 func (d *Docker) fenceFreshPilot(ctx context.Context, id string) error {
-	if d.pilot == nil {
+	if !d.publicRuntime(id) {
 		return nil
 	}
 	if _, err := d.readCredentials(id); err == nil {
@@ -182,18 +189,11 @@ func (d *Docker) fenceFreshPilot(ctx context.Context, id string) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	name := "pds-ass-tenant-" + id
-	for _, path := range []string{"/volumes/" + name + "-data", "/volumes/" + name + "-blobs", "/networks/" + name + "-network", "/containers/pds-ass-edge-" + id + "/json"} {
-		status, err := d.call(ctx, "GET", path, nil, nil)
-		if status != http.StatusNotFound || err == nil {
-			return errors.New("fresh pilot namespace contains retained resources")
-		}
-	}
-	return nil
+	return d.fenceFreshPublicNamespace(ctx, id)
 }
 
 func (d *Docker) validatePilotNetwork(ctx context.Context, id string) error {
-	if d.pilot == nil {
+	if !d.publicRuntime(id) {
 		return nil
 	}
 	var network struct {

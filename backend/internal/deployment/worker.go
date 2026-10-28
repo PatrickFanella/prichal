@@ -71,7 +71,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 			return river.JobSnooze(time.Minute)
 		}
 		if err := w.Provisioner.Step(ctx, job.Args.DeploymentID); err != nil {
-			if errors.Is(err, ErrManagedEndpointPending) {
+			if errors.Is(err, ErrManagedEndpointPending) || errors.Is(err, recovery.ErrHeld) {
 				return river.JobSnooze(time.Minute)
 			}
 			if errors.Is(err, ErrHealthPending) {

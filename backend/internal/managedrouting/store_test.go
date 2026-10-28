@@ -106,6 +106,26 @@ func (f storeFixture) place(t *testing.T) {
 	if _, err := f.Pool.Exec(ctx, `UPDATE deployments SET state='ready' WHERE id=$1`, f.id); err != nil {
 		t.Fatal(err)
 	}
+	var hostname string
+	if err := f.Pool.QueryRow(ctx, `SELECT coalesce((SELECT hostname FROM managed_public_endpoints WHERE deployment_id=$1 AND reservation_basis='queued'),'')`, f.id).Scan(&hostname); err != nil {
+		t.Fatal(err)
+	}
+	if hostname != "" {
+		f.inspector.value.Endpoint = "https://" + hostname
+	}
+}
+
+func TestQueuedReadbackRefusesPrivateNativeIdentity(t *testing.T) {
+	f := routingFixture(t)
+	ctx := context.Background()
+	if _, err := f.Reserve(ctx, "operator", f.id); err != nil {
+		t.Fatal(err)
+	}
+	f.place(t)
+	f.inspector.value.Endpoint = nodeagent.LocalEndpoint(f.id)
+	if _, err := f.Observe(ctx, "operator", f.id, f.node, requestOne, f.inspector); !errors.Is(err, ErrUnqualified) {
+		t.Fatal("public intent accepted private native readback", err)
+	}
 }
 func TestRetainedEndpointObservationReplayAndPrivateBundle(t *testing.T) {
 	f := routingFixture(t)

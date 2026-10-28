@@ -238,8 +238,8 @@ func (s Store) Observe(ctx context.Context, actor, id, node, key string, inspect
 		return Observation{}, err
 	}
 	defer tx.Rollback(ctx)
-	var state string
-	if err := tx.QueryRow(ctx, `SELECT d.state FROM deployments d JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1 AND d.kind='agent' FOR UPDATE OF d,e`, id).Scan(&state); err != nil {
+	var state, hostname, basis string
+	if err := tx.QueryRow(ctx, `SELECT d.state,e.hostname,e.reservation_basis FROM deployments d JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1 AND d.kind='agent' FOR UPDATE OF d,e`, id).Scan(&state, &hostname, &basis); err != nil {
 		return Observation{}, err
 	}
 	if err := gate(ctx, tx); err != nil {
@@ -269,7 +269,7 @@ func (s Store) Observe(ctx context.Context, actor, id, node, key string, inspect
 		return Observation{}, ErrConflict
 	}
 	value, err := inspector.IngressCertificate(ctx, peer, id)
-	if err != nil || value.Validate(id) != nil {
+	if err != nil || value.Validate(id) != nil || basis == "queued" && value.Endpoint != "https://"+hostname {
 		return Observation{}, ErrUnqualified
 	}
 	if err := gate(ctx, tx); err != nil {
