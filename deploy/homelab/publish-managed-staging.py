@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Root-only Almaz publisher for the single authorized staging-02 endpoint, never a worker route."""
+"""Root-only Almaz managed inventory publisher; never an API or worker execution route."""
 import argparse
 import datetime as dt
 import fcntl
@@ -122,20 +122,94 @@ def load(work, config_path, expected, desired):
          'http://127.0.0.1:2019/config/'], work, 'reload')
 
 
-def authority(data, expected):
+def inventory_value(data):
+    value = json.loads(data)
+    if set(value) != {'version', 'generation', 'expiresAt', 'endpoints', 'handles'} or type(value['version']) is not int or value['version'] != 1 or type(value['generation']) is not int or value['generation'] <= 0 or value['handles'] != [] or not isinstance(value['endpoints'], list) or not 1 <= len(value['endpoints']) <= 100:
+        raise ValueError('A complete authoritative endpoint inventory without unverified handles is required')
+    identities, ports = set(), set()
+    for endpoint in value['endpoints']:
+        if set(endpoint) != {'deploymentId', 'hostname', 'forwardPort', 'certificateSha256'} or not UUID.fullmatch(endpoint['deploymentId']) or endpoint['hostname'] != 'pds-' + endpoint['deploymentId'].replace('-', '') + '.subcult.tv' or type(endpoint['forwardPort']) is not int or not 35000 <= endpoint['forwardPort'] <= 35999 or not SHA.fullmatch(endpoint['certificateSha256']):
+            raise ValueError('Generated endpoint identity, reserved port or public certificate differs')
+        if endpoint['deploymentId'] in identities or endpoint['forwardPort'] in ports:
+            raise ValueError('Duplicate endpoint identity or forward port')
+        identities.add(endpoint['deploymentId'])
+        ports.add(endpoint['forwardPort'])
+    return value
+
+
+def authority(data, expected, fixture_only=False):
     if not SHA.fullmatch(expected) or digest(data) != expected:
         raise ValueError('Inventory differs from operator-delivered export digest')
-    value = json.loads(data)
-    if set(value) != {'version', 'generation', 'expiresAt', 'endpoints', 'handles'} or value['version'] != 1 or type(value['generation']) is not int or value['generation'] <= 0 or value['handles'] != [] or len(value['endpoints']) != 1:
-        raise ValueError('Only a complete authoritative single-fixture export is supported')
-    endpoint = value['endpoints'][0]
-    if set(endpoint) != {'deploymentId', 'hostname', 'forwardPort', 'certificateSha256'} or endpoint['deploymentId'] != INSTANCE or endpoint['hostname'] != HOST or type(endpoint['forwardPort']) is not int or endpoint['forwardPort'] != 35000 or not SHA.fullmatch(endpoint['certificateSha256']):
-        raise ValueError('Publication is restricted to the retained staging-02 endpoint')
+    value = inventory_value(data)
+    if fixture_only:
+        endpoints = value['endpoints']
+        if len(endpoints) != 1 or endpoints[0]['deploymentId'] != INSTANCE or endpoints[0]['forwardPort'] != 35000:
+            raise ValueError('Legacy confirmation permits only the designated staging-02 fixture')
     expires = dt.datetime.fromisoformat(value['expiresAt'].replace('Z', '+00:00'))
     now = dt.datetime.now(dt.timezone.utc)
     if expires.tzinfo is None or not now < expires <= now + dt.timedelta(minutes=16):
         raise ValueError('Fresh bounded authenticated export required')
     return value
+
+
+def applied_inventory(revision):
+    if not UUID.fullmatch(revision):
+        raise ValueError('Canonical preceding publication revision required')
+    work = ROOT / revision
+    directory(work, private=True)
+    if os.path.lexists(work / 'rolled-back.json') or json.loads(read(work / 'published.json', private=True, root_owned=True)) != {'published': True}:
+        raise ValueError('Preceding publication is not retained as applied')
+    receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
+    data = read(work / 'inventory.json', private=True, root_owned=True)
+    if type(receipt['version']) is not int or receipt['version'] not in (1, 2) or receipt['revision'] != revision or digest(data) != receipt['inventorySHA256']:
+        raise ValueError('Preceding publication custody differs')
+    inventory = inventory_value(data)
+    if receipt['generation'] != inventory['generation']:
+        raise ValueError('Preceding publication generation differs')
+    return receipt, inventory
+
+
+def highest_published_generation():
+    maximum, count = 0, 0
+    for work in ROOT.iterdir():
+        if not UUID.fullmatch(work.name) or not os.path.lexists(work / 'published.json'):
+            continue
+        count += 1
+        if count > 10000:
+            raise ValueError('Publication history exceeds its inspection bound')
+        directory(work, private=True)
+        if json.loads(read(work / 'published.json', private=True, root_owned=True)) != {'published': True}:
+            raise ValueError('Publication history marker differs')
+        receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
+        if receipt['revision'] != work.name or type(receipt['generation']) is not int or receipt['generation'] <= 0:
+            raise ValueError('Publication history generation differs')
+        maximum = max(maximum, receipt['generation'])
+    return maximum
+
+
+def validate_transition(previous, current):
+    if current['generation'] <= previous['generation']:
+        raise ValueError('A newer authenticated observation generation is required')
+    by_id = {endpoint['deploymentId']: endpoint for endpoint in current['endpoints']}
+    for endpoint in previous['endpoints']:
+        retained = by_id.get(endpoint['deploymentId'])
+        if retained is None or (retained['hostname'], retained['forwardPort']) != (endpoint['hostname'], endpoint['forwardPort']):
+            raise ValueError('An update cannot omit or remap a retained endpoint; withdrawal/cutover requires explicit review')
+
+
+def validate_history_generation(value):
+    if value['generation'] <= highest_published_generation():
+        raise ValueError('Published generations cannot be reused, including after rollback')
+
+
+def verify_upstreams(revision, inventory):
+    certs = BASE / 'certs/prichal-managed' / revision
+    directory(certs)
+    for endpoint in inventory['endpoints']:
+        certificate = read(certs / (endpoint['deploymentId'] + '.crt'), 16384, root_owned=True)
+        if digest(certificate) != endpoint['certificateSha256']:
+            raise ValueError('Retained public trust differs from its inventory')
+        upstream(certificate, endpoint)
 
 
 def parent_after(before):
@@ -189,15 +263,16 @@ def production_hide_paths(value, staged_main):
     return value
 
 
-def upstream(certificate):
+def upstream(certificate, endpoint):
+    host, instance, port = endpoint['hostname'], endpoint['deploymentId'], endpoint['forwardPort']
     context = ssl.create_default_context(cadata=certificate.decode())
     context.minimum_version = ssl.TLSVersion.TLSv1_3
-    paths = [('/xrpc/com.atproto.server.describeServer', 'did', 'did:web:' + HOST),
-             ('/.well-known/oauth-authorization-server', 'issuer', 'https://' + HOST)]
+    paths = [('/xrpc/com.atproto.server.describeServer', 'did', 'did:web:' + host),
+             ('/.well-known/oauth-authorization-server', 'issuer', 'https://' + host)]
     for path, key, expected in paths:
-        with socket.create_connection(('172.20.0.1', 35000), timeout=5) as connection:
-            with context.wrap_socket(connection, server_hostname=INSTANCE + '.localhost') as secure:
-                secure.sendall(('GET ' + path + ' HTTP/1.1\r\nHost: ' + HOST + '\r\nConnection: close\r\n\r\n').encode())
+        with socket.create_connection(('172.20.0.1', port), timeout=5) as connection:
+            with context.wrap_socket(connection, server_hostname=instance + '.localhost') as secure:
+                secure.sendall(('GET ' + path + ' HTTP/1.1\r\nHost: ' + host + '\r\nConnection: close\r\n\r\n').encode())
                 response = http.client.HTTPResponse(secure)
                 response.begin()
                 body = response.read((1 << 20) + 1)
@@ -205,24 +280,35 @@ def upstream(certificate):
                     raise ValueError('Pinned upstream does not advertise the retained public identity')
 
 
-def prepare(work, revision, bundle, expected):
+def prepare(work, revision, bundle, expected, previous_revision='', fixture_only=False):
     inventory = read(bundle / 'inventory.json', private=True)
-    value = authority(inventory, expected)
-    certificate = read(bundle / 'certificates' / (INSTANCE + '.crt'), 16384, private=True)
-    if digest(certificate) != value['endpoints'][0]['certificateSha256']:
-        raise ValueError('Certificate custody differs from authenticated export')
+    value = authority(inventory, expected, fixture_only)
+    validate_history_generation(value)
+    certificates = {}
+    for endpoint in value['endpoints']:
+        certificate = read(bundle / 'certificates' / (endpoint['deploymentId'] + '.crt'), 16384, private=True)
+        if digest(certificate) != endpoint['certificateSha256']:
+            raise ValueError('Certificate custody differs from authenticated export')
+        certificates[endpoint['deploymentId']] = certificate
     parent = read(PARENT, root_owned=True)
     target = read(TARGET, root_owned=True) if os.path.lexists(TARGET) else None
-    if target is not None or b'prichal-managed' in parent:
-        raise ValueError('Initial staging publication requires an unused owned route/import; updates are unsupported')
+    if target is not None:
+        previous, previous_inventory = applied_inventory(previous_revision)
+        if digest(parent) != previous['parentAfter'] or digest(target) != previous['routeAfter']:
+            raise ValueError('Installed managed route is not the explicitly selected preceding publication')
+        validate_transition(previous_inventory, value)
+    elif previous_revision or b'prichal-managed' in parent:
+        raise ValueError('Missing managed route or conflicting preceding publication')
     after_parent = parent_after(parent)
     original = json.loads(caddy(work, 'adapt', '/etc/caddy/Caddyfile'))
     if active(work)[0] != original:
         raise ValueError('Active Caddy configuration differs from disk')
     inputs = sources()
     for relative in inputs:
-        if HOST.encode() in (BASE / relative).read_bytes():
-            raise ValueError('Managed name conflicts with an existing unrelated input')
+        data = (BASE / relative).read_bytes()
+        for endpoint in value['endpoints']:
+            if endpoint['hostname'].encode() in data or re.search(rb':' + str(endpoint['forwardPort']).encode() + rb'(?![0-9])', data):
+                raise ValueError('Managed name/forward conflicts with an existing unrelated input')
     cert_root = BASE / 'certs/prichal-managed'
     cert_root.mkdir(mode=0o755, exist_ok=True)
     directory(cert_root)
@@ -230,7 +316,8 @@ def prepare(work, revision, bundle, expected):
     certs.mkdir(mode=0o755)
     os.chmod(cert_root, 0o755)
     os.chmod(certs, 0o755)
-    write_once(certs / (INSTANCE + '.crt'), certificate, 0o644)
+    for instance, certificate in certificates.items():
+        write_once(certs / (instance + '.crt'), certificate, 0o644)
     write_once(work / 'inventory.json', inventory)
     stage = BASE / 'sites' / ('.prichal-managed-' + revision)
     stage.mkdir(mode=0o700)
@@ -247,19 +334,20 @@ def prepare(work, revision, bundle, expected):
     write_once(stage / 'Caddyfile', stage_main)
     candidate = production_hide_paths(json.loads(caddy(work, 'adapt', stage_container + '/Caddyfile')), stage_container + '/Caddyfile')
     caddy(work, 'validate', stage_container + '/Caddyfile')
-    upstream(certificate)
+    verify_upstreams(revision, value)
     for name, data in [('parent-before', parent), ('parent-after', after_parent), ('route-after', route)]:
         write_once(work / name, data)
     if target is not None:
         write_once(work / 'route-before', target)
     write_once(stage / 'before.json', json.dumps(original).encode())
     write_once(stage / 'after.json', json.dumps(candidate).encode())
-    receipt = {'version': 1, 'revision': revision, 'inventorySHA256': expected, 'generation': value['generation'],
+    receipt = {'version': 2, 'revision': revision, 'previousRevision': previous_revision, 'inventorySHA256': expected, 'generation': value['generation'],
                'expiresAt': value['expiresAt'], 'sources': inputs, 'parentBefore': digest(parent),
                'parentAfter': digest(after_parent), 'routeBefore': digest(target) if target is not None else None,
-               'routeAfter': digest(route), 'certificateSHA256': digest(certificate),
+               'routeAfter': digest(route),
                'before': original, 'after': candidate, 'stage': stage_container}
     check_sources(receipt)
+    authority(inventory, expected, fixture_only)
     if read(PARENT) != parent or (read(TARGET) if os.path.lexists(TARGET) else None) != target or active(work)[0] != original:
         raise ValueError('Publication inputs changed during preparation')
     write_once(work / 'prepared.json', json.dumps(receipt).encode())
@@ -280,10 +368,17 @@ def rollback(work, receipt):
     current = active(work)[0]
     if current not in (receipt['before'], receipt['after']):
         raise ValueError('Concurrent active configuration changed; refusing rollback')
+    if receipt.get('previousRevision'):
+        preceding, inventory = applied_inventory(receipt['previousRevision'])
+        if preceding['routeAfter'] != receipt['routeBefore']:
+            raise ValueError('Rollback preceding publication differs')
+        # An expired export is historical authority, but its TLS trust must still work now.
+        verify_upstreams(receipt['previousRevision'], inventory)
     before_parent = read(work / 'parent-before', private=True, root_owned=True)
     before_route = read(work / 'route-before', private=True, root_owned=True) if receipt['routeBefore'] is not None else None
     if digest(before_parent) != receipt['parentBefore'] or (digest(before_route) if before_route is not None else None) != receipt['routeBefore']:
         raise ValueError('Rollback custody differs')
+    run(['docker', 'exec', 'caddy', 'caddy', 'validate', '--config', receipt['stage'] + '/before.json'], work, 'validate-rollback')
     replace(PARENT, before_parent)
     if before_route is not None or os.path.lexists(TARGET):
         replace(TARGET, before_route)
@@ -310,12 +405,11 @@ def publish(work, receipt):
         if not installed or active(work)[0] != receipt['after']:
             raise ValueError('Published readback changed')
         return {'published': True, 'revision': receipt['revision'], 'replayed': True}
-    authority(read(work / 'inventory.json', private=True, root_owned=True), receipt['inventorySHA256'])
+    inventory = read(work / 'inventory.json', private=True, root_owned=True)
+    value = authority(inventory, receipt['inventorySHA256'])
+    validate_history_generation(value)
     certs = BASE / 'certs/prichal-managed' / receipt['revision']
-    certificate = read(certs / (INSTANCE + '.crt'), 16384, root_owned=True)
-    if digest(certificate) != receipt['certificateSHA256']:
-        raise ValueError('Staged public trust changed')
-    upstream(certificate)
+    verify_upstreams(receipt['revision'], value)
     current = active(work)[0]
     if current not in (receipt['before'], receipt['after']):
         raise ValueError('Concurrent active configuration changed')
@@ -330,6 +424,7 @@ def publish(work, receipt):
         if read(output, private=True, root_owned=True) != route:
             raise ValueError('Current renderer/certificate differs from prepared candidate')
     try:
+        authority(inventory, receipt['inventorySHA256'])
         replace(TARGET, route)
         replace(PARENT, after_parent)
         check_sources(receipt)
@@ -338,6 +433,7 @@ def publish(work, receipt):
         if live_candidate != receipt['after']:
             write_once(work / 'refused-adapted.json', json.dumps(live_candidate).encode())
             raise ValueError('Live candidate differs from validated full configuration')
+        authority(inventory, receipt['inventorySHA256'])
         load(work, receipt['stage'] + '/after.json', current, receipt['after'])
         if active(work)[0] != receipt['after']:
             raise ValueError('Published configuration readback differs')
@@ -356,10 +452,16 @@ def main():
     parser.add_argument('--revision', required=True)
     parser.add_argument('--bundle', type=Path)
     parser.add_argument('--inventory-sha256')
+    parser.add_argument('--previous-revision', default='')
+    parser.add_argument('--confirm-managed-inventory', action='store_true')
     parser.add_argument('--confirm-staging-02', action='store_true')
     args = parser.parse_args()
-    if not args.confirm_staging_02 or not UUID.fullmatch(args.revision) or os.geteuid() != 0 or socket.gethostname() != 'almaz':
-        raise ValueError('Explicit root authorization on Almaz for the designated staging fixture required')
+    if args.confirm_staging_02 == args.confirm_managed_inventory or not UUID.fullmatch(args.revision) or os.geteuid() != 0 or socket.gethostname() != 'almaz':
+        raise ValueError('Explicit root confirmation on Almaz required')
+    if args.previous_revision and (not UUID.fullmatch(args.previous_revision) or args.previous_revision == args.revision):
+        raise ValueError('Distinct canonical preceding publication revision required')
+    if args.action != 'prepare' and (args.bundle or args.inventory_sha256 or args.previous_revision):
+        raise ValueError('Retained publication actions accept only their revision and confirmation')
     ROOT.mkdir(mode=0o700, exist_ok=True)
     directory(ROOT, private=True)
     for path in (BASE / 'sites',):
@@ -373,12 +475,16 @@ def main():
             if not args.bundle or not args.bundle.is_absolute() or not args.inventory_sha256:
                 raise ValueError('Private export bundle and its independently delivered digest required')
             work.mkdir(mode=0o700)
-            result = prepare(work, args.revision, args.bundle, args.inventory_sha256)
+            result = prepare(work, args.revision, args.bundle, args.inventory_sha256, args.previous_revision, args.confirm_staging_02)
         else:
             directory(work, private=True)
             receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
             if receipt['revision'] != args.revision:
                 raise ValueError('Retained publication revision differs')
+            if args.confirm_staging_02:
+                inventory = inventory_value(read(work / 'inventory.json', private=True, root_owned=True))
+                if len(inventory['endpoints']) != 1 or inventory['endpoints'][0]['deploymentId'] != INSTANCE or inventory['endpoints'][0]['forwardPort'] != 35000:
+                    raise ValueError('Legacy confirmation permits only the designated fixture')
             result = {'publish': publish, 'rollback': rollback}[args.action](work, receipt)
         print(json.dumps(result))
     finally:

@@ -38,6 +38,6 @@ await new Promise((resolve,reject)=>{
  });
  request.on('response',response=>{response.resume();reject(Error('Public WebSocket refused: '+response.statusCode));});request.on('error',reject);request.on('timeout',()=>request.destroy(Error('Public WebSocket timed out')));request.end();
 });
-const report={observedAt:new Date().toISOString(),origin,health:'0.4.5036',serviceDID:'did:web:'+host,oauthIssuerExact:true,repositories:0,nativeSignupClosed:true,oauthSignupClosed:true,unknownHostStatus:404,publicWebSocket:true,tls:tlsReceipts,managementReadinessPersisted:false};
+const report={observedAt:new Date().toISOString(),origin,health:'0.4.5036',serviceDID:'did:web:'+host,oauthIssuerExact:true,repositories:0,nativeSignupClosed:true,oauthSignupClosed:true,unknownHostStatus:404,publicWebSocket:true,tls:tlsReceipts,managementStateChanged:false};
 await writeFile(process.argv[4],JSON.stringify(report,null,2)+'\n',{mode:0o600,flag:'wx'});
-console.log(JSON.stringify({origin,publicProtocolPassed:true,managementReadinessPersisted:false}));
+console.log(JSON.stringify({origin,publicProtocolPassed:true,managementStateChanged:false}));

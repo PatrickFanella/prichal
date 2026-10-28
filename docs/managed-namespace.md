@@ -1,10 +1,10 @@
 # Managed namespace decision — October 28, 2026
 
-The owner selected first-level names under `subcult.tv`, with no domain purchase, for #126. Reuse the existing domain and Cloudflare DNS/edge service. Public NS lookup on October 28 returned `dahlia.ns.cloudflare.com` and `hasslo.ns.cloudflare.com`; this confirms delegation, not registrar or account access. The existing domain custodian retains control; no registrar transfer, certificate purchase or zone-wide DNS permission is implied.
+The owner selected first-level names under `subcult.tv`, with no domain purchase, for #126. Reuse the existing domain and Cloudflare DNS/edge service. [Registry RDAP](https://rdap.nic.tv/domain/subcult.tv) on October 28 confirms Cloudflare, Inc. as registrar and `dahlia.ns.cloudflare.com` / `hasslo.ns.cloudflare.com` delegation. The private registrar/DNS account custodian remains an owner question; registry data does not establish account access or control. No registrar transfer, certificate purchase or zone-wide DNS permission is implied.
 
 The #7 design must keep managed endpoint and default-handle labels one level below `subcult.tv`, preserve management/OAuth and existing service/pilot labels, and reserve separate collision-safe prefixes for endpoints and accounts. Exact prefix allocation, reserved names, handle issuance/abuse limits and inventory-only routing must be specified and verified before name issuance. Nested `*.pds.subcult.tv` is outside this decision.
 
-This records the chosen namespace. It changes no DNS, certificate, route, PDS identity or signup policy. #126 remains open for its remaining design/ownership evidence; #7 remains gated by #6 and actual DNS/TLS/WebSocket/failure qualification. The hosted #126 and #7 issue bodies record the same decision.
+This records the chosen namespace. Recording it changes no DNS, certificate, route, PDS identity or signup policy. #6 subsequently closed; [public readiness](managed-public-readiness.md) and [publisher updates](managed-publisher-updates.md) record later #7 qualification. #126 remains open for the account-custodian record. The hosted #126 and #7 issue bodies record the same design.
 
 ## Generated labels and reserved names
 
@@ -18,4 +18,4 @@ The planned default handle proof is the HTTPS `/.well-known/atproto-did` method 
 
 Existing proxied first-level wildcard DNS/edge service is the intended routing base, subject to fresh operator verification before publication. [Cloudflare's Universal SSL documentation](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/) describes first-level coverage for a full setup zone. No deeper-name certificate purchase is selected. Public edge TLS and node-private TLS have separate checks and custody. A generated candidate neither changes DNS nor proves public DNS/TLS readiness.
 
-The domain/Cloudflare DNS service decision is recorded. Registrar/account ownership evidence and the final publication/readiness qualification remain explicit open items; this document does not claim to have inspected the private registrar account. See [the #7 implementation sequence](managed-https-design.md).
+The domain, registrar and Cloudflare DNS service are recorded. The wildcard DNS/TLS plan, generated-name reservations and invitation limits are defined here; actual handle activation requires verified account bindings in #8. Account custody and remaining #7 integration gates stay explicit; this document does not claim to have inspected the private registrar account. See [the #7 implementation sequence](managed-https-design.md).
