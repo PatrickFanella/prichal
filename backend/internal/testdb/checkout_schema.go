@@ -73,6 +73,9 @@ func ReconstructManaged38(t *testing.T, pool *pgxpool.Pool) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
+	if _, err := pool.Exec(ctx, `DO $$ BEGIN IF EXISTS(SELECT 1 FROM managed_native_conversions) THEN RAISE EXCEPTION 'populated managed conversions cannot be reconstructed'; END IF; END $$; DROP TABLE managed_native_conversions`); err != nil {
+		t.Fatal(err)
+	}
 	var empty bool
 	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM managed_public_endpoints) AND NOT EXISTS(SELECT 1 FROM managed_edge_observations)`).Scan(&empty); err != nil || !empty {
 		t.Fatal("populated public routing cannot be reconstructed")

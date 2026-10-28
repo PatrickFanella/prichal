@@ -46,7 +46,12 @@ func (d *Docker) Usage(ctx context.Context, id string) (Usage, error) {
 		return Usage{}, errors.New("healthy retained runtime required for usage")
 	}
 	var result Usage
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, usageHelperScript, nil, &result); err != nil {
+	var args []string
+	if d.managedRuntime(id) {
+		identity, _ := d.readManagedIdentity(id)
+		args = []string{"managed", identity.Hostname}
+	}
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, usageHelperScript, args, &result); err != nil {
 		return Usage{}, errors.New("native usage unavailable")
 	}
 	result.InstanceID = id

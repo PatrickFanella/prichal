@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import stat
 from urllib.parse import urlparse, urlunparse
 import uuid
 
@@ -14,6 +15,25 @@ ROOT = PARENT / 'managed-routing'
 CONTAINER = 'prichal-staging-02-registry-postgres-1'
 IMAGE = 'postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73'
 RECOVERY = re.compile(r'^pds_recovery_[a-f0-9]{32}$')
+
+
+def qualified_root(name):
+    if name not in ('managed-routing', 'managed-conversion'):
+        raise ValueError('Only the fixed staging qualification workspaces are permitted')
+    return PARENT / name
+
+
+def retained_snapshot(name):
+    if name not in ('management-before.dump', 'management-after.dump') or ROOT.name != 'managed-conversion':
+        raise ValueError('Only retained before/after staging conversion snapshots are permitted')
+    path = ROOT / name
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_size > 1 << 30:
+        raise ValueError('Private bounded retained management snapshot required')
+    expected = os.environ.get('PDS_MANAGED_RECOVERY_SNAPSHOT_SHA256', '')
+    if not re.fullmatch(r'[a-f0-9]{64}', expected) or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        raise ValueError('Retained management snapshot differs from custody digest')
+    return path
 
 
 def validate_scope(information, database_url):
@@ -64,6 +84,8 @@ def inventory(database, tables):
 
 
 def main():
+    global ROOT
+    ROOT = qualified_root(os.environ.get('PDS_MANAGED_RECOVERY_WORKSPACE', 'managed-routing'))
     os.umask(0o077)
     for directory in [PARENT, ROOT]:
         info = directory.lstat()
@@ -84,9 +106,13 @@ def main():
         raise ValueError('Expected the single retained native readback before snapshot')
     sequence_sql = "SELECT coalesce(jsonb_object_agg(sequencename,last_value),'{}'::jsonb) FROM pg_sequences WHERE schemaname='public'"
     sequences = json.loads(sql('pds_local', sequence_sql))
-    dump = work / 'snapshot.dump'
-    with dump.open('xb') as output:
-        subprocess.run(['docker', 'exec', CONTAINER, 'pg_dump', '-U', 'pds_staging', '-Fc', 'pds_local'], check=True, stdout=output, stderr=subprocess.PIPE, timeout=60)
+    retained = os.environ.get('PDS_MANAGED_RECOVERY_RETAINED_SNAPSHOT', '')
+    if retained:
+        dump = retained_snapshot(retained)
+    else:
+        dump = work / 'snapshot.dump'
+        with dump.open('xb') as output:
+            subprocess.run(['docker', 'exec', CONTAINER, 'pg_dump', '-U', 'pds_staging', '-Fc', 'pds_local'], check=True, stdout=output, stderr=subprocess.PIPE, timeout=60)
     digest = hashlib.sha256(dump.read_bytes()).hexdigest()
     sql('pds_local', 'CREATE DATABASE ' + database)
     with dump.open('rb') as source:
@@ -109,8 +135,9 @@ def main():
         raise ValueError('Snapshot qualification changed the source')
     sql('pds_local', 'ALTER DATABASE ' + recovery_identifier(database) + ' ALLOW_CONNECTIONS false')
     sql('pds_local', 'DROP DATABASE ' + recovery_identifier(database) + ' WITH (FORCE)')
-    dump.unlink()
-    report = {'database': database, 'snapshotSHA256': digest, 'schemaVersion': int(sql('pds_local', 'SELECT version FROM schema_version')), 'tablesVerified': len(tables), 'sequencesVerified': True, 'retainedRoutingVerified': True, 'unmarkedAndHeldExportsRefused': True, 'sourceUnchanged': True, 'disposableCopyDropped': True, 'publicRoutePublished': False}
+    if not retained:
+        dump.unlink()
+    report = {'database': database, 'snapshotSHA256': digest, 'schemaVersion': int(sql('pds_local', 'SELECT version FROM schema_version')), 'tablesVerified': len(tables), 'sequencesVerified': True, 'retainedRoutingVerified': True, 'conversionRecordsVerified': before.get('managed_native_conversions', {}).get('count', 0), 'retainedSnapshot': bool(retained), 'unmarkedAndHeldExportsRefused': True, 'sourceUnchanged': True, 'disposableCopyDropped': True, 'publicRoutePublished': False}
     (work / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))
 

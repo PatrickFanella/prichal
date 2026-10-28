@@ -33,8 +33,9 @@ type AgentProvisioner struct {
 
 func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	var state, hostname, reservedHostname, basis, serving string
+	var converted bool
 	var created, updated time.Time
-	if err := p.Pool.QueryRow(ctx, `SELECT d.state,d.created_at,d.updated_at,d.managed_hostname,coalesce(e.hostname,''),coalesce(e.reservation_basis,''),coalesce(d.endpoint_url,'') FROM deployments d LEFT JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1`, id).Scan(&state, &created, &updated, &hostname, &reservedHostname, &basis, &serving); err != nil {
+	if err := p.Pool.QueryRow(ctx, `SELECT d.state,d.created_at,d.updated_at,d.managed_hostname,coalesce(e.hostname,''),coalesce(e.reservation_basis,''),coalesce(d.endpoint_url,''),EXISTS(SELECT 1 FROM managed_native_conversions c JOIN instance_placements p ON p.deployment_id=c.deployment_id JOIN hosting_nodes n ON n.id=p.node_id WHERE c.deployment_id=d.id AND c.node_id=p.node_id AND c.node_key_hash=n.public_key_hash) FROM deployments d LEFT JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1`, id).Scan(&state, &created, &updated, &hostname, &reservedHostname, &basis, &serving, &converted); err != nil {
 		return err
 	}
 	if state == "ready" || state == "failed" {
@@ -53,7 +54,7 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 			return ErrManagedEndpointPending
 		}
 		expected, err := managednamespace.Endpoint(id)
-		if err != nil || basis != "queued" || reservedHostname != expected || hostname != expected || serving != "" {
+		if err != nil || (basis != "queued" && !(basis == "empty_fixture" && converted)) || reservedHostname != expected || hostname != expected || serving != "" {
 			return errors.New("retained managed intent differs from generated policy")
 		}
 		if err := p.checkManagedAuthority(ctx); err != nil {

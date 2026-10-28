@@ -7,6 +7,14 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 class RecoveryScopeTests(unittest.TestCase):
+    def test_qualification_workspace_cannot_escape_private_root(self):
+        for value in ['../outside', '/etc', 'managed-conversion/../other']:
+            with self.assertRaises(ValueError):
+                module.qualified_root(value)
+        self.assertEqual(module.qualified_root('managed-conversion'), module.PARENT / 'managed-conversion')
+        for value in ['../snapshot.dump', '/etc/shadow', 'arbitrary.dump']:
+            with self.assertRaises(ValueError):
+                module.retained_snapshot(value)
     def test_source_and_foreign_identifiers_cannot_be_dropped(self):
         for value in ['pds_local', 'postgres', 'pds_recovery_other', 'pds_recovery_' + 'a' * 32 + ';DROP DATABASE postgres']:
             with self.assertRaises(ValueError):

@@ -78,5 +78,15 @@ func TestNativeManagedProtocolEnvironment(t *testing.T) {
 	if result.Version == "" || result.DID != "did:web:"+host || result.Issuer != origin || result.Authorization != origin+"/oauth/authorize" || result.Token != origin+"/oauth/token" || result.Repositories != 0 {
 		t.Fatal("native descriptor differs from managed identity", result)
 	}
+	var usage Usage
+	if err := d.executeFixed(ctx, created.ID, usageHelperScript, []string{"managed", host}, &usage); err != nil || usage.Accounts != 0 || usage.DataBytes < 1 {
+		t.Fatal("generated production identity usage unavailable", err)
+	}
+	if err := d.executeFixed(ctx, created.ID, usageHelperScript, nil, &usage); err == nil {
+		t.Fatal("production usage accepted without bound identity")
+	}
+	if err := d.executeFixed(ctx, created.ID, usageHelperScript, []string{"managed", "pds-aaaaaaaaaaaa4aaaaaaaaaaaaaaaaaaa.subcult.tv"}, &usage); err == nil {
+		t.Fatal("production usage accepted mismatched identity")
+	}
 	t.Logf("network-disabled pinned PDS %s advertised exact managed DID/OAuth identity with zero repositories", result.Version)
 }

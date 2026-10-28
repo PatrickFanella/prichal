@@ -76,6 +76,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// The native executor and local conversion tools must never share a writer.
+	ownership, err := nodeagent.LockStateDirectory(os.Getenv("PDS_AGENT_STATE_DIRECTORY"))
+	if err != nil {
+		return err
+	}
+	defer ownership.Close()
 	if managed {
 		if err := runtime.EnableManagedEndpoints(); err != nil {
 			return err

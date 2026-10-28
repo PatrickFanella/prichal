@@ -104,7 +104,13 @@ func (d *Docker) EnablePilot(path string) error {
 	}
 	if err := check(); errors.Is(err, os.ErrNotExist) {
 		entries, err := os.ReadDir(d.directory)
-		if err != nil || len(entries) != 0 {
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.Name() == ".native-owner.lock" {
+				continue
+			}
 			return errors.New("pilot requires fresh agent state")
 		}
 		file, err := os.CreateTemp(d.directory, ".pilot-policy-")
@@ -201,7 +207,7 @@ func (d *Docker) validatePilotNetwork(ctx context.Context, id string) error {
 		Internal bool
 		Driver   string
 	}
-	if _, err := d.call(ctx, "GET", "/networks/pds-ass-tenant-"+id+"-network", nil, &network); err != nil {
+	if _, err := d.call(ctx, "GET", "/networks/"+d.tenantNetwork(id), nil, &network); err != nil {
 		return err
 	}
 	if network.Labels[label] != id || network.Internal || network.Driver != "bridge" {
