@@ -257,7 +257,7 @@ func (d *Docker) ensure(ctx context.Context, id string) (Instance, error) {
 				}
 			}
 		}
-		network := name + "-network"
+		network := d.tenantNetwork(id)
 		var existing struct {
 			Labels   map[string]string
 			Internal bool
@@ -437,10 +437,10 @@ func (d *Docker) validateRuntime(id string, current inspected) error {
 			return errors.New("PDS bypasses managed ingress")
 		}
 	}
-	if current.HostConfig.Privileged || len(current.HostConfig.CapAdd) != 0 || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != name+"-network" || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
+	if current.HostConfig.Privileged || len(current.HostConfig.CapAdd) != 0 || len(current.HostConfig.Binds) != 0 || current.HostConfig.Memory != 768<<20 || current.HostConfig.NanoCpus != 1e9 || current.HostConfig.PidsLimit != 128 || current.HostConfig.NetworkMode != d.tenantNetwork(id) || len(current.HostConfig.CapDrop) != 1 || current.HostConfig.CapDrop[0] != "ALL" || len(current.HostConfig.SecurityOpt) != 1 || current.HostConfig.SecurityOpt[0] != "no-new-privileges:true" {
 		return errors.New("runtime security configuration differs from policy")
 	}
-	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[name+"-network"] == nil {
+	if len(current.NetworkSettings.Networks) != 1 || current.NetworkSettings.Networks[d.tenantNetwork(id)] == nil {
 		return errors.New("runtime network configuration differs from policy")
 	}
 	if len(current.Mounts) != 2 {

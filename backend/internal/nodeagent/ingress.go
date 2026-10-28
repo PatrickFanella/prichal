@@ -58,15 +58,14 @@ func LocalEndpoint(id string) string {
 	return fmt.Sprintf("https://%s.localhost:%d", id, 36000+prefix%10000)
 }
 func (d *Docker) ingress(ctx context.Context, id string) error {
-	pdsName := "pds-ass-tenant-" + id
 	name := "pds-ass-edge-" + id
-	network := pdsName + "-network"
+	network := d.tenantNetwork(id)
 	var current inspected
 	status, err := d.call(ctx, "GET", "/containers/"+name+"/json", nil, &current)
 	if err != nil && status != 404 {
 		return err
 	}
-	configDirectory := filepath.Join(d.directory, id+"-edge")
+	configDirectory := d.ingressDirectory(id)
 	configPath := filepath.Join(configDirectory, "Caddyfile")
 	tlsPath := filepath.Join(d.directory, id+"-tls.pem")
 	if status != 404 {
@@ -209,8 +208,8 @@ func (d *Docker) validateIngress(id string, current inspected) error {
 			return errors.New("pilot ingress must retain its loopback binding")
 		}
 	}
-	network := "pds-ass-tenant-" + id + "-network"
-	configPath := filepath.Join(d.directory, id+"-edge", "Caddyfile")
+	network := d.tenantNetwork(id)
+	configPath := filepath.Join(d.ingressDirectory(id), "Caddyfile")
 	tlsPath := filepath.Join(d.directory, id+"-tls.pem")
 	configInfo, err := os.Lstat(configPath)
 	if err != nil || !configInfo.Mode().IsRegular() || configInfo.Mode().Perm()&0077 != 0 {

@@ -96,6 +96,19 @@ func (d *Docker) managedRuntime(id string) bool {
 
 func (d *Docker) publicRuntime(id string) bool { return d.pilot != nil || d.managedRuntime(id) }
 
+func (d *Docker) tenantNetwork(id string) string {
+	if d.managedRuntime(id) {
+		return "pds-ass-managed-tenant-" + id + "-network"
+	}
+	return "pds-ass-tenant-" + id + "-network"
+}
+func (d *Docker) ingressDirectory(id string) string {
+	if d.managedRuntime(id) {
+		return filepath.Join(d.directory, id+"-managed-edge")
+	}
+	return filepath.Join(d.directory, id+"-edge")
+}
+
 func (d *Docker) validateManagedState() error {
 	entries, err := os.ReadDir(d.directory)
 	if err != nil {
@@ -180,7 +193,7 @@ func (d *Docker) EnsureManaged(ctx context.Context, id string) (Instance, error)
 
 func (d *Docker) fenceFreshPublicNamespace(ctx context.Context, id string) error {
 	name := "pds-ass-tenant-" + id
-	for _, path := range []string{"/containers/" + name + "/json", "/containers/pds-ass-edge-" + id + "/json", "/containers/pds-ass-enrollment-" + id + "/json", "/volumes/" + name + "-data", "/volumes/" + name + "-blobs", "/networks/" + name + "-network"} {
+	for _, path := range []string{"/containers/" + name + "/json", "/containers/pds-ass-edge-" + id + "/json", "/containers/pds-ass-enrollment-" + id + "/json", "/volumes/" + name + "-data", "/volumes/" + name + "-blobs", "/networks/" + name + "-network", "/networks/pds-ass-managed-tenant-" + id + "-network"} {
 		status, err := d.call(ctx, "GET", path, nil, nil)
 		if status != http.StatusNotFound || err == nil {
 			return errors.New("fresh public namespace contains retained resources or is unavailable")

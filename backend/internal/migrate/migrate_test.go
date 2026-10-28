@@ -167,3 +167,44 @@ func TestVersion38UpgradePreservesPrivateIdentityWithoutPublishing(t *testing.T)
 		t.Fatal("upgrade invented public authority", err)
 	}
 }
+
+func TestVersion39UpgradeRetainsReservationWithoutInventingConversion(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var owner, org, id string
+	if err := pool.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES('fixture','conversion-upgrade','Conversion upgrade') RETURNING id`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Conversion upgrade',$1) RETURNING id`, owner).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,state,managed_hostname) SELECT id,$1,'retained','local','retained','agent','ready',id::text||'.localhost' FROM(SELECT gen_random_uuid()id)x RETURNING id`, org).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO managed_public_endpoints(deployment_id,hostname,forward_port,reservation_basis,actor) VALUES($1::uuid,'pds-'||replace($1::uuid::text,'-','')||'.subcult.tv',35000,'empty_fixture','operator')`, id); err != nil {
+		t.Fatal(err)
+	}
+	var before, after string
+	query := `SELECT json_build_array(row_to_json(d),row_to_json(e))::text FROM deployments d JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1`
+	if err := pool.QueryRow(ctx, query, id).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DROP TABLE managed_native_conversions; UPDATE schema_version SET version=39`); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := Apply(ctx, pool); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pool.QueryRow(ctx, query, id).Scan(&after); err != nil || after != before {
+		t.Fatal("conversion migration changed retained identity", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM managed_native_conversions`).Scan(&count); err != nil || count != 0 {
+		t.Fatal("migration invented operator conversion authority", err)
+	}
+}

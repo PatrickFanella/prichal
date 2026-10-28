@@ -180,7 +180,7 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		t.Fatalf("duplicate resources: %+v", creates)
 	}
 	if pilot || managed {
-		network := networks["pds-ass-tenant-"+id+"-network"]
+		network := networks[docker.tenantNetwork(id)]
 		if network["Internal"] != false {
 			t.Fatal("pilot cannot reach real PLC or SMTP")
 		}
