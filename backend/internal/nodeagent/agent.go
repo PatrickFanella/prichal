@@ -178,6 +178,25 @@ func Handler(runtime Runtime) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
+	mux.HandleFunc("GET /v1/instances/{id}/certificate", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			IngressCertificate(context.Context, string) (IngressCertificate, error)
+		})
+		if !ok {
+			http.Error(w, "ingress certificate unavailable", 503)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		result, err := provider.IngressCertificate(ctx, r.PathValue("id"))
+		if err != nil || result.Validate(r.PathValue("id")) != nil {
+			http.Error(w, "ingress certificate unavailable", 503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("GET /v1/instances/{id}/account", func(w http.ResponseWriter, r *http.Request) {
 		provider, ok := runtime.(interface {
 			AccountStatus(context.Context, string) (AccountStatus, error)
@@ -363,6 +382,10 @@ func Handler(runtime Runtime) http.Handler {
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/export") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/export")) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == "GET" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/certificate") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/certificate")) {
 			mux.ServeHTTP(w, r)
 			return
 		}

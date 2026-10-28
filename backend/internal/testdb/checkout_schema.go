@@ -50,6 +50,7 @@ func ReconstructCheckout33(t *testing.T, pool *pgxpool.Pool) {
 // migration tests can rebuild version 34 and earlier schemas.
 func ReconstructMembers34(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	ReconstructManaged38(t, pool)
 	if !regexp.MustCompile(`^pds_smoke_[0-9a-f]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
 		t.Fatal("allocator-owned migration fixture required")
 	}
@@ -60,6 +61,23 @@ func ReconstructMembers34(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("populated member invitations or runtime observations cannot be reconstructed")
 	}
 	if _, err := pool.Exec(ctx, `DROP TABLE member_removal_events,member_removals; DROP TABLE instance_runtime_releases; DROP TABLE member_invitation_events,member_invitations; UPDATE schema_version SET version=34`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// ReconstructManaged38 removes only empty public-routing metadata in allocator-owned fixtures.
+func ReconstructManaged38(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if !regexp.MustCompile(`^pds_smoke_[a-f0-9]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
+		t.Fatal("allocator-owned migration fixture required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	var empty bool
+	if err := pool.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM managed_public_endpoints) AND NOT EXISTS(SELECT 1 FROM managed_edge_observations)`).Scan(&empty); err != nil || !empty {
+		t.Fatal("populated public routing cannot be reconstructed")
+	}
+	if _, err := pool.Exec(ctx, `DROP TABLE managed_edge_observations,managed_public_endpoints; UPDATE schema_version SET version=38`); err != nil {
 		t.Fatal(err)
 	}
 }

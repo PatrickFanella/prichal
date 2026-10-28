@@ -132,3 +132,38 @@ func TestVersionOneUpgradeAndUnownedData(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion38UpgradePreservesPrivateIdentityWithoutPublishing(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var owner, org, id string
+	if err := pool.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES('fixture','managed-upgrade','Upgrade') RETURNING id`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Managed upgrade',$1) RETURNING id`, owner).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO deployments(organization_id,name,region,idempotency_key,kind,state,managed_hostname,endpoint_url) VALUES($1,'retained','local','retained','agent','ready','retained.localhost','https://retained.localhost:44444') RETURNING id`, org).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	before, after := "", ""
+	if err := pool.QueryRow(ctx, `SELECT row_to_json(d)::text FROM deployments d WHERE id=$1`, id).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	testdb.ReconstructManaged38(t, pool)
+	for range 2 {
+		if err := Apply(ctx, pool); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pool.QueryRow(ctx, `SELECT row_to_json(d)::text FROM deployments d WHERE id=$1`, id).Scan(&after); err != nil || after != before {
+		t.Fatal("upgrade changed retained native identity", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM managed_public_endpoints)+(SELECT count(*) FROM managed_edge_observations)`).Scan(&count); err != nil || count != 0 {
+		t.Fatal("upgrade invented public authority", err)
+	}
+}

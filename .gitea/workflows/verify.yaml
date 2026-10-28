@@ -40,6 +40,8 @@ jobs:
         run: python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_restore.py' -v
       - name: Verify private hosted-preview backup boundaries
         run: python3 -m unittest discover -s deploy/production -p 'test_preview_backup.py' -v
+      - name: Verify managed routing snapshot scope
+        run: python3 -m unittest discover -s deploy/homelab -p 'test_managed_routing_recovery.py' -v
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
       - name: Prepare customer CLI platform builds and verify Linux entry point

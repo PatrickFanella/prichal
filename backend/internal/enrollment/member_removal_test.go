@@ -3,6 +3,7 @@ package enrollment
 import (
 	"context"
 	"errors"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/testdb"
 	"strings"
 	"sync"
 	"testing"
@@ -300,6 +301,7 @@ func TestMemberRemovalMigrationPreservesAcceptedAccounts(t *testing.T) {
 	f.ownerAccount(t)
 	ctx := context.Background()
 	m := acceptedRemovalMember(t, f, 940, "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb")
+	testdb.ReconstructManaged38(t, f.pool)
 	if _, err := f.pool.Exec(ctx, `DROP TABLE member_removal_events,member_removals;UPDATE schema_version SET version=37`); err != nil {
 		t.Fatal(err)
 	}

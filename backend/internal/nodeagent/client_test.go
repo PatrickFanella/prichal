@@ -9,17 +9,22 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 type clientRuntime struct {
+	certificateResult  *IngressCertificate
+	certificateCalls   int
 	calls, withdrawals int
 	withdrawalResult   *Enrollment
 	exitResult         *MemberExit
@@ -27,6 +32,13 @@ type clientRuntime struct {
 	exitInspections    int
 }
 
+func (r *clientRuntime) IngressCertificate(context.Context, string) (IngressCertificate, error) {
+	r.certificateCalls++
+	if r.certificateResult == nil {
+		return IngressCertificate{}, errors.New("fixture certificate unavailable")
+	}
+	return *r.certificateResult, nil
+}
 func (r *clientRuntime) MemberExitStatus(_ context.Context, id, ticket string) (MemberExit, error) {
 	r.exitInspections++
 	if r.exitResult != nil {
@@ -134,6 +146,29 @@ func TestMutualTLSRegistryPin(t *testing.T) {
 	}
 	pin := sha256.Sum256(public)
 	peer := Peer{NodeID: nodeID, Endpoint: server.URL, PublicKeyHash: pin[:]}
+	deploymentID := "2395105c-9958-47b5-ae8b-5b0424cbfc4f"
+	privateDirectory := t.TempDir()
+	if err := os.Chmod(privateDirectory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	privateRuntime, err := NewDocker("/unused.sock", privateDirectory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicCertificate, err := privateRuntime.localCertificate(deploymentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicHash := sha256.Sum256(publicCertificate)
+	runtime.certificateResult = &IngressCertificate{InstanceID: deploymentID, Endpoint: LocalEndpoint(deploymentID), Certificate: string(publicCertificate), SHA256: hex.EncodeToString(publicHash[:])}
+	readback, err := client.IngressCertificate(context.Background(), peer, deploymentID)
+	if err != nil || readback != *runtime.certificateResult || strings.Contains(readback.Certificate, "PRIVATE KEY") {
+		t.Fatalf("authenticated public-only certificate readback: %v", err)
+	}
+	if runtime.certificateCalls != 1 {
+		t.Fatal("certificate inspection not dispatched")
+	}
+
 	result, exitErr := client.MemberExit(context.Background(), peer, nodeID, nodeID)
 	if exitErr != nil || result.State != "migration_window" {
 		t.Fatalf("authenticated member exit: %+v %v", result, exitErr)
