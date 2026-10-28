@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
 )
 
 // Peer is read from the node registry, never a customer-provided URL.
@@ -86,24 +88,44 @@ func (c *Client) httpClient(peer Peer) (*http.Client, error) {
 
 // Ensure verifies both the certificate chain and registry key before requesting a fixed runtime.
 func (c *Client) Ensure(ctx context.Context, peer Peer, id string) (Instance, error) {
-	return c.instance(ctx, peer, id, "PUT")
+	return c.instance(ctx, peer, id, "PUT", false)
 }
 
 // Status authenticates a registered node before inspecting an existing runtime.
 func (c *Client) Status(ctx context.Context, peer Peer, id string) (Instance, error) {
-	return c.instance(ctx, peer, id, "GET")
+	return c.instance(ctx, peer, id, "GET", false)
 }
 
-func (c *Client) instance(ctx context.Context, peer Peer, id, method string) (Instance, error) {
+// EnsureManaged requests only generated public identity, never a caller-selected hostname.
+func (c *Client) EnsureManaged(ctx context.Context, peer Peer, id string) (Instance, error) {
+	return c.instance(ctx, peer, id, "PUT", true)
+}
+
+func (c *Client) ManagedStatus(ctx context.Context, peer Peer, id string) (Instance, error) {
+	return c.instance(ctx, peer, id, "GET", true)
+}
+
+func (c *Client) instance(ctx context.Context, peer Peer, id, method string, managed bool) (Instance, error) {
 	if !instanceID.MatchString(id) {
 		return Instance{}, errors.New("invalid instance ID")
+	}
+	path, expected := "/v1/instances/"+id, LocalEndpoint(id)
+	if managed {
+		host, err := managednamespace.Endpoint(id)
+		if err != nil {
+			return Instance{}, err
+		}
+		expected = "https://" + host
+		if method == "PUT" {
+			path = "/v1/managed-instances/" + id
+		}
 	}
 	client, err := c.httpClient(peer)
 	if err != nil {
 		return Instance{}, err
 	}
 	defer client.CloseIdleConnections()
-	request, err := http.NewRequestWithContext(ctx, method, peer.Endpoint+"/v1/instances/"+id, bytes.NewBufferString("{}"))
+	request, err := http.NewRequestWithContext(ctx, method, peer.Endpoint+path, bytes.NewBufferString("{}"))
 	if err != nil {
 		return Instance{}, err
 	}
@@ -119,7 +141,7 @@ func (c *Client) instance(ctx context.Context, peer Peer, id, method string) (In
 	var result Instance
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 2048))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != LocalEndpoint(id) || (result.State != "running" && result.State != "starting" && result.State != "suspended") || !validServiceMetadata(result) || (result.Release != nil && !result.Release.Valid()) {
+	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || result.ID != id || result.Endpoint != expected || (result.State != "running" && result.State != "starting" && result.State != "suspended") || !validServiceMetadata(result) || (result.Release != nil && !result.Release.Valid()) {
 		return Instance{}, errors.New("invalid node reconciliation response")
 	}
 	return result, nil

@@ -35,6 +35,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	managed, err := config.LoadStagingManagedRuntime(mode, staging)
+	if err != nil {
+		return err
+	}
 	if mode != "local" && !staging {
 		return errors.New("worker requires local mode or production mode with PDS_STAGING_PROVISIONING=true")
 	}
@@ -82,7 +86,7 @@ func run() error {
 		return err
 	}
 	if staging {
-		return runStagingWorker(ctx, pool, agentClient)
+		return runStagingWorker(ctx, pool, agentClient, managed)
 	}
 	var exportAgent exports.Agent
 	var enrollmentAgent enrollment.Agent
@@ -195,9 +199,9 @@ func loadAgentClient() (*nodeagent.Client, error) {
 	return nodeagent.NewClient(ca, cert, key)
 }
 
-func runStagingWorker(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient) error {
+func runStagingWorker(ctx context.Context, pool *pgxpool.Pool, agent deployment.AgentClient, managed bool) error {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true}})
+	river.AddWorker(workers, &deployment.Worker{Pool: pool, Provisioner: deployment.Router{Pool: pool, Agent: agent, AgentOnly: true, ManagedRuntime: managed}})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{deployment.StagingQueue: {MaxWorkers: 1}, deployment.ManagedIntentQueue: {MaxWorkers: 1}}})
 	if err != nil {
 		return err

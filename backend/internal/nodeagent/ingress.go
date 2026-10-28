@@ -202,7 +202,7 @@ func validIngressMounts(current inspected, configPath, tlsPath string) bool {
 }
 
 func (d *Docker) validateIngress(id string, current inspected) error {
-	if d.pilot != nil {
+	if d.publicRuntime(id) {
 		bindings := current.HostConfig.PortBindings["8443/tcp"]
 		endpoint, _ := url.Parse(LocalEndpoint(id))
 		if len(current.HostConfig.PortBindings) != 1 || len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" || bindings[0].HostPort != endpoint.Port() {
@@ -239,6 +239,13 @@ func (d *Docker) ingressConfiguration(id string) string {
 `, id)
 	}
 	host := id + ".localhost"
+	if d.managedRuntime(id) {
+		identity, _ := d.readManagedIdentity(id)
+		host += " " + identity.Hostname
+		guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+  respond @registration "Account creation is closed" 403
+`
+	}
 	if d.pilot != nil {
 		host += " " + d.pilot.Hostname
 		if !d.pilotEnrollment {

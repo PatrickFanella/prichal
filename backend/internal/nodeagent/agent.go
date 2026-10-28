@@ -34,6 +34,33 @@ var instanceID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 // Handler accepts only an empty configuration object and a stable instance UUID.
 func Handler(runtime Runtime) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /v1/managed-instances/{id}", func(w http.ResponseWriter, r *http.Request) {
+		provider, ok := runtime.(interface {
+			EnsureManaged(context.Context, string) (Instance, error)
+		})
+		if !ok {
+			http.Error(w, "managed reconciliation unavailable", 503)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 128)
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		var request struct{}
+		if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF {
+			http.Error(w, "unsupported managed configuration", 400)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		result, err := provider.EnsureManaged(ctx, r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "managed reconciliation unavailable", 503)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("POST /v1/instances/{id}/enrollment/withdraw", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -381,6 +408,26 @@ func Handler(runtime Runtime) http.Handler {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This startup policy is immutable while serving. Closing all POST mutations
+		// also fences a request that races the first managed identity receipt.
+		if provider, ok := runtime.(interface{ ManagedProvisioningOnly() bool }); ok && provider.ManagedProvisioningOnly() && r.Method != "GET" && r.Method != "PUT" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == "PUT" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/managed-instances/") && instanceID.MatchString(strings.TrimPrefix(r.URL.Path, "/v1/managed-instances/")) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/v1/instances/") {
+			id := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/")[0]
+			if provider, ok := runtime.(interface{ ManagedIdentityRetained(string) bool }); ok && provider.ManagedIdentityRetained(id) {
+				base := "/v1/instances/" + id
+				if r.Method != "GET" || r.URL.RawPath != "" || r.URL.RawQuery != "" || (r.URL.Path != base && r.URL.Path != base+"/certificate" && r.URL.Path != base+"/usage") {
+					http.NotFound(w, r)
+					return
+				}
+			}
+		}
 		if r.Method == "POST" && r.URL.RawPath == "" && r.URL.RawQuery == "" && strings.HasPrefix(r.URL.Path, "/v1/instances/") && strings.HasSuffix(r.URL.Path, "/export") && instanceID.MatchString(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/export")) {
 			mux.ServeHTTP(w, r)
 			return

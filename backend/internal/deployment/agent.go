@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/fleet"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managedrouting"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,22 +26,40 @@ type AgentClient interface {
 
 // AgentProvisioner runs outside the API and owns only worker-to-agent credentials.
 type AgentProvisioner struct {
-	Pool   *pgxpool.Pool
-	Client AgentClient
+	Pool           *pgxpool.Pool
+	Client         AgentClient
+	ManagedRuntime bool
 }
 
 func (p AgentProvisioner) Step(ctx context.Context, id string) error {
-	var state, hostname string
-	var reserved bool
-	var created time.Time
-	if err := p.Pool.QueryRow(ctx, `SELECT state,created_at,managed_hostname,EXISTS(SELECT 1 FROM managed_public_endpoints WHERE deployment_id=d.id AND reservation_basis='queued') FROM deployments d WHERE id=$1`, id).Scan(&state, &created, &hostname, &reserved); err != nil {
+	var state, hostname, reservedHostname, basis, serving string
+	var created, updated time.Time
+	if err := p.Pool.QueryRow(ctx, `SELECT d.state,d.created_at,d.updated_at,d.managed_hostname,coalesce(e.hostname,''),coalesce(e.reservation_basis,''),coalesce(d.endpoint_url,'') FROM deployments d LEFT JOIN managed_public_endpoints e ON e.deployment_id=d.id WHERE d.id=$1`, id).Scan(&state, &created, &updated, &hostname, &reservedHostname, &basis, &serving); err != nil {
 		return err
 	}
 	if state == "ready" || state == "failed" {
 		return nil
 	}
-	if reserved || hostname != id+".localhost" {
-		return ErrManagedEndpointPending
+	managed := basis == "queued" || hostname != id+".localhost"
+	var ensure func(context.Context, nodeagent.Peer, string) (nodeagent.Instance, error)
+	if p.Client != nil {
+		ensure = p.Client.Ensure
+	}
+	if managed {
+		provider, ok := p.Client.(interface {
+			EnsureManaged(context.Context, nodeagent.Peer, string) (nodeagent.Instance, error)
+		})
+		if !p.ManagedRuntime || !ok {
+			return ErrManagedEndpointPending
+		}
+		expected, err := managednamespace.Endpoint(id)
+		if err != nil || basis != "queued" || reservedHostname != expected || hostname != expected || serving != "" {
+			return errors.New("retained managed intent differs from generated policy")
+		}
+		if err := p.checkManagedAuthority(ctx); err != nil {
+			return err
+		}
+		ensure = provider.EnsureManaged
 	}
 	store := fleet.Store{Pool: p.Pool}
 	if state == "queued" && p.Client != nil {
@@ -65,14 +85,48 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 		return err
 	}
 	if state == "queued" {
+		if managed {
+			if err := p.checkManagedAuthority(ctx); err != nil {
+				return err
+			}
+			return p.transition(ctx, id, "queued", "configuring", "Reserved a hosting slot. Configuring managed PDS identity.")
+		}
 		return p.transition(ctx, id, "queued", "configuring", "Reserved a hosting slot. Configuring the local PDS.")
 	}
 	if p.Client == nil {
 		return errors.New("local agent provisioner is not configured")
 	}
-	instance, err := p.Client.Ensure(ctx, nodeagent.Peer{NodeID: placement.NodeID, Endpoint: placement.Endpoint, PublicKeyHash: placement.PublicKeyHash}, id)
+	if managed {
+		if err := p.checkManagedAuthority(ctx); err != nil {
+			return err
+		}
+	}
+	instance, err := ensure(ctx, nodeagent.Peer{NodeID: placement.NodeID, Endpoint: placement.Endpoint, PublicKeyHash: placement.PublicKeyHash}, id)
+	if managed {
+		if err := p.checkManagedAuthority(ctx); err != nil {
+			return err
+		}
+	}
 	if err != nil {
 		return err
+	}
+	if managed {
+		if instance.ID != id || instance.Endpoint != "https://"+hostname {
+			return errors.New("native managed identity differs from retained intent")
+		}
+		if state == "configuring" {
+			return p.transition(ctx, id, "configuring", "checking", "Managed PDS resources exist. Public readiness is pending.")
+		}
+		if state != "checking" {
+			return errors.New("unsupported managed deployment checkpoint")
+		}
+		if !instance.Healthy {
+			if time.Since(updated) > 2*time.Minute {
+				return errors.New("managed PDS native health did not become ready")
+			}
+			return ErrHealthPending
+		}
+		return ErrManagedEndpointPending
 	}
 	if instance.Endpoint != nodeagent.LocalEndpoint(id) {
 		return errors.New("managed endpoint identity differs from policy")
@@ -98,6 +152,18 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	}
 	return errors.New("unsupported deployment checkpoint")
 }
+
+func (p AgentProvisioner) checkManagedAuthority(ctx context.Context) error {
+	tx, err := p.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := managedrouting.CheckTransaction(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
 func (p AgentProvisioner) transition(ctx context.Context, id, previous, next, message string) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -118,9 +184,10 @@ func (p AgentProvisioner) transition(ctx context.Context, id, previous, next, me
 
 // Router prevents queued test operations from changing behavior when a real agent is configured.
 type Router struct {
-	Pool      *pgxpool.Pool
-	Agent     AgentClient
-	AgentOnly bool
+	Pool           *pgxpool.Pool
+	Agent          AgentClient
+	AgentOnly      bool
+	ManagedRuntime bool
 }
 
 func (p Router) Step(ctx context.Context, id string) error {
@@ -138,7 +205,7 @@ func (p Router) Step(ctx context.Context, id string) error {
 		if p.Agent == nil {
 			return errors.New("local agent provisioner is not configured")
 		}
-		return (AgentProvisioner{Pool: p.Pool, Client: p.Agent}).Step(ctx, id)
+		return (AgentProvisioner{Pool: p.Pool, Client: p.Agent, ManagedRuntime: p.ManagedRuntime}).Step(ctx, id)
 	default:
 		return errors.New("unsupported deployment kind")
 	}

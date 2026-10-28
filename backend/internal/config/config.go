@@ -77,3 +77,15 @@ func LoadStagingManagedIntents(mode string, staging bool) (bool, error) {
 	}
 	return true, nil
 }
+
+// LoadStagingManagedRuntime enables native identity only; it never enables public readiness.
+func LoadStagingManagedRuntime(mode string, staging bool) (bool, error) {
+	value := os.Getenv("PDS_STAGING_MANAGED_RUNTIME")
+	if value == "" {
+		return false, nil
+	}
+	if value != "true" || mode != "production" || !staging {
+		return false, errors.New("PDS_STAGING_MANAGED_RUNTIME requires explicit production staging provisioning and true opt-in")
+	}
+	return true, nil
+}

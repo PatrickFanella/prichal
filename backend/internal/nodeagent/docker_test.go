@@ -42,10 +42,12 @@ func TestCredentialsSurviveReconstruction(t *testing.T) {
 	}
 }
 func TestFixedRuntimeAndRetry(t *testing.T) {
-	t.Run("local", func(t *testing.T) { testFixedRuntimeAndRetry(t, false) })
-	t.Run("pilot", func(t *testing.T) { testFixedRuntimeAndRetry(t, true) })
+	for _, mode := range []string{"local", "pilot", "managed"} {
+		t.Run(mode, func(t *testing.T) { testFixedRuntimeAndRetry(t, mode) })
+	}
 }
-func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
+func testFixedRuntimeAndRetry(t *testing.T, mode string) {
+	pilot, managed := mode == "pilot", mode == "managed"
 	id := "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
 	configurations := map[string]map[string]any{}
 	networks := map[string]map[string]any{}
@@ -161,8 +163,15 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 			t.Fatal(err)
 		}
 	}
+	ensure := docker.Ensure
+	if managed {
+		if err := docker.EnableManagedEndpoints(); err != nil {
+			t.Fatal(err)
+		}
+		ensure = docker.EnsureManaged
+	}
 	for i := 0; i < 2; i++ {
-		result, err := docker.Ensure(context.Background(), id)
+		result, err := ensure(context.Background(), id)
 		if err != nil || result.State != "running" || result.Endpoint != docker.endpoint(id) {
 			t.Fatalf("reconciliation: %+v %v", result, err)
 		}
@@ -170,7 +179,7 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 	if creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
 		t.Fatalf("duplicate resources: %+v", creates)
 	}
-	if pilot {
+	if pilot || managed {
 		network := networks["pds-ass-tenant-"+id+"-network"]
 		if network["Internal"] != false {
 			t.Fatal("pilot cannot reach real PLC or SMTP")
@@ -181,7 +190,15 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 		}
 		network["Internal"] = false
 		configuration := docker.ingressConfiguration(id)
-		if !strings.Contains(configuration, "Pilot account creation is closed") || !strings.Contains(configuration, docker.pilot.Hostname) {
+		if managed {
+			identity, err := docker.readManagedIdentity(id)
+			if err != nil || !strings.Contains(configuration, identity.Hostname) || !strings.Contains(configuration, "Account creation is closed") {
+				t.Fatal("managed ingress is not closed to registration", err)
+			}
+			if _, err := docker.Ensure(context.Background(), id); err == nil {
+				t.Fatal("private reconciliation adopted managed state")
+			}
+		} else if !strings.Contains(configuration, "Pilot account creation is closed") || !strings.Contains(configuration, docker.pilot.Hostname) {
 			t.Fatal("pilot ingress lacks closed registration and public hostname")
 		}
 	}
@@ -226,7 +243,7 @@ func testFixedRuntimeAndRetry(t *testing.T, pilot bool) {
 		t.Fatal("ingress remained active after partial stop")
 	}
 	readOnly = true
-	result, err = docker.Ensure(context.Background(), id)
+	result, err = ensure(context.Background(), id)
 	if err != nil || result.State != "suspended" || result.Healthy {
 		t.Fatal("reconciliation undid interrupted suspension")
 	}

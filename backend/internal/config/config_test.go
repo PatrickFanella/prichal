@@ -72,3 +72,18 @@ func TestManagedIntentsRequireExplicitProductionStaging(t *testing.T) {
 		}
 	}
 }
+
+func TestManagedRuntimeRequiresExplicitProductionStaging(t *testing.T) {
+	for _, mode := range []string{"", "local", "pilot", "production"} {
+		for _, staging := range []bool{false, true} {
+			for _, value := range []string{"", "true", "false", "1"} {
+				t.Setenv("PDS_STAGING_MANAGED_RUNTIME", value)
+				enabled, err := LoadStagingManagedRuntime(mode, staging)
+				want := value == "true" && mode == "production" && staging
+				if enabled != want || (err == nil) != (value == "" || want) {
+					t.Fatalf("mode=%s staging=%v value=%s enabled=%v error=%v", mode, staging, value, enabled, err)
+				}
+			}
+		}
+	}
+}
