@@ -32,3 +32,7 @@ Managed hostnames are the default; customer-owned PDS endpoints are a later issu
 
 Phase: M1 - Private deployment alpha. Priority: P0.
 [Implementation plan](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/implementation-plan.md) and [roadmap](https://git.subcult.tv/PatrickFanella/pds-ass/src/branch/main/docs/roadmap.md).
+
+## Selected namespace and implementation sequence — October 28, 2026
+
+The owner selected first-level names under `subcult.tv`, with no domain purchase. The [namespace policy](../managed-namespace.md) reserves generated `pds-` endpoint and `at-` account labels. #6 is accepted and closed after PR #202. The [implementation sequence](../managed-https-design.md) starts with strict operator-inventory candidate generation and isolated pinned-Caddy validation. Authoritative inventory export, retained runtime identity, scoped publication and public DNS/TLS/WebSocket failure/retry qualification remain open. Candidate generation does not issue names or enable accounts.
