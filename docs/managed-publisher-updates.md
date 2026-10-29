@@ -14,6 +14,8 @@ This unit continues #7 after PR #209 merged as `db94ee59ddfef98886525025bdfae74f
 
 [Registry RDAP](https://rdap.nic.tv/domain/subcult.tv) on October 28 confirms `subcult.tv` is registered through Cloudflare, Inc. and delegated to `hasslo.ns.cloudflare.com` / `dahlia.ns.cloudflare.com`. Canonical homelab records do not identify the registrar/DNS account custodian. The owner has been asked for the name or role required by #126; no credentials or DNS change are needed for that record. Independent publisher work continued while this fact remained pending.
 
+On October 29 the project owner confirmed control of the Cloudflare DNS account. [The namespace ownership record](managed-namespace.md) now identifies the project owner as DNS custodian, and #126 is closed. Separate registrar-account access and agent credentials were not confirmed. The preceding pending observation describes October 28.
+
 Keep same-host snapshot and node transport expiry limits from [public readiness](managed-public-readiness.md). Publisher receipts are private operator custody; full existing Caddy snapshots must not be committed. A changed unrelated configuration requires a fresh preparation against the current baseline, not an automatic overwrite or rollback of another operator's work.
 
 ## Operator contract
