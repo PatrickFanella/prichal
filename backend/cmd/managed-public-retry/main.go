@@ -1,4 +1,4 @@
-// managed-public-retry resumes only the designated staging-02 public verification cycle.
+// managed-public-retry resumes a retained public verification cycle in the isolated staging registry.
 package main
 
 import (
@@ -21,6 +21,37 @@ import (
 const instance = "2395105c-9958-47b5-ae8b-5b0424cbfc4f"
 const node = "60684f10-c6b2-4833-a0b8-fb9f96a7869b"
 
+type retryTarget struct {
+	Instance, Node, Key string
+}
+
+func parseTarget(args []string) (retryTarget, error) {
+	flags := flag.NewFlagSet("managed-public-retry", flag.ContinueOnError)
+	key := flags.String("key", "", "stable retry UUID")
+	selected := flags.String("deployment", "", "retained managed deployment UUID")
+	nodeID := flags.String("node", "", "expected current placement node UUID")
+	confirmed := flags.Bool("confirm-managed-endpoint", false, "retry the explicitly selected retained managed endpoint")
+	legacy := flags.Bool("confirm-staging-02", false, "retry only the original staging-02 fixture without target overrides")
+	if err := flags.Parse(args); err != nil {
+		return retryTarget{}, err
+	}
+	if flags.NArg() != 0 || *confirmed == *legacy {
+		return retryTarget{}, errors.New("select exactly one retry confirmation; positional arguments are not supported")
+	}
+	if *legacy {
+		if *selected != "" || *nodeID != "" {
+			return retryTarget{}, errors.New("legacy staging-02 confirmation does not permit target overrides")
+		}
+		*selected, *nodeID = instance, node
+	}
+	for _, id := range []string{*selected, *nodeID, *key} {
+		if _, err := managednamespace.Endpoint(id); err != nil {
+			return retryTarget{}, errors.New("canonical deployment, node and retry UUIDs are required")
+		}
+	}
+	return retryTarget{Instance: *selected, Node: *nodeID, Key: *key}, nil
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -35,16 +66,8 @@ func run() error {
 	if !staging {
 		return errors.New("public retry requires explicit production staging")
 	}
-	flags := flag.NewFlagSet("managed-public-retry", flag.ContinueOnError)
-	key := flags.String("key", "", "stable retry UUID")
-	confirmed := flags.Bool("confirm-staging-02", false, "retry only the retained disposable staging-02 endpoint")
-	if err = flags.Parse(os.Args[1:]); err != nil {
-		return err
-	}
-	if !*confirmed || flags.NArg() != 0 {
-		return errors.New("--key UUID --confirm-staging-02 required")
-	}
-	if _, err = managednamespace.Endpoint(*key); err != nil {
+	target, err := parseTarget(os.Args[1:])
+	if err != nil {
 		return err
 	}
 	cfg, err := pgxpool.ParseConfig(os.Getenv("PDS_DATABASE_URL"))
@@ -73,7 +96,7 @@ func run() error {
 	if err != nil {
 		return errors.New("operator identity unavailable")
 	}
-	result, err := store.RetryManagedPublic(ctx, actor.Username, instance, node, *key)
+	result, err := store.RetryManagedPublic(ctx, actor.Username, target.Instance, target.Node, target.Key)
 	if err != nil {
 		return err
 	}

@@ -76,6 +76,36 @@ func publicFailure(t *testing.T, s *Store, id string, p AgentProvisioner, checke
 		t.Fatal(err)
 	}
 }
+func TestPublicRetryRequiresSelectedRetainedIdentityAndPlacement(t *testing.T) {
+	s, owner, id, provisioner, checker := publicFixture(t)
+	ctx := context.Background()
+	publicFailure(t, s, id, provisioner, checker)
+	var node string
+	if err := s.Pool.QueryRow(ctx, `SELECT node_id::text FROM instance_placements WHERE deployment_id=$1`, id).Scan(&node); err != nil {
+		t.Fatal(err)
+	}
+	other := "dddddddd-dddd-4ddd-addd-dddddddddddd"
+	key := "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
+	if _, err := s.RetryManagedPublic(ctx, "operator", id, other, key); !errors.Is(err, ErrConflict) {
+		t.Fatal("wrong selected placement accepted", err)
+	}
+	if _, err := s.RetryManagedPublic(ctx, "operator", other, node, key); err == nil {
+		t.Fatal("unknown deployment created retry authority")
+	}
+	var retries int
+	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM managed_public_retries`).Scan(&retries); err != nil || retries != 0 {
+		t.Fatal("refused selection retained a retry", retries, err)
+	}
+	op, err := s.Get(ctx, owner, id)
+	if err != nil || op.State != "failed" || op.Endpoint != "" {
+		t.Fatal("refused selection changed failure state", op, err)
+	}
+	result, err := s.RetryManagedPublic(ctx, "operator", id, node, key)
+	if err != nil || result.DeploymentID != id || result.NodeID != node || result.Cycle != 2 {
+		t.Fatal("selected identity was not queued", result, err)
+	}
+}
+
 func TestPublicReadinessFailureReconstructionRetryAndAtomicReady(t *testing.T) {
 	s, owner, id, p, checker := publicFixture(t)
 	ctx := context.Background()
