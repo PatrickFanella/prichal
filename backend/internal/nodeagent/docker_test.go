@@ -231,6 +231,39 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 	if err != nil || result.Healthy || result.State != "starting" {
 		t.Fatalf("stopped inspection: %+v %v", result, err)
 	}
+	if managed {
+		// A cold host restart leaves both retained containers stopped without a lifecycle hold.
+		running["pds-ass-edge-"+id] = false
+		readOnly = false
+		credentials, err := os.ReadFile(filepath.Join(directory, id+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt, err := os.ReadFile(filepath.Join(directory, id+managedIdentitySuffix))
+		if err != nil {
+			t.Fatal(err)
+		}
+		reconstructed := &Docker{client: docker.client, directory: directory, healthProbe: docker.healthProbe}
+		if err := reconstructed.EnableManagedEndpoints(); err != nil {
+			t.Fatal(err)
+		}
+		result, err := reconstructed.EnsureManaged(context.Background(), id)
+		if err != nil || !result.Healthy || result.Endpoint != docker.endpoint(id) || !running["pds-ass-edge-"+id] {
+			t.Fatal("cold managed reconciliation did not resume retained resources", result, err)
+		}
+		afterCredentials, err := os.ReadFile(filepath.Join(directory, id+".json"))
+		if err != nil || string(afterCredentials) != string(credentials) {
+			t.Fatal("cold reconciliation replaced credentials", err)
+		}
+		afterReceipt, err := os.ReadFile(filepath.Join(directory, id+managedIdentitySuffix))
+		if err != nil || string(afterReceipt) != string(receipt) || creates["pds-ass-tenant-"+id] != 1 || creates["pds-ass-edge-"+id] != 1 {
+			t.Fatal("cold reconciliation replaced identity/resources", err)
+		}
+		afterCertificate, err := reconstructed.IngressCertificate(context.Background(), id)
+		if err != nil || afterCertificate.Certificate != certificate.Certificate {
+			t.Fatal("cold reconciliation replaced ingress trust", err)
+		}
+	}
 	running["pds-ass-tenant-"+id] = true
 	readOnly = false
 	// An interrupted stop retains its private hold. Ensure cannot restart ingress.
