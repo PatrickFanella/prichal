@@ -22,6 +22,8 @@ PR #209 merged durable public readiness as `db94ee59ddfef98886525025bdfae74ffcf6
 
 ## Remaining units in order
 
+[October 29 transport recovery](staging-02-transport-renewal.md) renewed the expired staging-02 node leaf with its retained key and verified authenticated capacity. It also found the native/ingress containers already stopped; they remain stopped and public health returns 502. Historical ready/public-success observations above are not current availability. Investigate and qualify native resumption before another public readiness claim.
+
 The operator [public-verification retry command](managed-public-readiness.md) now accepts explicit retained deployment and expected node UUIDs within the same isolated staging registry. Legacy fixture-only confirmation remains restricted. This removes the command's fixed-deployment obstacle for future managed allocation drills without adding host authority or claiming new live qualification.
 
 1. Retain the qualified staging-02 identity and private conversion evidence. Full recovery after managed writes and off-host backup remain separate gates. Do not derive a replacement name from a new node or silently change a populated PDS. Keep public intent pending until the remaining readiness work is supported.

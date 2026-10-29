@@ -46,6 +46,8 @@ jobs:
         run: python3 -m unittest discover -s deploy/homelab -p 'test_managed_conversion.py' -v
       - name: Verify managed staging publisher boundaries
         run: python3 -m unittest discover -s deploy/homelab -p 'test_managed_publisher*.py' -v
+      - name: Verify staging-02 retained-key certificate publication
+        run: python3 -m unittest discover -s deploy/homelab -p 'test_staging_02_certificates.py' -v
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
       - name: Prepare customer CLI platform builds and verify Linux entry point
