@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Guest-root publisher for the fixed staging public certificate pair."""
 import json
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -33,9 +34,11 @@ def replace(path, data, uid, gid):
         Path(name).unlink(missing_ok=True)
 
 
-def main():
+def main(staging_02=False):
     if os.geteuid() != 0:
         raise ValueError('Guest root required')
+    selected_node = '60684f10-c6b2-4833-a0b8-fb9f96a7869b' if staging_02 else NODE
+    service = 'prichal-agent.service' if staging_02 else 'prichal-staging-agent.service'
     data = sys.stdin.buffer.read(16385)
     if len(data) > 16384:
         raise ValueError('Certificate payload too large')
@@ -60,7 +63,7 @@ def main():
         if output('openssl', 'x509', '-in', str(candidate_cert), '-pubkey', '-noout') != output('openssl', 'pkey', '-in', str(key), '-pubout'):
             raise ValueError('Node key replacement refused')
         subject = output('openssl', 'x509', '-in', str(candidate_cert), '-noout', '-subject', '-nameopt', 'RFC2253').decode().strip()
-        if subject != 'subject=CN=pds-ass-node-' + NODE:
+        if subject != 'subject=CN=pds-ass-node-' + selected_node:
             raise ValueError('Foreign node identity')
         output('openssl', 'verify', '-CAfile', str(candidate_ca), '-purpose', 'sslserver', '-verify_ip', '127.0.0.1', str(candidate_cert))
         output('openssl', 'x509', '-in', str(candidate_cert), '-checkend', '3600', '-noout')
@@ -69,15 +72,17 @@ def main():
         try:
             replace(ca, candidate_ca.read_bytes(), info.st_uid, info.st_gid)
             replace(cert, candidate_cert.read_bytes(), info.st_uid, info.st_gid)
-            output('systemctl', 'restart', 'prichal-staging-agent.service')
-            output('systemctl', 'is-active', 'prichal-staging-agent.service')
+            output('systemctl', 'restart', service)
+            output('systemctl', 'is-active', service)
         except Exception:
             replace(ca, old_ca, info.st_uid, info.st_gid)
             replace(cert, old_cert, info.st_uid, info.st_gid)
-            output('systemctl', 'restart', 'prichal-staging-agent.service')
+            output('systemctl', 'restart', service)
             raise
     print('Retained-key certificate installed; agent restarted.')
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--staging-02', action='store_true', help='publish only the retained second staging node identity')
+    main(parser.parse_args().staging_02)
