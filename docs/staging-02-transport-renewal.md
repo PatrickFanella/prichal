@@ -4,9 +4,9 @@ This #7 prerequisite restores authenticated management access to the existing se
 
 ## Scope and operation
 
-`deploy/homelab/renew-staging-02-node.py --confirm-staging-02` runs on Kvant with its existing private `~/.local/state/prichal-staging-02-bootstrap/` custody. It permits only node `60684f10-c6b2-4833-a0b8-fb9f96a7869b`, retained deployment `2395105c-9958-47b5-ae8b-5b0424cbfc4f`, loopback management PostgreSQL port 35437, database `pds_local` and role `pds_staging`. URL query overrides are refused except the existing `sslmode=disable` loopback setting. No private key is copied between hosts.
+`deploy/homelab/renew-staging-02-node.py --confirm-staging-02` runs on Kvant with its existing private `~/.local/state/prichal-staging-02-bootstrap/` custody. It permits only node `60684f10-c6b2-4833-a0b8-fb9f96a7869b`, loopback management PostgreSQL port 35437, database `pds_local` and role `pds_staging`. URL query overrides are refused except the existing `sslmode=disable` loopback setting. No private key is copied between hosts.
 
-The private `transport-renewal/` directory must already contain a reviewed, mode-0700 `node-admin` binary built with the pinned Go toolchain from `backend/cmd/node-admin`. The coordinator and existing authority/database files stay private. The node leaf may be expired; the CA must have more than two days and worker leaf more than one day remaining. Insufficient authority/workload validity refuses rather than silently rotating or replacing them. Registry custody must contain exactly the retained fixture.
+The private `transport-renewal/` directory must already contain a reviewed, mode-0700 `node-admin` binary built with the pinned Go toolchain from `backend/cmd/node-admin`. The coordinator and existing authority/database files stay private. The node leaf may be expired; the CA must have more than two days and worker leaf more than one day remaining. Insufficient authority/workload validity refuses rather than silently rotating or replacing them. Registry custody must hold no placement or one well-formed placement, and must read back unchanged after publication. Authenticated capacity must report exactly those IDs, one slot and three CPUs. The original version required retained deployment `2395105c-9958-47b5-ae8b-5b0424cbfc4f`; see [the post-release change](#post-release-custody) below.
 
 The existing `node-admin renew` transaction verifies the retained registry identity and issues a new server leaf for the same node key. The coordinator retains before/candidate/result receipts, verifies the public key is unchanged, sends only public certificates over the fixed pinned SSH connection, checks installed bytes and verifies mTLS capacity/custody. It does not create a bootstrap, edit the node configuration, change a namespace or call Docker. Registry commit precedes guest publication; uncertain completion retains evidence for inspection.
 
@@ -31,6 +31,12 @@ Candidate SHA256 values:
 | Guest publisher | `90c38f321787678e73cf12011f1afb6a4a5f4ff937a16c13756ea2db9438b660` |
 
 Private receipts, public certificate copies, binaries and native snapshots remain under Kvant's `~/.local/state/prichal-staging-02-bootstrap/transport-renewal/`. The publisher was absent before this operation; no previous helper was overwritten. Existing native/agent binaries, runtime configuration, Cloudflare/DNS, Caddy routes and forwarding units were unchanged. No provider capacity or spend was added. Earlier management snapshot proofs retain their original dated scope; the new registry certificate is not in those earlier archives.
+
+## Post-release custody
+
+The [fixture retirement](managed-fixture-withdrawal.md) on October 30 released the only placement, so registry custody and agent capacity are both empty. The original coordinator refused that state. Node leaves last 24 hours, so the next renewal also has to work after a fresh allocation places a new deployment on this node. The coordinator now records the registry's placements before renewal (none or one valid UUID), requires the same list after publication and requires authenticated capacity to report exactly that list. A placement created or released during renewal, a second placement, a malformed ID, a foreign capacity entry or a changed slot/CPU measurement refuses after registry commit and guest publication, the same point as before. The receipt reports `instanceIds` instead of the fixed `instanceId`.
+
+Older renewal binaries cannot read the schema-42 registry. The control directory's `node-admin` must be built from a schema-42 merge before use.
 
 ## Validation and next step
 

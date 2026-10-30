@@ -20,13 +20,21 @@ guest = load('guest02', 'publish-certificate.py')
 
 
 class Staging02Certificates(unittest.TestCase):
-    def test_only_exact_single_retained_fixture_is_supported(self):
-        capacity = {'maximumSlots': 1, 'cpus': 3, 'instanceIds': [operator.INSTANCE]}
-        self.assertTrue(operator.valid_custody(capacity, [operator.INSTANCE]))
-        for changed in [[], ['foreign'], [operator.INSTANCE, operator.INSTANCE]]:
-            self.assertFalse(operator.valid_custody({**capacity, 'instanceIds': changed}, [operator.INSTANCE]))
-            self.assertFalse(operator.valid_custody(capacity, changed))
-        self.assertFalse(operator.valid_custody({**capacity, 'maximumSlots': 2}, [operator.INSTANCE]))
+    def test_custody_must_be_unchanged_and_match_authenticated_capacity(self):
+        fresh = '0f1e2d3c-4b5a-4697-a8b9-cadbecfd0e1f'
+        for placements in ([], [operator.INSTANCE], [fresh]):
+            capacity = {'maximumSlots': 1, 'cpus': 3, 'instanceIds': placements}
+            self.assertTrue(operator.valid_custody(capacity, placements, placements))
+            for changed in [[], [fresh], ['foreign'], [operator.INSTANCE, operator.INSTANCE]]:
+                if changed != placements:
+                    self.assertFalse(operator.valid_custody({**capacity, 'instanceIds': changed}, placements, placements))
+                    self.assertFalse(operator.valid_custody(capacity, changed, placements))
+                    self.assertFalse(operator.valid_custody({**capacity, 'instanceIds': changed}, changed, placements))
+            self.assertFalse(operator.valid_custody({**capacity, 'maximumSlots': 2}, placements, placements))
+            self.assertFalse(operator.valid_custody({**capacity, 'cpus': 4}, placements, placements))
+        for invalid in [None, {}, ['foreign'], [fresh.upper()], [fresh, operator.INSTANCE], [7]]:
+            self.assertFalse(operator.valid_placements(invalid))
+            self.assertFalse(operator.valid_custody({'maximumSlots': 1, 'cpus': 3, 'instanceIds': invalid}, invalid, invalid))
 
     def test_registry_scope_refuses_other_hosts_ports_databases_and_query_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:

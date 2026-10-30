@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Recover the fixed staging-02 node leaf with its retained key; no namespace or authority-key changes."""
+"""Renew the fixed staging-02 node leaf with its retained key; no namespace or authority-key changes."""
 import argparse
 import datetime as dt
 import fcntl
 import json
 import os
+import re
 from pathlib import Path
 import stat
 import subprocess
@@ -12,7 +13,9 @@ import urllib.parse
 
 ROOT = Path.home() / '.local/state/prichal-staging-02-bootstrap'
 NODE = '60684f10-c6b2-4833-a0b8-fb9f96a7869b'
+# Retired October 30, 2026; the node then holds no placement until a fresh allocation.
 INSTANCE = '2395105c-9958-47b5-ae8b-5b0424cbfc4f'
+PLACEMENT = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 VM = Path('/mnt/fast1/apps/prichal-staging-02')
 SSH = ['ssh', '-p', '22270', '-i', str(VM / 'admin.key'), '-o', 'IdentitiesOnly=yes',
        '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={VM}/known_hosts',
@@ -47,9 +50,16 @@ def environment():
     return env
 
 
-def valid_custody(capacity, retained):
-    return (capacity.get('maximumSlots') == 1 and capacity.get('cpus') == 3
-            and capacity.get('instanceIds') == [INSTANCE] and retained == [INSTANCE])
+def valid_placements(retained):
+    """The one-slot node holds no placement or one well-formed placement."""
+    return (isinstance(retained, list) and len(retained) <= 1
+            and all(isinstance(item, str) and PLACEMENT.fullmatch(item) for item in retained))
+
+
+def valid_custody(capacity, retained, before):
+    return (valid_placements(before) and retained == before
+            and capacity.get('maximumSlots') == 1 and capacity.get('cpus') == 3
+            and capacity.get('instanceIds') == before)
 
 
 def main():
@@ -78,7 +88,7 @@ def main():
             raise ValueError('Wrong staging-02 trust domain')
         command = str(control / 'node-admin')
         retained = json.loads(run([command, 'custody', '--node', NODE], env=env))
-        if retained != [INSTANCE]:
+        if not valid_placements(retained):
             raise ValueError('Unexpected staging-02 placement custody')
         receipt = control / dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
         receipt.mkdir(mode=0o700)
@@ -98,10 +108,10 @@ def main():
             '--cert', str(ROOT / 'pki/worker.crt'), '--key', str(ROOT / 'pki/worker.key'),
             'https://127.0.0.1:22271/v1/capacity']))
         after = json.loads(run([command, 'custody', '--node', NODE], env=env))
-        if not valid_custody(capacity, after):
+        if not valid_custody(capacity, after, retained):
             raise ValueError('Authenticated capacity/custody differs after publication')
         expiry = run(['openssl', 'x509', '-in', str(candidate), '-noout', '-enddate']).decode().strip()
-        result = {'success': True, 'nodeId': NODE, 'instanceId': INSTANCE, 'nodeExpiry': expiry,
+        result = {'success': True, 'nodeId': NODE, 'instanceIds': retained, 'nodeExpiry': expiry,
                   'retainedKey': True, 'maximumSlots': 1, 'cpus': 3}
         (receipt / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result))
