@@ -200,6 +200,49 @@ def validate_transition(previous, current):
 def validate_history_generation(value):
     if value['generation'] <= highest_published_generation():
         raise ValueError('Published generations cannot be reused, including after rollback')
+    withdrawn = withdrawn_endpoints()
+    for endpoint in value['endpoints']:
+        if endpoint['deploymentId'] in withdrawn or endpoint['forwardPort'] in withdrawn.values():
+            raise ValueError('A withdrawn endpoint identity or forward cannot be republished')
+
+
+def withdrawn_endpoints(exclude=''):
+    # Started withdrawals are permanent publication tombstones; only their own rollback reverses them.
+    result, count = {}, 0
+    for work in ROOT.iterdir():
+        if not UUID.fullmatch(work.name) or work.name == exclude or not os.path.lexists(work / 'withdrawal-started.json'):
+            continue
+        count += 1
+        if count > 10000:
+            raise ValueError('Withdrawal history exceeds its inspection bound')
+        directory(work, private=True)
+        if os.path.lexists(work / 'rolled-back.json'):
+            continue
+        receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
+        if receipt.get('kind') != 'withdrawal' or receipt['revision'] != work.name or not UUID.fullmatch(receipt['deploymentId']) or type(receipt['forwardPort']) is not int:
+            raise ValueError('Withdrawal history differs')
+        result[receipt['deploymentId']] = receipt['forwardPort']
+    return result
+
+
+def initial_parent(revision):
+    # Follow retained update custody back to the initial publication's exact pre-import parent bytes.
+    for _ in range(1000):
+        work = ROOT / revision
+        directory(work, private=True)
+        receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
+        if receipt['revision'] != revision or receipt.get('kind', 'publication') != 'publication':
+            raise ValueError('Publication chain custody differs')
+        previous = receipt.get('previousRevision', '')
+        if not previous:
+            parent = read(work / 'parent-before', private=True, root_owned=True)
+            if receipt['routeBefore'] is not None or digest(parent) != receipt['parentBefore'] or b'prichal-managed' in parent:
+                raise ValueError('Initial publication parent custody differs')
+            return parent
+        if not UUID.fullmatch(previous):
+            raise ValueError('Publication chain custody differs')
+        revision = previous
+    raise ValueError('Publication chain exceeds its inspection bound')
 
 
 def verify_upstreams(revision, inventory):
@@ -354,6 +397,111 @@ def prepare(work, revision, bundle, expected, previous_revision='', fixture_only
     return {'prepared': True, 'revision': revision, 'generation': value['generation'], 'liveChanged': False}
 
 
+def prepare_withdrawal(work, revision, previous_revision):
+    previous, inventory = applied_inventory(previous_revision)
+    endpoints = inventory['endpoints']
+    if len(endpoints) != 1 or endpoints[0]['deploymentId'] != INSTANCE or endpoints[0]['hostname'] != HOST or endpoints[0]['forwardPort'] != 35000:
+        raise ValueError('Withdrawal currently permits only the sole designated staging-02 endpoint')
+    if withdrawn_endpoints():
+        raise ValueError('A started withdrawal already exists')
+    parent = read(PARENT, root_owned=True)
+    if not os.path.lexists(TARGET):
+        raise ValueError('Managed route is not installed')
+    target = read(TARGET, root_owned=True)
+    if digest(parent) != previous['parentAfter'] or digest(target) != previous['routeAfter']:
+        raise ValueError('Installed managed route is not the explicitly selected preceding publication')
+    after_parent = initial_parent(previous_revision)
+    if parent_after(after_parent) != parent:
+        raise ValueError('Installed parent differs from its owned import; refusing withdrawal')
+    original = json.loads(caddy(work, 'adapt', '/etc/caddy/Caddyfile'))
+    if active(work)[0] != original:
+        raise ValueError('Active Caddy configuration differs from disk')
+    inputs = sources()
+    stage = BASE / 'sites' / ('.prichal-managed-' + revision)
+    stage.mkdir(mode=0o700)
+    stage_container = '/etc/caddy/sites/' + stage.name
+    main = read(BASE / 'Caddyfile')
+    if main.count(PARENT_IMPORT) != 1:
+        raise ValueError('Expected one existing Prichal parent import')
+    write_once(stage / 'parent.Caddyfile', after_parent)
+    write_once(stage / 'Caddyfile', main.replace(PARENT_IMPORT, ('import ' + stage_container + '/parent.Caddyfile').encode()))
+    candidate = production_hide_paths(json.loads(caddy(work, 'adapt', stage_container + '/Caddyfile')), stage_container + '/Caddyfile')
+    caddy(work, 'validate', stage_container + '/Caddyfile')
+    if HOST.encode() in json.dumps(candidate).encode() or candidate == original:
+        raise ValueError('Withdrawal candidate still routes the retired endpoint')
+    for name, data in [('parent-before', parent), ('parent-after', after_parent), ('route-before', target)]:
+        write_once(work / name, data)
+    write_once(stage / 'before.json', json.dumps(original).encode())
+    write_once(stage / 'after.json', json.dumps(candidate).encode())
+    receipt = {'version': 2, 'kind': 'withdrawal', 'revision': revision, 'previousRevision': previous_revision,
+               'deploymentId': INSTANCE, 'hostname': HOST, 'forwardPort': 35000, 'generation': previous['generation'],
+               'sources': inputs, 'parentBefore': digest(parent), 'parentAfter': digest(after_parent),
+               'routeBefore': digest(target), 'routeAfter': None, 'before': original, 'after': candidate, 'stage': stage_container}
+    check_sources(receipt)
+    if read(PARENT) != parent or read(TARGET) != target or active(work)[0] != original:
+        raise ValueError('Withdrawal inputs changed during preparation')
+    write_once(work / 'prepared.json', json.dumps(receipt).encode())
+    return {'prepared': True, 'revision': revision, 'withdrawal': True, 'liveChanged': False}
+
+
+def withdraw(work, receipt):
+    if (work / 'rolled-back.json').exists():
+        raise ValueError('A rolled-back withdrawal cannot be reapplied; prepare a new revision')
+    check_sources(receipt)
+    parent, target = owned_state(receipt)
+    if (work / 'withdrawal-receipt.json').exists():
+        if not (work / 'published.json').exists():
+            write_once(work / 'published.json', b'{"published":true}\n')
+        if digest(parent) != receipt['parentAfter'] or target is not None or active(work)[0] != receipt['after']:
+            raise ValueError('Withdrawn readback changed')
+        return {'withdrawn': True, 'revision': receipt['revision'], 'replayed': True,
+                'receiptSHA256': digest(read(work / 'withdrawal-receipt.json', private=True, root_owned=True))}
+    if withdrawn_endpoints(exclude=receipt['revision']):
+        raise ValueError('Another withdrawal has already started')
+    preceding, _ = applied_inventory(receipt['previousRevision'])
+    if preceding['routeAfter'] != receipt['routeBefore'] or preceding['parentAfter'] != receipt['parentBefore']:
+        raise ValueError('Withdrawal preceding publication differs')
+    current = active(work)[0]
+    if current not in (receipt['before'], receipt['after']):
+        raise ValueError('Concurrent active configuration changed')
+    after_parent = read(work / 'parent-after', private=True, root_owned=True)
+    if digest(after_parent) != receipt['parentAfter']:
+        raise ValueError('Prepared withdrawal custody differs')
+    # Tombstone before the first live mutation so an interrupted withdrawal cannot be republished.
+    if not (work / 'withdrawal-started.json').exists():
+        write_once(work / 'withdrawal-started.json', b'{"started":true}\n')
+    try:
+        replace(PARENT, after_parent)
+        if os.path.lexists(TARGET):
+            replace(TARGET, None)
+        check_sources(receipt)
+        caddy(work, 'validate', '/etc/caddy/Caddyfile')
+        live_candidate = json.loads(caddy(work, 'adapt', '/etc/caddy/Caddyfile'))
+        if live_candidate != receipt['after']:
+            write_once(work / 'refused-adapted.json', json.dumps(live_candidate).encode())
+            raise ValueError('Live withdrawal differs from validated full configuration')
+        load(work, receipt['stage'] + '/after.json', current, receipt['after'])
+        final = active(work)[0]
+        if final != receipt['after'] or HOST.encode() in json.dumps(final).encode():
+            raise ValueError('Withdrawn configuration readback differs')
+        check_sources(receipt)
+    except Exception:
+        # Restore the route that was active moments ago even if its upstream is currently degraded.
+        rollback(work, receipt, verify_preceding=False)
+        raise
+    evidence = {'version': 1, 'kind': 'managed-edge-withdrawal', 'revision': receipt['revision'], 'previousRevision': receipt['previousRevision'],
+                'deploymentId': receipt['deploymentId'], 'hostname': receipt['hostname'], 'forwardPort': receipt['forwardPort'],
+                'parentBeforeSHA256': receipt['parentBefore'], 'parentAfterSHA256': receipt['parentAfter'], 'routeBeforeSHA256': receipt['routeBefore'],
+                'activeBeforeSHA256': digest(json.dumps(receipt['before'], sort_keys=True).encode()),
+                'activeAfterSHA256': digest(json.dumps(receipt['after'], sort_keys=True).encode()),
+                'withdrawnAt': dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')}
+    data = (json.dumps(evidence, sort_keys=True) + '\n').encode()
+    # The receipt is the replay marker; the history marker follows it.
+    write_once(work / 'withdrawal-receipt.json', data)
+    write_once(work / 'published.json', b'{"published":true}\n')
+    return {'withdrawn': True, 'revision': receipt['revision'], 'receiptSHA256': digest(data), 'publicAbsenceQualified': False}
+
+
 def owned_state(receipt):
     parent = read(PARENT, root_owned=True)
     target = read(TARGET, root_owned=True) if os.path.lexists(TARGET) else None
@@ -362,7 +510,7 @@ def owned_state(receipt):
     return parent, target
 
 
-def rollback(work, receipt):
+def rollback(work, receipt, verify_preceding=True):
     check_sources(receipt)
     owned_state(receipt)
     current = active(work)[0]
@@ -373,7 +521,8 @@ def rollback(work, receipt):
         if preceding['routeAfter'] != receipt['routeBefore']:
             raise ValueError('Rollback preceding publication differs')
         # An expired export is historical authority, but its TLS trust must still work now.
-        verify_upstreams(receipt['previousRevision'], inventory)
+        if verify_preceding:
+            verify_upstreams(receipt['previousRevision'], inventory)
     before_parent = read(work / 'parent-before', private=True, root_owned=True)
     before_route = read(work / 'route-before', private=True, root_owned=True) if receipt['routeBefore'] is not None else None
     if digest(before_parent) != receipt['parentBefore'] or (digest(before_route) if before_route is not None else None) != receipt['routeBefore']:
@@ -448,7 +597,7 @@ def publish(work, receipt):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'publish', 'rollback'])
+    parser.add_argument('action', choices=['prepare', 'publish', 'rollback', 'prepare-withdrawal', 'withdraw'])
     parser.add_argument('--revision', required=True)
     parser.add_argument('--bundle', type=Path)
     parser.add_argument('--inventory-sha256')
@@ -460,7 +609,11 @@ def main():
         raise ValueError('Explicit root confirmation on Almaz required')
     if args.previous_revision and (not UUID.fullmatch(args.previous_revision) or args.previous_revision == args.revision):
         raise ValueError('Distinct canonical preceding publication revision required')
-    if args.action != 'prepare' and (args.bundle or args.inventory_sha256 or args.previous_revision):
+    if args.action in ('prepare-withdrawal', 'withdraw') and not args.confirm_staging_02:
+        raise ValueError('Withdrawal is limited to the explicitly confirmed staging-02 fixture')
+    if args.action == 'prepare-withdrawal' and (args.bundle or args.inventory_sha256 or not args.previous_revision):
+        raise ValueError('Withdrawal requires only the applied preceding publication revision')
+    if args.action not in ('prepare', 'prepare-withdrawal') and (args.bundle or args.inventory_sha256 or args.previous_revision):
         raise ValueError('Retained publication actions accept only their revision and confirmation')
     ROOT.mkdir(mode=0o700, exist_ok=True)
     directory(ROOT, private=True)
@@ -471,7 +624,10 @@ def main():
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         work = ROOT / args.revision
-        if args.action == 'prepare':
+        if args.action == 'prepare-withdrawal':
+            work.mkdir(mode=0o700)
+            result = prepare_withdrawal(work, args.revision, args.previous_revision)
+        elif args.action == 'prepare':
             if not args.bundle or not args.bundle.is_absolute() or not args.inventory_sha256:
                 raise ValueError('Private export bundle and its independently delivered digest required')
             work.mkdir(mode=0o700)
@@ -481,11 +637,17 @@ def main():
             receipt = json.loads(read(work / 'prepared.json', private=True, root_owned=True))
             if receipt['revision'] != args.revision:
                 raise ValueError('Retained publication revision differs')
-            if args.confirm_staging_02:
+            kind = receipt.get('kind', 'publication')
+            if (kind == 'withdrawal') != (args.action == 'withdraw') and args.action != 'rollback':
+                raise ValueError('Retained revision kind differs from the requested action')
+            if kind == 'withdrawal':
+                if not args.confirm_staging_02 or receipt['deploymentId'] != INSTANCE or receipt['forwardPort'] != 35000:
+                    raise ValueError('Withdrawal is limited to the explicitly confirmed staging-02 fixture')
+            elif args.confirm_staging_02:
                 inventory = inventory_value(read(work / 'inventory.json', private=True, root_owned=True))
                 if len(inventory['endpoints']) != 1 or inventory['endpoints'][0]['deploymentId'] != INSTANCE or inventory['endpoints'][0]['forwardPort'] != 35000:
                     raise ValueError('Legacy confirmation permits only the designated fixture')
-            result = {'publish': publish, 'rollback': rollback}[args.action](work, receipt)
+            result = {'publish': publish, 'rollback': rollback, 'withdraw': withdraw}[args.action](work, receipt)
         print(json.dumps(result))
     finally:
         os.close(lock)
