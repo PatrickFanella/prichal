@@ -1574,3 +1574,8 @@ The staging-02 slot is free. Endpoint names, forward reservation, deployment his
 ### #7 staging-02 renewal after placement release — October 30, 2026
 
 The node leaf expired at 22:18:46 UTC. Release left registry custody empty, and the renewal coordinator still required the retired deployment, so it would have refused before issuing a certificate. [The coordinator](../staging-02-transport-renewal.md#post-release-custody) now accepts no placement or one valid placement, requires the same list after publication and requires authenticated capacity to report exactly that list. Node, database, slot count and CPU count stay pinned. This also covers the next daily renewal after a fresh allocation. The staging-02 certificate tests passed, including new unchanged-custody, foreign-capacity and malformed-ID refusals. Nothing live changed in this unit. Next is the live renewal with the schema-42 `node-admin`, then fresh API-to-native allocation.
+
+
+### #7 staging-02 transport renewed after release — October 30, 2026
+
+PR #220 merged as `6dce3f21f3c37ee52f182130b78de548845e9b86`. With the merged coordinator and schema-42 `node-admin` installed, [the live renewal](../staging-02-transport-renewal.md#live-renewal--october-30-2026) issued a retained-key leaf valid until October 31 at 23:11:48 UTC. Empty registry custody matched authenticated capacity, and the retirement hold, volumes and empty container namespace were unchanged. Renewal is still manual. Next is fresh API-to-native allocation on this node, its forwarding handoff and durable public verification.

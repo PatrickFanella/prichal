@@ -38,6 +38,12 @@ The [fixture retirement](managed-fixture-withdrawal.md) on October 30 released t
 
 Older renewal binaries cannot read the schema-42 registry. The control directory's `node-admin` must be built from a schema-42 merge before use.
 
+## Live renewal — October 30, 2026
+
+PR #220 merged as `6dce3f21f3c37ee52f182130b78de548845e9b86` after required CI passed on its exact head. The leaf had expired at 22:18:46 UTC. The control directory received the merged coordinator (`c18e5b7e7432cf875c8d082bc4bf2fc6789988c13c384f8e984c1fb8f0f15663`) and the schema-42 `node-admin` built for the fixture retirement (`62e503e31c1b82f408e4b519e27b8750657d8c9e9f03f828139c83011235f10b`). The previous files are retained as `node-admin.schema41` and `renew-staging-02-node.py.before-release-custody`. The guest publisher still matched `90c38f32…`.
+
+The run at 23:11:48 UTC renewed the leaf with the retained key. Registry custody was empty before and after, and authenticated capacity reported no instances, one slot and three CPUs. The installed certificate matches the candidate (`c49c935edbfb4f95b23b89653a80f32274b54290aee208b8f684761ed909480b`). The new expiry is **October 31, 2026 at 23:11:48 UTC**. Afterwards the agent was active, the fixture's suspended maximum-generation hold lease was unchanged, both retained volumes remained, and no labeled containers existed. Receipts are in `transport-renewal/20261030T231148111939Z/`. The canonical Machinum report and Kvant briefing entry are committed as `a0bc4b8`; the audit reported no integrity errors. There is still no timer; the next renewal is a manual run before that expiry.
+
 ## Validation and next step
 
 Eight original/new staging certificate tests passed, including real OpenSSL foreign trust/key/subject refusal, fixed-registry custody and injected activation rollback. The new CI test uses standard-library Python and OpenSSL. The initial default local Python lacked cryptography for the older tests; running those with the system Python passed. Full pinned smoke passed (56 Node checks, frontend build, Go vet and all Go race packages). Local verification PostgreSQL had zero generated smoke/recovery databases and was stopped with its volume retained. Hosted CI remains separate.
