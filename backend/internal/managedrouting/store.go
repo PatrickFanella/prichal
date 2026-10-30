@@ -303,7 +303,7 @@ func (s Store) Export(ctx context.Context) (Bundle, error) {
 	if err := gate(ctx, tx); err != nil {
 		return Bundle{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT e.deployment_id::text,e.hostname,e.forward_port,d.kind,d.state,coalesce(o.sequence,0),coalesce(o.node_id::text,''),o.node_key_hash,o.certificate_pem,o.certificate_sha256,o.observed_at,coalesce(p.node_id::text,''),coalesce(n.state,''),n.public_key_hash,n.enrolled_at,(SELECT coalesce(max(sequence),0) FROM managed_edge_observations) FROM managed_public_endpoints e JOIN deployments d ON d.id=e.deployment_id LEFT JOIN LATERAL(SELECT * FROM managed_edge_observations WHERE deployment_id=e.deployment_id ORDER BY sequence DESC LIMIT 1) o ON true LEFT JOIN instance_placements p ON p.deployment_id=e.deployment_id LEFT JOIN hosting_nodes n ON n.id=p.node_id ORDER BY e.deployment_id LIMIT 101`)
+	rows, err := tx.Query(ctx, `SELECT e.deployment_id::text,e.hostname,e.forward_port,d.kind,d.state,coalesce(o.sequence,0),coalesce(o.node_id::text,''),o.node_key_hash,o.certificate_pem,o.certificate_sha256,o.observed_at,coalesce(p.node_id::text,''),coalesce(n.state,''),n.public_key_hash,n.enrolled_at,(SELECT coalesce(max(sequence),0) FROM managed_edge_observations) FROM managed_public_endpoints e JOIN deployments d ON d.id=e.deployment_id LEFT JOIN LATERAL(SELECT * FROM managed_edge_observations WHERE deployment_id=e.deployment_id ORDER BY sequence DESC LIMIT 1) o ON true LEFT JOIN instance_placements p ON p.deployment_id=e.deployment_id LEFT JOIN hosting_nodes n ON n.id=p.node_id WHERE NOT EXISTS(SELECT 1 FROM managed_endpoint_retirements r WHERE r.deployment_id=e.deployment_id AND r.phase='released') ORDER BY e.deployment_id LIMIT 101`)
 	if err != nil {
 		return Bundle{}, err
 	}

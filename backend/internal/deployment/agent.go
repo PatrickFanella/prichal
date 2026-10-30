@@ -59,7 +59,7 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 		if err != nil || (basis != "queued" && !(basis == "empty_fixture" && converted)) || reservedHostname != expected || hostname != expected || serving != "" {
 			return errors.New("retained managed intent differs from generated policy")
 		}
-		if err := p.checkManagedAuthority(ctx); err != nil {
+		if err := p.checkManagedAuthority(ctx, id); err != nil {
 			return err
 		}
 		ensure = provider.EnsureManaged
@@ -89,7 +89,7 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	}
 	if state == "queued" {
 		if managed {
-			if err := p.checkManagedAuthority(ctx); err != nil {
+			if err := p.checkManagedAuthority(ctx, id); err != nil {
 				return err
 			}
 			return p.transition(ctx, id, "queued", "configuring", "Reserved a hosting slot. Configuring managed PDS identity.")
@@ -100,13 +100,13 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 		return errors.New("local agent provisioner is not configured")
 	}
 	if managed {
-		if err := p.checkManagedAuthority(ctx); err != nil {
+		if err := p.checkManagedAuthority(ctx, id); err != nil {
 			return err
 		}
 	}
 	instance, err := ensure(ctx, nodeagent.Peer{NodeID: placement.NodeID, Endpoint: placement.Endpoint, PublicKeyHash: placement.PublicKeyHash}, id)
 	if managed {
-		if err := p.checkManagedAuthority(ctx); err != nil {
+		if err := p.checkManagedAuthority(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -159,13 +159,13 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	return errors.New("unsupported deployment checkpoint")
 }
 
-func (p AgentProvisioner) checkManagedAuthority(ctx context.Context) error {
+func (p AgentProvisioner) checkManagedAuthority(ctx context.Context, id string) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if err := managedrouting.CheckTransaction(ctx, tx); err != nil {
+	if err := managedrouting.CheckActiveTransaction(ctx, tx, id); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
