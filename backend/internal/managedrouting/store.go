@@ -290,6 +290,7 @@ func (s Store) Observe(ctx context.Context, actor, id, node, key string, inspect
 type Bundle struct {
 	Inventory    managededge.Inventory
 	Certificates map[string][]byte
+	Forwards     []Forward
 }
 
 // Export refuses incomplete/stale inventories and never omits a retained endpoint to produce a partial candidate.
@@ -340,6 +341,7 @@ func (s Store) Export(ctx context.Context) (Bundle, error) {
 		result.Inventory.Generation = generation
 		result.Inventory.Endpoints = append(result.Inventory.Endpoints, managededge.Endpoint{DeploymentID: id, Hostname: host, ForwardPort: port, CertificateSHA256: hex.EncodeToString(hash)})
 		result.Certificates[id] = append([]byte(nil), certificate...)
+		result.Forwards = append(result.Forwards, Forward{DeploymentID: id, NodeID: currentNode, NodeKeySHA256: hex.EncodeToString(currentPin), NativeEndpoint: nodeagent.LocalEndpoint(id), ObservationSequence: sequence, ObservedAt: *observedAt})
 	}
 	err = rows.Err()
 	rows.Close()

@@ -43,7 +43,22 @@ The API's separate managed-intent opt-in now calls the same reservation logic wi
 .local/managed-routing/managed-route-admin reserve-empty --deployment "$DEPLOYMENT_ID" --node "$NODE_ID" --confirm-empty-fixture
 ```
 
-Bundle creation requires a new directory. Directories are mode 0700 and files mode 0600. Certificates are validated before output, copied under canonical UUID filenames and synced; `inventory.json` is written last. Partial output is retained for inspection and never overwritten. Handle exports are empty until authoritative account/identity bindings are available. Keep the bundle private and deliver it explicitly to the future restricted publisher; customer input is not an authority source.
+Bundle creation requires a new directory. Directories are mode 0700 and files mode 0600. Certificates and the forwarding handoff are validated before output, copied under canonical filenames and synced; `inventory.json` is written last. Partial output is retained for inspection and never overwritten. Handle exports are empty until authoritative account/identity bindings are available. Keep the bundle private and deliver it explicitly to the restricted publisher; customer input is not an authority source.
+
+## Forwarding and publication handoff
+
+Export also writes private `forwarding.json`. It binds the exact `inventory.json` file bytes, including the final newline, with `inventorySha256`, and repeats its generation and expiry. Each endpoint records the reserved hostname/edge forward port/certificate digest, current node UUID and node-key digest, latest observation sequence/time and derived native ingress endpoint. These values come from the same export query that checks the current placement against the authenticated observation. The native endpoint uses the retained `<deployment UUID>.localhost` TLS name and deterministic port even when the PDS advertises its public hostname.
+
+The writer requires one matching forwarding record per inventory endpoint. Missing/duplicate/foreign records, invalid node identities/pins, changed native targets, stale/future observations, inconsistent generations/deadlines and two deployments sharing a native listener on one node refuse before creating output. The deadline cannot exceed any included observation's 15-minute lifetime or certificate expiry. Existing rendering/publication inventory fields are unchanged; older private bundles remain readable by the existing renderer and publisher but lack this handoff. New exports require the complete handoff.
+
+Before installing or changing forwards, the operator must:
+
+1. Obtain the complete fresh bundle through the existing private custody path. Compare `sha256sum inventory.json` with `forwarding.json`'s `inventorySha256`, and compare the generation/deadline and each deployment/hostname/forward/certificate entry. A hash binds files to each other; it does not authenticate an untrusted bundle.
+2. Resolve the exact node UUID through the canonical host inventory and confirm its current registry key matches `nodeKeySha256`. The handoff contains no SSH destination, key path or command. Never derive host execution authority from customer data or the agent's URL.
+3. Carry that node's `127.0.0.1:<nativeEndpoint port>` to the reserved edge forward port through the approved restricted transport. Preserve the native endpoint's UUID TLS name and certificate trust. Check both native-listener and edge-port conflicts; never replace an existing forward to obtain capacity. The document describes the intended mapping, not proof that transport is installed or healthy.
+4. Pass the unchanged `inventory.json` digest and complete bundle to the [restricted publisher](managed-publisher-updates.md). Its actual upstream TLS checks, exact host routes, full Caddy validation, guarded reload/readback and rollback still apply. Fresh durable public checks must pass before a new deployment receives a serving URL.
+
+This is a preparation artifact for the operator handoff, not an automatic SSH/systemd installer, new DNS authority, continuous route expiry or a new readiness checkpoint. An expired or changed placement/key needs fresh observation/export and explicit inspection of existing forwards. No existing live transport is changed by exporting it.
 
 ## Atomic API intent preparation
 
