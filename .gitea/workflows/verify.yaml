@@ -50,6 +50,8 @@ jobs:
         run: python3 -m unittest discover -s deploy/homelab -p 'test_staging_02_certificates.py' -v
       - name: Verify empty managed fixture preservation
         run: python3 -m unittest discover -s deploy/homelab -p 'test_managed_preservation.py' -v
+      - name: Verify held managed fixture native retirement
+        run: python3 -m unittest discover -s deploy/homelab -p 'test_managed_native_retirement.py' -v
       - name: Build and clean-database smoke
         run: ./scripts/smoke.sh
       - name: Prepare customer CLI platform builds and verify Linux entry point

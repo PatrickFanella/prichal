@@ -33,3 +33,5 @@ The fixture is preserved and running; it is **not retired and its slot is not fr
 The current publisher deliberately refuses endpoint omission/remapping. Retirement needs an explicit withdrawal path with current owned/unrelated-source checks, full Caddy validation, guarded reload/readback and a retained receipt; ordinary publication/rollback must not resurrect a retired endpoint. Fresh allocation then needs a new API-created deployment identity, restricted native reconciliation, an operator handoff based on the fresh export and successful durable public verification. Keep enrollment closed for #8. This preparation does not qualify those remaining steps or close #7.
 
 The subsequent [schema-42 management retirement record](managed-retirement-record.md) implements separate preparation and receipt/namespace-fenced placement release. Its fixed operator command adds no host authority. It has not been applied to the live registry or substituted for the remaining publisher/native steps.
+
+[Withdrawal and native retirement](managed-fixture-withdrawal.md) adds the fixed publisher withdrawal and guest hold/removal tools that produce the release receipts.

@@ -24,7 +24,7 @@ Then fence native reconciliation, withdraw the exact public route through a revi
 managed-fixture-retire release --key "$RETIREMENT_KEY" --withdrawal-sha256 "$WITHDRAWAL_RECEIPT_SHA256" --native-retirement-sha256 "$NATIVE_RETIREMENT_RECEIPT_SHA256" --confirm-empty-staging-02
 ```
 
-The API and ordinary worker gain no host, Docker, SSH or DNS credentials. The command performs no host mutation and offers no customer HTTP route. It does not implement the publisher withdrawal/native-removal steps. Do not fabricate their digests or use this command to bypass them.
+The API and ordinary worker gain no host, Docker, SSH or DNS credentials. The command performs no host mutation and offers no customer HTTP route. The separate [withdrawal and native retirement tools](managed-fixture-withdrawal.md) produce the two receipts. Do not fabricate their digests or use this command to bypass them.
 
 ## Compatibility and remaining work
 

@@ -105,3 +105,31 @@ func TestAccountBoundaryRejectsSubjectAndHostOverrides(t *testing.T) {
 		t.Fatal("fixed account contract unavailable")
 	}
 }
+
+// The guest retirement tool writes this exact lease before removing a fixture's containers.
+func TestRetirementHoldLeaseCannotBeSuperseded(t *testing.T) {
+	directory := t.TempDir()
+	d := &Docker{directory: directory}
+	id := "2395105c-9958-47b5-ae8b-5b0424cbfc4f"
+	ticket := "cccccccc-cccc-4ccc-accc-cccccccccccc"
+	hold := `{"instanceId":"` + id + `","ticket":"` + ticket + `","generation":9007199254740992,"state":"suspended","phase":"applied"}`
+	if err := os.WriteFile(filepath.Join(directory, id+"-service.json"), []byte(hold), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if held, err := d.serviceHeld(id); err != nil || !held {
+		t.Fatal("retirement lease did not hold reconciliation")
+	}
+	for _, request := range []ServiceRequest{
+		{Ticket: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", Generation: 2, State: "running"},
+		{Ticket: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", Generation: 1 << 53, State: "running"},
+		{Ticket: ticket, Generation: 1 << 53, State: "running"},
+	} {
+		// Generation fencing refuses before any runtime call; Docker is deliberately unconfigured.
+		if _, err := d.Service(context.Background(), id, request); err == nil || !strings.Contains(err.Error(), "stale or conflicting") {
+			t.Fatalf("later service request superseded the retirement hold: %v", err)
+		}
+	}
+	if data, err := os.ReadFile(filepath.Join(directory, id+"-service.json")); err != nil || string(data) != hold {
+		t.Fatal("retirement lease changed")
+	}
+}
