@@ -1,7 +1,6 @@
 package managedrouting
 
 import (
-	"encoding/json"
 	"errors"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managededge"
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/managednamespace"
@@ -31,6 +30,14 @@ func WriteBundle(directory string, bundle Bundle) error {
 			return err
 		}
 	}
+	data, err := inventoryBytes(bundle.Inventory)
+	if err != nil {
+		return err
+	}
+	forwarding, err := forwardingBytes(bundle, data, time.Now())
+	if err != nil {
+		return err
+	}
 	if err := os.Mkdir(directory, 0700); err != nil {
 		return errors.New("bundle directory must be new")
 	}
@@ -59,10 +66,9 @@ func WriteBundle(directory string, bundle Bundle) error {
 			return err
 		}
 	}
-	data, err := json.MarshalIndent(bundle.Inventory, "", "  ")
-	if err != nil {
+	if err := write(filepath.Join(directory, "forwarding.json"), forwarding); err != nil {
 		return err
 	}
 	// Publish the inventory last; a partial failed directory is retained for inspection.
-	return write(filepath.Join(directory, "inventory.json"), append(data, '\n'))
+	return write(filepath.Join(directory, "inventory.json"), data)
 }

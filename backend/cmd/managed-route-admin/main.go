@@ -164,7 +164,7 @@ func run() error {
 		if err := managedrouting.WriteBundle(*out, bundle); err != nil {
 			return err
 		}
-		fmt.Printf("Private inventory generation %d exported with %d public certificates; no route published.\n", bundle.Inventory.Generation, len(bundle.Inventory.Endpoints))
+		fmt.Printf("Private inventory generation %d exported with %d public certificates and forwarding.json handoff; no route published.\n", bundle.Inventory.Generation, len(bundle.Inventory.Endpoints))
 		return nil
 	}
 	return errors.New("unknown managed route command")
