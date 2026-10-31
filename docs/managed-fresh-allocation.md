@@ -38,11 +38,25 @@ Kvant: `~/.local/state/prichal-staging-02-bootstrap/managed-allocation-20261030/
 ## Limits
 
 - This qualifies one API-created allocation end to end on designated staging capacity. Owner authentication was synthetic; the real Gitea sign-in path was qualified separately on the first staging registry.
-- No API, worker or management process runs continuously. The worker stopped after readiness, so no ongoing public check exists.
+- No API, worker or management process runs continuously. The worker stopped after readiness; [Dozor's public probe](#public-monitoring--october-31-2026) now checks the endpoint instead.
 - At allocation the node leaf expired October 31, 2026 at 23:11:48 UTC, and renewal was manual. An hourly [renewal timer](staging-02-transport-renewal.md#scheduled-renewal) now handles it, with Dozor alerts; its first unattended renewal was on October 31. Public serving does not depend on the agent leaf, but management readback does.
 - The two forwards are user SSH units with `Restart=on-failure`. They depend on Kvant, Almaz and the guest staying up; boot and failure behavior is not qualified.
 - Handles, account enrollment, supported DNS/provider failure and withdrawal of this endpoint remain #7 and #8 work.
 
+## Public monitoring — October 31, 2026
+
+Dozor's existing `blackbox-http` job probes `/xrpc/_health` on the serving URL with labels `project=prichal`, `host=kvant` and `deployment=e4067ea1`. [`staging-02-public-alerts.yml`](../deploy/homelab/staging-02-public-alerts.yml), from PRs #227 and #228 (merge `2e314524c8c24e8a2e447a1172700a2aef50d918`), sends warnings for three conditions:
+
+- five minutes of failed probes;
+- the probe series disappearing, for example if the target is removed without a withdrawal;
+- an edge certificate with under seven days left.
+
+The first install labelled the target `environment: staging`. Dozor's first Alertmanager route sends that label to `discard`, which `amtool` confirmed, so #228 selects the probe by `deployment` instead. The staging discard route itself was not changed. The new labels route to `ntfy-no-resolved`, the receiver for the staging-02 certificate alerts.
+
+Each Prometheus change passed `promtool check config` inside the container before it was written in place, with the inode retained, and reloaded. Prometheus reports probe success and HTTP 200, with the edge certificate valid until December 15, and all three rules are healthy and inactive. No notification from these rules has been delivered. Dozor's private `~/.local/state/prichal-staging-02-public-probe/` holds both previous configurations, validation logs and hash receipts. Machinum `81f3be9` records the probe in the Dozor briefing.
+
+The probe checks HTTP health only. It does not open the `subscribeRepos` WebSocket and does not recheck the closed account creation or the 404 for unknown hosts; those were qualified once at readiness.
+
 ## Pause and rollback
 
-To withdraw the route, use the publisher's rollback for revision `ad1a6fe8-00ee-4073-9ae6-01b3b92d59ad`. It requires the installed parent/route bytes, unrelated Caddy inputs and the active configuration to still match its receipt. It restores the pre-publication parent and removes the managed route. Then stop and disable the two `e4067ea1` units. The registry keeps the ready row, so record the withdrawal through a reviewed procedure rather than editing state. Do not delete the deployment's volumes, identity receipt or reservations, and do not restore the before snapshot over later writes.
+To withdraw the route, use the publisher's rollback for revision `ad1a6fe8-00ee-4073-9ae6-01b3b92d59ad`. It requires the installed parent/route bytes, unrelated Caddy inputs and the active configuration to still match its receipt. It restores the pre-publication parent and removes the managed route. Then stop and disable the two `e4067ea1` units, and remove Dozor's probe target, rule-file line and rule file together so the missing-probe alert does not fire. The registry keeps the ready row, so record the withdrawal through a reviewed procedure rather than editing state. Do not delete the deployment's volumes, identity receipt or reservations, and do not restore the before snapshot over later writes.
