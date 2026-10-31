@@ -5,7 +5,7 @@ tests:
 - name: failed public probe alerts after five minutes
   interval: 1m
   input_series:
-  - series: 'probe_success{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+  - series: 'probe_success{job="blackbox-http",project="prichal",deployment="e4067ea1",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
     values: '0x10'
   alert_rule_test:
   - eval_time: 4m
@@ -15,7 +15,7 @@ tests:
     alertname: PrichalStaging02PublicPDSDown
     exp_alerts:
     - exp_labels:
-        environment: staging
+        deployment: e4067ea1
         host: kvant
         instance: https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health
         job: blackbox-http
@@ -27,7 +27,7 @@ tests:
 - name: healthy probe does not alert
   interval: 1m
   input_series:
-  - series: 'probe_success{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+  - series: 'probe_success{job="blackbox-http",project="prichal",deployment="e4067ea1",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
     values: '1x20'
   alert_rule_test:
   - eval_time: 16m
@@ -43,7 +43,7 @@ tests:
     alertname: PrichalStaging02PublicProbeMissing
     exp_alerts:
     - exp_labels:
-        environment: staging
+        deployment: e4067ea1
         job: blackbox-http
         project: prichal
         host: kvant
@@ -54,14 +54,14 @@ tests:
 - name: edge certificate within a week alerts
   interval: 1m
   input_series:
-  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",deployment="e4067ea1",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
     values: '518400+0x90'
   alert_rule_test:
   - eval_time: 61m
     alertname: PrichalStaging02PublicCertificateExpiring
     exp_alerts:
     - exp_labels:
-        environment: staging
+        deployment: e4067ea1
         host: kvant
         instance: https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health
         job: blackbox-http
@@ -73,7 +73,7 @@ tests:
 - name: edge certificate with a month left does not alert
   interval: 1m
   input_series:
-  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",deployment="e4067ea1",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
     values: '2592000+0x90'
   alert_rule_test:
   - eval_time: 61m
