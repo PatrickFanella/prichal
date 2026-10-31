@@ -1,7 +1,9 @@
+import datetime as dt
 import importlib.util
 import io
 import json
 from pathlib import Path
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -35,6 +37,100 @@ class Staging02Certificates(unittest.TestCase):
         for invalid in [None, {}, ['foreign'], [fresh.upper()], [fresh, operator.INSTANCE], [7]]:
             self.assertFalse(operator.valid_placements(invalid))
             self.assertFalse(operator.valid_custody({'maximumSlots': 1, 'cpus': 3, 'instanceIds': invalid}, invalid, invalid))
+
+    def pki(self, root, ca_days=60, worker_days=7):
+        def openssl(*args):
+            subprocess.run(['openssl', *map(str, args)], check=True, capture_output=True)
+        pki = root / 'pki'
+        pki.mkdir(mode=0o700)
+        for name in ('ca', 'worker', 'foreign'):
+            openssl('genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', pki / (name + '.key'))
+        openssl('req', '-new', '-x509', '-key', pki / 'ca.key', '-subj', '/CN=prichal-staging-02-ca', '-days', ca_days,
+                '-addext', 'basicConstraints=critical,CA:TRUE', '-addext', 'keyUsage=critical,keyCertSign,cRLSign', '-out', pki / 'ca.crt')
+        (pki / 'worker.cnf').write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n')
+        openssl('req', '-new', '-key', pki / 'worker.key', '-subj', '/CN=pds-ass-worker', '-out', pki / 'worker.csr')
+        openssl('x509', '-req', '-in', pki / 'worker.csr', '-CA', pki / 'ca.crt', '-CAkey', pki / 'ca.key', '-set_serial', '7',
+                '-days', worker_days, '-extfile', pki / 'worker.cnf', '-out', pki / 'worker.crt')
+        for path in pki.iterdir():
+            path.chmod(0o600)
+        return pki
+
+    def test_plan_renews_only_inside_each_window_and_refuses_ca_rotation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pki = self.pki(root)
+            ca, worker = (pki / 'ca.crt').read_bytes(), (pki / 'worker.crt').read_bytes()
+            node = worker  # A one-week leaf stands in for the node; only expiry matters here.
+            now = dt.datetime.now(dt.timezone.utc)
+            self.assertEqual(operator.plan(now, node, worker, ca), {'worker': False, 'node': False})
+            self.assertEqual(operator.plan(now, node, worker, ca, force_node=True), {'worker': False, 'node': True})
+            late = operator.expiry(node) - dt.timedelta(hours=7)
+            self.assertTrue(operator.plan(late, node, worker, ca)['node'])
+            self.assertFalse(operator.plan(late - dt.timedelta(hours=2), node, worker, ca)['node'])
+            self.assertTrue(operator.plan(now + dt.timedelta(days=4, hours=1), node, worker, ca)['worker'])
+            with self.assertRaises(ValueError):
+                operator.plan(now + dt.timedelta(days=31), node, worker, ca)
+
+    def test_worker_renewal_keeps_identity_and_restores_on_failed_verification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pki = self.pki(root, worker_days=2)
+            original = (pki / 'worker.crt').read_bytes()
+            with patch.object(operator, 'ROOT', root):
+                receipt = root / 'first'
+                receipt.mkdir()
+                with self.assertRaises(RuntimeError):
+                    operator.rotate_worker(receipt, lambda: (_ for _ in ()).throw(RuntimeError('mTLS refused')))
+                self.assertEqual((pki / 'worker.crt').read_bytes(), original)
+                receipt = root / 'second'
+                receipt.mkdir()
+                operator.rotate_worker(receipt, lambda: None)
+                renewed = (pki / 'worker.crt').read_bytes()
+                self.assertNotEqual(renewed, original)
+                self.assertEqual((receipt / 'worker-before.crt').read_bytes(), original)
+                self.assertEqual(operator.public_key(renewed), operator.public_key(original))
+                self.assertGreater(operator.expiry(renewed), operator.expiry(original))
+                subprocess.run(['openssl', 'verify', '-CAfile', pki / 'ca.crt', '-purpose', 'sslclient', pki / 'worker.crt'], check=True, capture_output=True)
+                self.assertEqual(stat.S_IMODE((pki / 'worker.crt').stat().st_mode), 0o600)
+                # A request for another key must not be signed as the worker identity.
+                subprocess.run(['openssl', 'req', '-new', '-key', pki / 'foreign.key', '-subj', '/CN=pds-ass-worker', '-out', pki / 'worker.csr'], check=True, capture_output=True)
+                receipt = root / 'third'
+                receipt.mkdir()
+                with self.assertRaises(ValueError):
+                    operator.rotate_worker(receipt, lambda: None)
+                self.assertEqual((pki / 'worker.crt').read_bytes(), renewed)
+
+    def test_expired_node_is_renewed_before_worker_rotation_is_proven(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pki = self.pki(root, worker_days=2)
+            control = root / 'transport-renewal'
+            control.mkdir(mode=0o700)
+            (control / 'node-admin').write_bytes(b'')
+            (control / 'node-admin').chmod(0o600)
+            database = root / 'database.env'
+            database.write_text('PDS_DATABASE_URL=postgres://pds_staging:x@127.0.0.1:35437/pds_local\n')
+            database.chmod(0o600)
+            root.chmod(0o700)
+            worker = (pki / 'worker.crt').read_bytes()
+            def run(args, **kwargs):
+                if args[0] == 'openssl':
+                    return subprocess.run(args, check=True, capture_output=True, **kwargs).stdout
+                if args[-2:] == ['--node', operator.NODE] and args[1] == 'custody':
+                    return b'[]'
+                if 'sudo cat /var/lib/prichal-agent/enrolled/node.crt' in args:
+                    return worker
+                raise AssertionError(args)
+            with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
+                 patch.object(operator, 'plan', return_value={'node': True, 'worker': True}), \
+                 patch.object(operator, 'renew_node', side_effect=lambda *a: calls.append('node') or worker), \
+                 patch.object(operator, 'rotate_worker', side_effect=lambda *a: calls.append('worker')), \
+                 patch.object(operator, 'checked', side_effect=lambda *a: calls.append('checked')), \
+                 patch('sys.argv', ['renew', '--confirm-staging-02']), patch('builtins.print'):
+                operator.main()
+            self.assertEqual(calls, ['node', 'worker', 'checked'])
+            self.assertTrue(json.loads((control / 'status.json').read_text())['success'])
 
     def test_registry_scope_refuses_other_hosts_ports_databases_and_query_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the fixed staging-02 node and worker certificates when due
+After=prichal-staging-02-vm.service prichal-staging-02-agent-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/state/prichal-staging-02-bootstrap/transport-renewal/renew-staging-02-node.py --confirm-staging-02
+UMask=0077
+TimeoutStartSec=180
