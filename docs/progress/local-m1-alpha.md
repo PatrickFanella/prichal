@@ -1596,3 +1596,8 @@ PR #222 merged the fresh allocation record as `e67bba0058c0d09794595222236526e29
 ### #7 staging-02 renewal timer installed — October 31, 2026
 
 PR #223 merged as `8e7675a6b760fe517c009ec45b2ff3daeb6b262e`. [The timer](../staging-02-transport-renewal.md#timer-installation--october-31-2026) is enabled on Kvant, and the manual and first timer runs succeeded with nothing due, confirming mTLS capacity and custody for the new deployment. Natural node renewal is expected after 15:11 UTC on October 31 and is not yet observed. Notification remains unwired.
+
+
+### #7 staging-02 natural renewal and alerts — October 31, 2026
+
+The timer renewed the node leaf unattended at 16:08:33 UTC with the same key; the new leaf expires November 1 at 16:08:33. PR #225 merged as `58ee2dfbd90dac4e36e75ba02721896d1f4fdeb0`. [Failed runs now write failure status](../staging-02-transport-renewal.md#natural-renewal-and-alerts--october-31-2026), and a five-minute Kvant publisher sends the three expiries and renewal state through a restricted key to Dozor Prometheus. Four rules cover expiry past each role's renewal point, unreadable status, stale telemetry and failed or missed renewal. All nine samples were read back, the rules are healthy and inactive, and `amtool` routes them to the existing ntfy receivers. No staging-02 notification has been delivered yet. Handle bindings, DNS/provider failure, endpoint withdrawal, forwarding-unit boot behavior and continuous public monitoring remain #7 gates.
