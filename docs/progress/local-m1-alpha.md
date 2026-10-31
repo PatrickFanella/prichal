@@ -1591,3 +1591,8 @@ Separate probes confirmed health, the generated DID/OAuth issuer, WebSocket 101,
 ### #7 scheduled staging-02 transport renewal — October 30, 2026
 
 PR #222 merged the fresh allocation record as `e67bba0058c0d09794595222236526e291e8028b`, and #7's body now records that run. [The renewal coordinator](../staging-02-transport-renewal.md#scheduled-renewal) now renews the node leaf at eight hours or less and re-signs the worker certificate from its retained CSR and key at three days or less, restoring the previous certificate if authenticated capacity fails. It refuses when the CA is within thirty days. Each run proves mTLS capacity and unchanged custody and writes a private status file. New hourly user units mirror the first staging node's timer. Real-OpenSSL tests cover the renewal windows, CA refusal, worker identity, foreign-key refusal and restoration after failed verification; another test checks that an expired node leaf is renewed before worker rotation is proven. Expiry/staleness notification remains unwired.
+
+
+### #7 staging-02 renewal timer installed — October 31, 2026
+
+PR #223 merged as `8e7675a6b760fe517c009ec45b2ff3daeb6b262e`. [The timer](../staging-02-transport-renewal.md#timer-installation--october-31-2026) is enabled on Kvant, and the manual and first timer runs succeeded with nothing due, confirming mTLS capacity and custody for the new deployment. Natural node renewal is expected after 15:11 UTC on October 31 and is not yet observed. Notification remains unwired.

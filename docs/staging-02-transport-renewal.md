@@ -56,6 +56,10 @@ When both are due, the node leaf is renewed first: that step needs no worker ide
 
 `deploy/homelab/staging-02-certificates.service` and `.timer` run the coordinator hourly in Kvant's user manager as `prichal-staging-02-certificates.*`, like the first staging node's timer. Failures exit non-zero and leave the previous `status.json`, so its age shows a stalled timer. No notification is wired to that yet. To pause, stop the timer; leaves then expire within a day.
 
+### Timer installation — October 31, 2026
+
+PR #223 merged as `8e7675a6b760fe517c009ec45b2ff3daeb6b262e`. The merged coordinator (`331669f4bb9ef15c79511f0d815607ba385ddecd20b90ca8770d8bff28209ff9`) replaced the control-directory copy, which is kept as `renew-staging-02-node.py.before-schedule`. The units are installed as `prichal-staging-02-certificates.service`/`.timer` in Kvant's lingering user manager, and `systemd-analyze --user verify` accepted them. A manual run at 00:07:56 UTC and the timer's first run at 00:08:22 UTC both succeeded with nothing due. Both confirmed mTLS capacity and custody for deployment `e4067ea1-f000-4321-852f-0c67a179c0ed`, and the status file records node expiry October 31 23:11:48, worker November 4 09:54:07 and CA January 26, 2027. The first natural node renewal falls in the hourly run after 15:11:48 UTC on October 31; it has not been observed yet. Machinum `e645c8a` records the timer in the Kvant briefing.
+
 ## Validation and next step
 
 Eight original/new staging certificate tests passed, including real OpenSSL foreign trust/key/subject refusal, fixed-registry custody and injected activation rollback. The new CI test uses standard-library Python and OpenSSL. The initial default local Python lacked cryptography for the older tests; running those with the system Python passed. Full pinned smoke passed (56 Node checks, frontend build, Go vet and all Go race packages). Local verification PostgreSQL had zero generated smoke/recovery databases and was stopped with its volume retained. Hosted CI remains separate.
