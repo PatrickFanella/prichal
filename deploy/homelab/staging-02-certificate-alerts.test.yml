@@ -1,0 +1,165 @@
+rule_files:
+- staging-02-certificate-alerts.yml
+evaluation_interval: 1m
+tests:
+- name: node leaf past its renewal point alerts with its role
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="node"}
+    values: '18960+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        role: node
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 certificate is past its renewal point
+        description: Inspect transport-renewal/status.json and the certificate timer on Kvant; CA rotation is manual.
+- name: node leaf inside its normal renewal window does not alert
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="node"}
+    values: '26160+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts: []
+- name: worker within two days alerts
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="worker"}
+    values: '87360+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        role: worker
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 certificate is past its renewal point
+        description: Inspect transport-renewal/status.json and the certificate timer on Kvant; CA rotation is manual.
+- name: worker with three days does not alert
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="worker"}
+    values: '260160+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts: []
+- name: CA approaching manual rotation alerts
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="ca"}
+    values: '3456960+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        role: ca
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 certificate is past its renewal point
+        description: Inspect transport-renewal/status.json and the certificate timer on Kvant; CA rotation is manual.
+- name: CA with sixty days does not alert
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="ca"}
+    values: '5184960+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts: []
+- name: unknown expiry is left to inspection failure
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_not_after_seconds{host="dozor",role="node"}
+    values: '0+0x30'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02CertificateExpiring
+    exp_alerts: []
+- name: stale operator heartbeat alerts despite previous success
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_operator_success{host="dozor"}
+    values: '1+0x150'
+  - series: prichal_staging_02_certificate_operator_last_success_seconds{host="dozor"}
+    values: '0+0x150'
+  alert_rule_test:
+  - eval_time: 132m
+    alertname: PrichalStaging02CertificateRenewalFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 renewal failed or missed its hourly heartbeat
+- name: failed renewal alerts before heartbeat ages out
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_operator_success{host="dozor"}
+    values: '0+0x30'
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PrichalStaging02CertificateRenewalFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 renewal failed or missed its hourly heartbeat
+- name: missing telemetry cannot silently appear healthy
+  interval: 1m
+  alert_rule_test:
+  - eval_time: 11m
+    alertname: PrichalStaging02CertificateTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 certificate status is missing or stale
+- name: stale delivery is detected independently of Kvant
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_received_seconds{host="dozor"}
+    values: '0+0x40'
+  alert_rule_test:
+  - eval_time: 27m
+    alertname: PrichalStaging02CertificateTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Staging-02 certificate status is missing or stale
+- name: unreadable status produces critical alert
+  interval: 1m
+  input_series:
+  - series: prichal_staging_02_certificate_inspection_ok{host="dozor"}
+    values: '0+0x15'
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: PrichalStaging02CertificateInspectionFailed
+    exp_alerts:
+    - exp_labels:
+        host: kvant
+        project: prichal
+        severity: critical
+      exp_annotations:
+        summary: Staging-02 certificate status is unreadable

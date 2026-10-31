@@ -1,0 +1,10 @@
+[Unit]
+Description=Publish bounded staging-02 certificate expiry and renewal status
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/state/prichal-staging-02-metrics/publish.py
+TimeoutStartSec=45
+UMask=0077
+NoNewPrivileges=yes
