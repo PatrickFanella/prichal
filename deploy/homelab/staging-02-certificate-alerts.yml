@@ -1,0 +1,46 @@
+groups:
+- name: prichal-staging-02-certificates
+  rules:
+  - alert: PrichalStaging02CertificateExpiring
+    # Each threshold sits inside its renewal window: node renews at 8h, worker at 3d, and the CA is refused at 30d.
+    expr: |
+      (
+        prichal_staging_02_certificate_not_after_seconds{role="node"} - time() < 6 * 3600
+        or prichal_staging_02_certificate_not_after_seconds{role="worker"} - time() < 2 * 86400
+        or prichal_staging_02_certificate_not_after_seconds{role="ca"} - time() < 45 * 86400
+      ) and prichal_staging_02_certificate_not_after_seconds > 0
+    for: 15m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Staging-02 certificate is past its renewal point
+      description: Inspect transport-renewal/status.json and the certificate timer on Kvant; CA rotation is manual.
+  - alert: PrichalStaging02CertificateInspectionFailed
+    expr: prichal_staging_02_certificate_inspection_ok != 1
+    for: 5m
+    labels:
+      severity: critical
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Staging-02 certificate status is unreadable
+  - alert: PrichalStaging02CertificateTelemetryStale
+    expr: absent(prichal_staging_02_certificate_received_seconds) or time() - prichal_staging_02_certificate_received_seconds > 900
+    for: 10m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Staging-02 certificate status is missing or stale
+  - alert: PrichalStaging02CertificateRenewalFailed
+    expr: prichal_staging_02_certificate_operator_success != 1 or time() - prichal_staging_02_certificate_operator_last_success_seconds > 7200
+    for: 10m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Staging-02 renewal failed or missed its hourly heartbeat

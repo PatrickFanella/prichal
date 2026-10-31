@@ -100,28 +100,32 @@ class Staging02Certificates(unittest.TestCase):
                     operator.rotate_worker(receipt, lambda: None)
                 self.assertEqual((pki / 'worker.crt').read_bytes(), renewed)
 
+    def operator_root(self, root):
+        pki = self.pki(root, worker_days=2)
+        control = root / 'transport-renewal'
+        control.mkdir(mode=0o700)
+        (control / 'node-admin').write_bytes(b'')
+        (control / 'node-admin').chmod(0o600)
+        database = root / 'database.env'
+        database.write_text('PDS_DATABASE_URL=postgres://pds_staging:x@127.0.0.1:35437/pds_local\n')
+        database.chmod(0o600)
+        root.chmod(0o700)
+        worker = (pki / 'worker.crt').read_bytes()
+        def run(args, **kwargs):
+            if args[0] == 'openssl':
+                return subprocess.run(args, check=True, capture_output=True, **kwargs).stdout
+            if args[-2:] == ['--node', operator.NODE] and args[1] == 'custody':
+                return b'[]'
+            if 'sudo cat /var/lib/prichal-agent/enrolled/node.crt' in args:
+                return worker
+            raise AssertionError(args)
+        return control, worker, run
+
     def test_expired_node_is_renewed_before_worker_rotation_is_proven(self):
         calls = []
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            pki = self.pki(root, worker_days=2)
-            control = root / 'transport-renewal'
-            control.mkdir(mode=0o700)
-            (control / 'node-admin').write_bytes(b'')
-            (control / 'node-admin').chmod(0o600)
-            database = root / 'database.env'
-            database.write_text('PDS_DATABASE_URL=postgres://pds_staging:x@127.0.0.1:35437/pds_local\n')
-            database.chmod(0o600)
-            root.chmod(0o700)
-            worker = (pki / 'worker.crt').read_bytes()
-            def run(args, **kwargs):
-                if args[0] == 'openssl':
-                    return subprocess.run(args, check=True, capture_output=True, **kwargs).stdout
-                if args[-2:] == ['--node', operator.NODE] and args[1] == 'custody':
-                    return b'[]'
-                if 'sudo cat /var/lib/prichal-agent/enrolled/node.crt' in args:
-                    return worker
-                raise AssertionError(args)
+            control, worker, run = self.operator_root(root)
             with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
                  patch.object(operator, 'plan', return_value={'node': True, 'worker': True}), \
                  patch.object(operator, 'renew_node', side_effect=lambda *a: calls.append('node') or worker), \
@@ -131,6 +135,25 @@ class Staging02Certificates(unittest.TestCase):
                 operator.main()
             self.assertEqual(calls, ['node', 'worker', 'checked'])
             self.assertTrue(json.loads((control / 'status.json').read_text())['success'])
+
+    def test_failed_run_records_failure_without_dates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            control, _, run = self.operator_root(root)
+            (control / 'status.json').write_text(json.dumps({'success': True}))
+            def refuse(*args):
+                raise ValueError('Authenticated capacity/custody differs')
+            with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
+                 patch.object(operator, 'plan', return_value={'node': False, 'worker': False}), \
+                 patch.object(operator, 'checked', side_effect=refuse), \
+                 patch('sys.argv', ['renew', '--confirm-staging-02']), patch('builtins.print'):
+                with self.assertRaises(ValueError):
+                    operator.main()
+            status = json.loads((control / 'status.json').read_text())
+            self.assertEqual(set(status), {'success', 'checkedAt', 'nodeId', 'errorType'})
+            self.assertFalse(status['success'])
+            self.assertEqual(status['errorType'], 'ValueError')
+            self.assertEqual(stat.S_IMODE((control / 'status.json').stat().st_mode), 0o600)
 
     def test_registry_scope_refuses_other_hosts_ports_databases_and_query_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:

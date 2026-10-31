@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish staging-02 certificate status every five minutes
+
+[Timer]
+OnActiveSec=20
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=1
+Unit=prichal-staging-02-metrics.service
+
+[Install]
+WantedBy=timers.target

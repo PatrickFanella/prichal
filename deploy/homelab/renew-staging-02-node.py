@@ -184,40 +184,51 @@ def main():
     with os.fdopen(fd, 'a') as lock:
         private(lock_path)
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        env = environment()
-        for name in ('ca.crt', 'ca.key', 'worker.crt', 'worker.key', 'worker.csr', 'worker.cnf'):
-            private(ROOT / 'pki' / name)
-        ca = (ROOT / 'pki/ca.crt').read_bytes()
-        subject = run(['openssl', 'x509', '-noout', '-subject', '-nameopt', 'RFC2253'], input=ca).decode().strip()
-        if subject != 'subject=CN=prichal-staging-02-ca':
-            raise ValueError('Wrong staging-02 trust domain')
-        command = str(control / 'node-admin')
-        retained = json.loads(run([command, 'custody', '--node', NODE], env=env))
-        if not valid_placements(retained):
-            raise ValueError('Unexpected staging-02 placement custody')
-        node = run(SSH + ['sudo cat /var/lib/prichal-agent/enrolled/node.crt'])
-        now = dt.datetime.now(dt.timezone.utc)
-        due = plan(now, node, (ROOT / 'pki/worker.crt').read_bytes(), ca, args.force_node)
-        receipt = None
-        if due['worker'] or due['node']:
-            receipt = control / now.strftime('%Y%m%dT%H%M%S%fZ')
-            receipt.mkdir(mode=0o700)
-        # The node leaf first: its renewal needs no worker identity, while proving a new
-        # worker leaf over mTLS needs a valid node leaf.
-        if due['node']:
-            node = renew_node(command, env, receipt, node)
-        if due['worker']:
-            rotate_worker(receipt, lambda: checked(command, env, retained))
-        # Every run, including a no-op, proves current mTLS and unchanged custody.
-        checked(command, env, retained)
-        result = {'success': True, 'checkedAt': now.isoformat(), 'nodeId': NODE, 'instanceIds': retained,
-                  'renewed': due, 'nodeExpiry': expiry(node).isoformat(),
-                  'workerExpiry': expiry((ROOT / 'pki/worker.crt').read_bytes()).isoformat(),
-                  'caExpiry': expiry(ca).isoformat(), 'retainedKey': True, 'maximumSlots': 1, 'cpus': 3}
-        if receipt is not None:
-            (receipt / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
-        replace_status(control / 'status.json', result)
-        print(json.dumps(result))
+        try:
+            renew(args, control)
+        except Exception as error:
+            # Record the failed attempt so monitoring sees it before the success heartbeat ages out.
+            replace_status(control / 'status.json', {
+                'success': False, 'checkedAt': dt.datetime.now(dt.timezone.utc).isoformat(),
+                'nodeId': NODE, 'errorType': type(error).__name__})
+            raise
+
+
+def renew(args, control):
+    env = environment()
+    for name in ('ca.crt', 'ca.key', 'worker.crt', 'worker.key', 'worker.csr', 'worker.cnf'):
+        private(ROOT / 'pki' / name)
+    ca = (ROOT / 'pki/ca.crt').read_bytes()
+    subject = run(['openssl', 'x509', '-noout', '-subject', '-nameopt', 'RFC2253'], input=ca).decode().strip()
+    if subject != 'subject=CN=prichal-staging-02-ca':
+        raise ValueError('Wrong staging-02 trust domain')
+    command = str(control / 'node-admin')
+    retained = json.loads(run([command, 'custody', '--node', NODE], env=env))
+    if not valid_placements(retained):
+        raise ValueError('Unexpected staging-02 placement custody')
+    node = run(SSH + ['sudo cat /var/lib/prichal-agent/enrolled/node.crt'])
+    now = dt.datetime.now(dt.timezone.utc)
+    due = plan(now, node, (ROOT / 'pki/worker.crt').read_bytes(), ca, args.force_node)
+    receipt = None
+    if due['worker'] or due['node']:
+        receipt = control / now.strftime('%Y%m%dT%H%M%S%fZ')
+        receipt.mkdir(mode=0o700)
+    # The node leaf first: its renewal needs no worker identity, while proving a new
+    # worker leaf over mTLS needs a valid node leaf.
+    if due['node']:
+        node = renew_node(command, env, receipt, node)
+    if due['worker']:
+        rotate_worker(receipt, lambda: checked(command, env, retained))
+    # Every run, including a no-op, proves current mTLS and unchanged custody.
+    checked(command, env, retained)
+    result = {'success': True, 'checkedAt': now.isoformat(), 'nodeId': NODE, 'instanceIds': retained,
+              'renewed': due, 'nodeExpiry': expiry(node).isoformat(),
+              'workerExpiry': expiry((ROOT / 'pki/worker.crt').read_bytes()).isoformat(),
+              'caExpiry': expiry(ca).isoformat(), 'retainedKey': True, 'maximumSlots': 1, 'cpus': 3}
+    if receipt is not None:
+        (receipt / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+    replace_status(control / 'status.json', result)
+    print(json.dumps(result))
 
 
 def replace_status(path, result):
