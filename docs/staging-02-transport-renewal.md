@@ -44,6 +44,18 @@ PR #220 merged as `6dce3f21f3c37ee52f182130b78de548845e9b86` after required CI p
 
 The run at 23:11:48 UTC renewed the leaf with the retained key. Registry custody was empty before and after, and authenticated capacity reported no instances, one slot and three CPUs. The installed certificate matches the candidate (`c49c935edbfb4f95b23b89653a80f32274b54290aee208b8f684761ed909480b`). The new expiry is **October 31, 2026 at 23:11:48 UTC**. Afterwards the agent was active, the fixture's suspended maximum-generation hold lease was unchanged, both retained volumes remained, and no labeled containers existed. Receipts are in `transport-renewal/20261030T231148111939Z/`. The canonical Machinum report and Kvant briefing entry are committed as `a0bc4b8`; the audit reported no integrity errors. There is still no timer; the next renewal is a manual run before that expiry.
 
+## Scheduled renewal
+
+Node leaves last 24 hours, and the worker client certificate lasts seven days, so manual renewal does not keep a live endpoint manageable. The coordinator now decides from actual expiry instead of renewing on every call:
+
+- **Node leaf:** renewed when the installed guest certificate has eight hours or less left. `--force-node` keeps the manual behavior.
+- **Worker certificate:** re-signed from the retained `worker.csr`, `worker.cnf` and CA when it has three days or less left. The key and subject stay the same, and the new leaf lasts seven days. The coordinator checks the CSR and the current certificate against the retained key, verifies the candidate against the CA for client use and requires a later expiry. It then replaces `worker.crt` atomically and proves it with authenticated capacity and unchanged custody. If that proof fails, the previous certificate, which is still valid, is restored. The guest is not touched.
+- **CA:** the coordinator refuses when the CA has thirty days or less left. Rotation changes trust on the guest and in the registry and stays a reviewed manual step.
+
+When both are due, the node leaf is renewed first: that step needs no worker identity, while proving a new worker certificate over mTLS needs a valid node leaf. Every run, including one with nothing due, reads registry custody, checks authenticated capacity over mTLS and writes a private `transport-renewal/status.json` with the check time and the three expiries. Renewals also keep a timestamped receipt directory with the before and candidate certificates.
+
+`deploy/homelab/staging-02-certificates.service` and `.timer` run the coordinator hourly in Kvant's user manager as `prichal-staging-02-certificates.*`, like the first staging node's timer. Failures exit non-zero and leave the previous `status.json`, so its age shows a stalled timer. No notification is wired to that yet. To pause, stop the timer; leaves then expire within a day.
+
 ## Validation and next step
 
 Eight original/new staging certificate tests passed, including real OpenSSL foreign trust/key/subject refusal, fixed-registry custody and injected activation rollback. The new CI test uses standard-library Python and OpenSSL. The initial default local Python lacked cryptography for the older tests; running those with the system Python passed. Full pinned smoke passed (56 Node checks, frontend build, Go vet and all Go race packages). Local verification PostgreSQL had zero generated smoke/recovery databases and was stopped with its volume retained. Hosted CI remains separate.
