@@ -1,0 +1,33 @@
+groups:
+- name: prichal-staging-02-public
+  rules:
+  - alert: PrichalStaging02PublicPDSDown
+    expr: probe_success{job="blackbox-http",project="prichal",environment="staging"} == 0
+    for: 5m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Managed staging-02 PDS is not answering publicly
+      description: Dozor cannot get a 2xx from {{ $labels.instance }}. Check the Almaz edge and Kvant ingress forwarding units, then the guest tenant.
+  - alert: PrichalStaging02PublicProbeMissing
+    expr: absent(probe_success{job="blackbox-http",project="prichal",environment="staging"})
+    for: 15m
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Managed staging-02 PDS has no public probe
+      description: Restore the blackbox-http target, or remove these rules as part of a reviewed endpoint withdrawal.
+  - alert: PrichalStaging02PublicCertificateExpiring
+    expr: probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",environment="staging"} - time() < 7 * 86400
+    for: 1h
+    labels:
+      severity: warning
+      project: prichal
+      host: kvant
+    annotations:
+      summary: Managed staging-02 PDS edge certificate expires within a week
+      description: The public edge certificate for {{ $labels.instance }} has not renewed.

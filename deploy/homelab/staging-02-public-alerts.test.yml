@@ -1,0 +1,81 @@
+rule_files:
+- staging-02-public-alerts.yml
+evaluation_interval: 1m
+tests:
+- name: failed public probe alerts after five minutes
+  interval: 1m
+  input_series:
+  - series: 'probe_success{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+    values: '0x10'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: PrichalStaging02PublicPDSDown
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: PrichalStaging02PublicPDSDown
+    exp_alerts:
+    - exp_labels:
+        environment: staging
+        host: kvant
+        instance: https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health
+        job: blackbox-http
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Managed staging-02 PDS is not answering publicly
+        description: Dozor cannot get a 2xx from https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health. Check the Almaz edge and Kvant ingress forwarding units, then the guest tenant.
+- name: healthy probe does not alert
+  interval: 1m
+  input_series:
+  - series: 'probe_success{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+    values: '1x20'
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02PublicPDSDown
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: PrichalStaging02PublicProbeMissing
+    exp_alerts: []
+- name: missing probe series alerts
+  interval: 1m
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: PrichalStaging02PublicProbeMissing
+    exp_alerts:
+    - exp_labels:
+        environment: staging
+        job: blackbox-http
+        project: prichal
+        host: kvant
+        severity: warning
+      exp_annotations:
+        summary: Managed staging-02 PDS has no public probe
+        description: Restore the blackbox-http target, or remove these rules as part of a reviewed endpoint withdrawal.
+- name: edge certificate within a week alerts
+  interval: 1m
+  input_series:
+  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+    values: '518400+0x90'
+  alert_rule_test:
+  - eval_time: 61m
+    alertname: PrichalStaging02PublicCertificateExpiring
+    exp_alerts:
+    - exp_labels:
+        environment: staging
+        host: kvant
+        instance: https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health
+        job: blackbox-http
+        project: prichal
+        severity: warning
+      exp_annotations:
+        summary: Managed staging-02 PDS edge certificate expires within a week
+        description: The public edge certificate for https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health has not renewed.
+- name: edge certificate with a month left does not alert
+  interval: 1m
+  input_series:
+  - series: 'probe_ssl_earliest_cert_expiry{job="blackbox-http",project="prichal",environment="staging",host="kvant",instance="https://pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv/xrpc/_health"}'
+    values: '2592000+0x90'
+  alert_rule_test:
+  - eval_time: 61m
+    alertname: PrichalStaging02PublicCertificateExpiring
+    exp_alerts: []
