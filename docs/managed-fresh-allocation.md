@@ -39,9 +39,9 @@ Kvant: `~/.local/state/prichal-staging-02-bootstrap/managed-allocation-20261030/
 
 - This qualifies one API-created allocation end to end on designated staging capacity. Owner authentication was synthetic; the real Gitea sign-in path was qualified separately on the first staging registry.
 - No API, worker or management process runs continuously. The worker stopped after readiness, so no ongoing public check exists.
-- The node leaf expires October 31, 2026 at 23:11:48 UTC. [Renewal](staging-02-transport-renewal.md) is manual and now accepts this one placement. Public serving does not depend on the agent leaf, but management readback does.
+- At allocation the node leaf expired October 31, 2026 at 23:11:48 UTC, and renewal was manual. An hourly [renewal timer](staging-02-transport-renewal.md#scheduled-renewal) now handles it, with Dozor alerts; its first unattended renewal was on October 31. Public serving does not depend on the agent leaf, but management readback does.
 - The two forwards are user SSH units with `Restart=on-failure`. They depend on Kvant, Almaz and the guest staying up; boot and failure behavior is not qualified.
-- Handles, account enrollment, supported DNS/provider failure, ongoing renewal and withdrawal of this endpoint remain #7 and #8 work.
+- Handles, account enrollment, supported DNS/provider failure and withdrawal of this endpoint remain #7 and #8 work.
 
 ## Pause and rollback
 

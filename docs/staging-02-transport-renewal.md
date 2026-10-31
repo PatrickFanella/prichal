@@ -54,11 +54,27 @@ Node leaves last 24 hours, and the worker client certificate lasts seven days, s
 
 When both are due, the node leaf is renewed first: that step needs no worker identity, while proving a new worker certificate over mTLS needs a valid node leaf. Every run, including one with nothing due, reads registry custody, checks authenticated capacity over mTLS and writes a private `transport-renewal/status.json` with the check time and the three expiries. Renewals also keep a timestamped receipt directory with the before and candidate certificates.
 
-`deploy/homelab/staging-02-certificates.service` and `.timer` run the coordinator hourly in Kvant's user manager as `prichal-staging-02-certificates.*`, like the first staging node's timer. Failures exit non-zero and leave the previous `status.json`, so its age shows a stalled timer. No notification is wired to that yet. To pause, stop the timer; leaves then expire within a day.
+`deploy/homelab/staging-02-certificates.service` and `.timer` run the coordinator hourly in Kvant's user manager as `prichal-staging-02-certificates.*`, like the first staging node's timer. A failed run exits non-zero and writes `success: false` with the check time and error type to `status.json`; a run that never starts leaves the file to age. [Dozor alerts](#natural-renewal-and-alerts--october-31-2026) on both. To pause, stop the timer; leaves then expire within a day.
 
 ### Timer installation — October 31, 2026
 
 PR #223 merged as `8e7675a6b760fe517c009ec45b2ff3daeb6b262e`. The merged coordinator (`331669f4bb9ef15c79511f0d815607ba385ddecd20b90ca8770d8bff28209ff9`) replaced the control-directory copy, which is kept as `renew-staging-02-node.py.before-schedule`. The units are installed as `prichal-staging-02-certificates.service`/`.timer` in Kvant's lingering user manager, and `systemd-analyze --user verify` accepted them. A manual run at 00:07:56 UTC and the timer's first run at 00:08:22 UTC both succeeded with nothing due. Both confirmed mTLS capacity and custody for deployment `e4067ea1-f000-4321-852f-0c67a179c0ed`, and the status file records node expiry October 31 23:11:48, worker November 4 09:54:07 and CA January 26, 2027. The first natural node renewal falls in the hourly run after 15:11:48 UTC on October 31; it has not been observed yet. Machinum `e645c8a` records the timer in the Kvant briefing.
+
+### Natural renewal and alerts — October 31, 2026
+
+The hourly run at 16:08:33 UTC renewed the node leaf on its own, the first renewal the timer has done unattended. Its receipt `20261031T160833354401Z/` shows the same public key before and after, and the new leaf expires November 1 at 16:08:33. The worker and CA were not due. Custody and capacity still listed only `e4067ea1-f000-4321-852f-0c67a179c0ed`, and the public health check returned 200.
+
+PR #225 (merge `58ee2dfbd90dac4e36e75ba02721896d1f4fdeb0`) added failure status and alerts using the [public pilot's pipeline](live-kvant-public-pds-alerts.md):
+
+- **Kvant:** the merged coordinator (`b77b3bb919ad7bd28d6fcecaef362a72b6bf6841c9caadc9af5d28362a22948f`; previous copy `.before-failure-status`) writes failure status. `prichal-staging-02-metrics.timer` runs `staging-02-metrics-publish.py` (`8655b4aa4faa8c5b64228261a650be7a0766af733221bc4827f83b4f28848e2a`) every five minutes from private `~/.local/state/prichal-staging-02-metrics/`. It reads only `status.json` and sends the three expiries and the attempt and success times to Dozor with a dedicated key, checked against the pinned Dozor host key. A failed run keeps the last known expiries and success time.
+- **Dozor:** a new `restrict,command=` line runs `/usr/local/libexec/prichal-staging-02-metrics.py` (`f66582cf…`), which accepts only the fixed node ID and three roles and writes `prichal-staging-02/certificates.prom` for the existing textfile collector. An `id` request through that key was refused.
+- **Rules:** `prichal-staging-02-certificates.yml` alerts on expiry past each role's renewal point (node under 6 hours, worker under 2 days, CA under 45 days), unreadable status (critical), telemetry missing or older than 15 minutes, and a failed renewal or no success for 2 hours.
+
+The candidate Prometheus configuration passed `promtool check config` inside the running container. The live file gained one rule-file line, written in place so the bind-mount inode stayed the same, and a lifecycle reload applied it. Prometheus returned all nine samples, and all four rules were healthy and inactive. `amtool` routes these labels to `ntfy-no-resolved` for warnings and `ntfy` for critical alerts, the receivers whose ntfy delivery the public pilot qualified. No staging-02 alert has been delivered yet.
+
+Running `daemon-reload` while enabling the publisher restarted the renewal timer's 20-second `OnActiveSec` delay, so it ran twice more, at 16:40:06 and 16:40:30 UTC, through the new coordinator. Both runs had nothing due and succeeded, and the hourly schedule now falls at :40. Dozor's private `~/.local/state/prichal-staging-02-metrics/` keeps the previous `prometheus.yml` and `authorized_keys`, the validation log and hash receipts. Machinum `b5670e2` records both briefings.
+
+To roll back, disable the publisher timer on Kvant. On Dozor, remove only the rule-file line, then validate and reload; then delete the rule file, the textfile symlink and that key line, after checking for later edits. Disabling the publisher alone fires the stale-telemetry alert after 25 minutes.
 
 ## Validation and next step
 
