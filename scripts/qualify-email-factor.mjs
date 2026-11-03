@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { keepFixtures, removeFixture } from './disposable-fixture.mjs';
 
 const image = 'ghcr.io/bluesky-social/pds:0.4@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336';
 const edgeImage = 'caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d';
@@ -11,7 +12,8 @@ const id = randomUUID();
 const prefix = `prichal-email-factor-${id}`;
 const root = resolve('.local/pds-email-factor', id);
 mkdirSync(root, { recursive: true, mode: 0o700 });
-const label = `tv.subcult.prichal.email-factor-qualification=${id}`;
+const labelKey = 'tv.subcult.prichal.email-factor-qualification';
+const label = `${labelKey}=${id}`;
 const network = `${prefix}-net`;
 const volumes = Object.fromEntries(['data', 'blobs', 'protocol'].map(role => [role, `${prefix}-${role}`]));
 const names = Object.fromEntries(['pds', 'edge', 'protocol'].map(role => [role, `${prefix}-${role}`]));
@@ -108,8 +110,15 @@ function finalize() {
   if (stopFailures.length) failed = true;
   report.completedAt = new Date().toISOString();
   report.result = failed ? 'FAIL' : 'PASS';
-  report.retainedStoppedContainers = created.filter(name => !stopFailures.includes(name));
-  report.retainedVolumes = volumes;
+  if (keepFixtures()) {
+    report.retainedStoppedContainers = created.filter(name => !stopFailures.includes(name));
+    report.retainedVolumes = volumes;
+    report.retainedNetwork = network;
+  } else {
+    // Disposable by default: remove this run's labeled containers, network and volumes.
+    report.cleanup = removeFixture({ owner: [labelKey, id], containers: created, networks: [network], volumes: Object.values(volumes) });
+    if (report.cleanup.failed.length || report.cleanup.refused.length) console.error('Some disposable fixture resources were not removed; inspect the private report');
+  }
   report.stopFailures = stopFailures;
   report.limits = { oauthBrowserQualified: false, realMailDeliveryQualified: false, productionPolicyChanged: false };
   writeFileSync(`${root}/report.json`, JSON.stringify(report, null, 2), { flag: 'wx', mode: 0o600 });

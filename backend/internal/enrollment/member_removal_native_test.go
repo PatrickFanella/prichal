@@ -165,7 +165,23 @@ func TestMemberRemovalNativeMigrationWindow(t *testing.T) {
 			}
 		}
 		report["stoppedContainers"] = stopped
-		report["volumesRetained"] = true
+		// This tenant was allocated fresh for this run. Unless PRICHAL_KEEP_FIXTURES=1, remove its
+		// labeled containers, network and volumes so stopped namespaces stop occupying capacity slots.
+		keep := keepQualificationFixtures()
+		report["volumesRetained"] = keep
+		if !keep {
+			removed := []string{}
+			objects := [][2]string{{"container", names[0]}, {"container", names[1]}, {"container", names[2]}, {"network", network}, {"volume", names[0] + "-data"}, {"volume", names[0] + "-blobs"}}
+			for _, object := range objects {
+				ok, e := removeOwnedDocker(object[0], object[1], "tv.subcult.pds-ass.instance", id)
+				if e != nil {
+					t.Error("fresh tenant", object[0], "cleanup:", e)
+				} else if ok {
+					removed = append(removed, object[1])
+				}
+			}
+			report["removedFixtureResources"] = removed
+		}
 		raw, _ := json.MarshalIndent(report, "", "  ")
 		if os.WriteFile(filepath.Join(root, "report.json"), raw, 0600) != nil {
 			t.Error("qualification receipt unavailable")

@@ -9,7 +9,7 @@ COMPOSE_PROJECT_NAME=prichal-storage-qualification ./scripts/dev.sh db
 ./scripts/dev.sh qualify-member-native-recovery
 ```
 
-The separate local PostgreSQL, Unix Docker socket and canonical pinned PLC/mail fixture are required. The shared protocol fixture must be stopped initially; this profile refuses to interrupt an existing running fixture. The native broker admits exactly one new source tenant under its measured capacity and existing disposable ceiling. Stopped namespaces still count. The test never prunes retained tenants or volumes.
+The separate local PostgreSQL, Unix Docker socket and canonical pinned PLC/mail fixture are required. The shared protocol fixture must be stopped initially; this profile refuses to interrupt an existing running fixture. The native broker admits exactly one new source tenant under its measured capacity and existing disposable ceiling. Stopped namespaces still count. The test never prunes existing retained tenants or volumes. At the end of the run it removes the fresh source tenant it allocated (its three containers, tenant network and data/blob volumes), so stopped test namespaces no longer fill capacity slots. Set `PRICHAL_KEEP_FIXTURES=1` to keep them.
 
 ## Checkpoint and isolation
 
@@ -19,7 +19,7 @@ The driver validates the pinned source image, tenant/project labels, fixed volum
 
 The normalized archive is authenticated with the existing AES-GCM recovery helper before extraction into fresh volumes. Full file/database inventories match before any restored application starts. The three member host files restore into a separate private agent-state candidate; this profile does not activate that candidate or restore an edge/guard route. The restored PDS and cloned protocol fixture use a new internal Docker network with no published ports. The old source remains fenced while the restored writer runs.
 
-Both accounts must authenticate with their original passwords and DIDs, then create new signed records. The pinned upstream repository verifier checks signatures against the retained local PLC identities; referenced blob bytes, CIDs and hashes match. The restored copy is stopped before source-tree and protected-metadata hashes are compared again. Volumes, encrypted checkpoint, same-machine key and private intermediate files remain retained under `.local/` for review. Labeled-container cleanup is registered before allocation and also runs from the Go harness if its subprocess fails or times out.
+Both accounts must authenticate with their original passwords and DIDs, then create new signed records. The pinned upstream repository verifier checks signatures against the retained local PLC identities; referenced blob bytes, CIDs and hashes match. The restored copy is stopped before source-tree and protected-metadata hashes are compared again. The encrypted checkpoint, same-machine key and private intermediate files remain under `.local/` for review. The driver then removes the restored Compose project and the labeled stage/restore volumes unless `PRICHAL_KEEP_FIXTURES=1` is set. Labeled container and volume names are registered before allocation; the Go harness uses that list to stop and remove them if its subprocess fails or times out.
 
 ## Observed result — October 20, 2026
 
