@@ -33,6 +33,7 @@ func qualifyMemberNativeRecovery(t *testing.T, ctx context.Context, root, id str
 		var resources struct {
 			ID         string   `json:"id"`
 			Containers []string `json:"containers"`
+			Volumes    []string `json:"volumes"`
 		}
 		if json.Unmarshal(data, &resources) != nil || !uuid.MatchString(resources.ID) {
 			t.Error("cold recovery scope invalid")
@@ -53,6 +54,28 @@ func qualifyMemberNativeRecovery(t *testing.T, ctx context.Context, root, id str
 			}
 			if exec.Command("docker", "stop", "--time", "10", name).Run() != nil {
 				t.Error("cold recovery container stop failed")
+			}
+		}
+		// The driver removes its own resources; this fallback covers a killed subprocess.
+		if keepQualificationFixtures() {
+			return
+		}
+		prefix := "pds-ass-member-recovery-" + resources.ID
+		for _, name := range []string{prefix + "-pds-1", prefix + "-protocol-1"} {
+			if _, e := removeOwnedDocker("container", name, "pds-ass.member-recovery", resources.ID); e != nil {
+				t.Error("cold recovery container cleanup:", e)
+			}
+		}
+		if _, e := removeOwnedDocker("network", prefix+"_private", "com.docker.compose.project", prefix); e != nil {
+			t.Error("cold recovery network cleanup:", e)
+		}
+		for _, name := range resources.Volumes {
+			if !strings.HasPrefix(name, prefix+"-") {
+				t.Error("foreign cold recovery volume cleanup refused")
+				continue
+			}
+			if _, e := removeOwnedDocker("volume", name, "pds-ass.member-recovery", resources.ID); e != nil {
+				t.Error("cold recovery volume cleanup:", e)
 			}
 		}
 	})

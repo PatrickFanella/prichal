@@ -35,7 +35,7 @@ The command creates one native account, confirms captured email, enables the fac
 - Anonymous native state reads and mutation attempts return 401.
 - The allocated containers' stdout/stderr contain none of the generated passwords, invitations, session tokens or captured confirmation/sign-in/disable codes.
 
-Mail capture necessarily stores private test messages in the fixture database. Credentials and runtime state remain in private ignored `.local/pds-email-factor/<UUID>/` and private Docker volumes; no codes/tokens enter the JSON report. No management jobs, exports or audits are used. The log scan covers these allocated fixtures and generated values, not every possible upstream log or deployment. Success/failure and handled interruption stop allocated long-lived containers; reports retain any stop failures rather than hiding them. Retained volumes and stopped containers are not pruned.
+Mail capture necessarily stores private test messages in the fixture database. Credentials and runtime state remain in private ignored `.local/pds-email-factor/<UUID>/` and private Docker volumes; no codes/tokens enter the JSON report. No management jobs, exports or audits are used. The log scan covers these allocated fixtures and generated values, not every possible upstream log or deployment. Success/failure and handled interruption stop allocated long-lived containers; reports retain any stop failures rather than hiding them. By default the run then removes its own labeled containers, network and volumes, and records the result under `cleanup` in the report. Set `PRICHAL_KEEP_FIXTURES=1` to keep them for debugging. Teardown removes only resources carrying this run's UUID label.
 
 ## OAuth and live-mail limits
 

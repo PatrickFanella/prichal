@@ -18,7 +18,7 @@ The restricted host broker resolves the DID from its retained accepted-invitatio
 ./scripts/pds-local.sh qualify-member-exit
 ```
 
-This command allocates a new labeled internal Docker network, three resource-bounded containers and independent data/blob/protocol volumes. It publishes no ports, uses the pinned official PDS and Caddy images, and creates three synthetic accounts against the local PLC/mail fixture. It does not open the retained local fixture or a management database. Credentials and reports stay under ignored `.local/pds-member-exit/UUID/` with private permissions. Its finalizer stops only containers with the exact qualification label; it retains volumes and reports, including failures.
+This command allocates a new labeled internal Docker network, three resource-bounded containers and independent data/blob/protocol volumes. It publishes no ports, uses the pinned official PDS and Caddy images, and creates three synthetic accounts against the local PLC/mail fixture. It does not open the retained local fixture or a management database. Credentials and reports stay under ignored `.local/pds-member-exit/UUID/` with private permissions. Its finalizer stops only containers with the exact qualification label, then removes this run's labeled containers, network and volumes. Reports, including failures, stay under `.local/`. Set `PRICHAL_KEEP_FIXTURES=1` to keep the Docker resources for debugging.
 
 On Kvant, October 19, fixture `56365f97-9914-4b91-a952-7ec38e60a35b` passed:
 

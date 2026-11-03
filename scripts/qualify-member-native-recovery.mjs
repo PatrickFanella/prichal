@@ -9,6 +9,7 @@ import {performance} from 'node:perf_hooks';
 import {sealRecovery,openRecovery} from './recovery-crypto.mjs';
 import {memberRecoveryFiles,restoreMemberRecoveryFiles} from './member-recovery-state.mjs';
 import {recoverySubnets,composeLiterals} from './recovery-networks.mjs';
+import {keepFixtures,removeFixture} from './disposable-fixture.mjs';
 
 assert.equal(process.env.PDS_QUALIFY_NATIVE_MEMBER_RECOVERY,'true','Explicit disposable native recovery opt-in required');
 const rollback=process.env.PDS_QUALIFY_NATIVE_MEMBER_ROLLBACK==='true';
@@ -24,9 +25,9 @@ assert.ok(Array.isArray(logins)&&logins.length===2&&logins.every(v=>typeof v.han
 assert.notEqual(logins[0].did,logins[1].did);
 const image='ghcr.io/bluesky-social/pds:0.4@sha256:95d6179bc9fb10cc36ccd6dea0407fc6d99f21374bf2a1f9e8f28c0427c7e336';
 const id=randomUUID(),prefix='pds-ass-member-recovery-'+id,work=join(root,'cold-recovery');mkdirSync(work,{mode:0o700});
-const resources={id,containers:[]},report={result:'failed',tenant,id,stage:'preflight',rollbackRequested:rollback,productionRecoveryQualified:false};
+const resources={id,containers:[],volumes:[]},report={result:'failed',tenant,id,stage:'preflight',rollbackRequested:rollback,productionRecoveryQualified:false};
 function receipt(){writeFileSync(join(work,'report.json'),JSON.stringify(report,null,2),{mode:0o600});}
-function register(name){resources.containers.push(name);writeFileSync(join(work,'resources.json'),JSON.stringify(resources),{mode:0o600});}
+function register(name,kind='containers'){resources[kind].push(name);writeFileSync(join(work,'resources.json'),JSON.stringify(resources),{mode:0o600});}
 function command(args,options={}){const result=spawnSync('docker',args,{encoding:'utf8',timeout:60000,maxBuffer:8<<20,...options});if(result.status!==0){report.failedOperation=args[0];writeFileSync(join(work,'subprocess-error.log'),result.stderr??'',{mode:0o600});}assert.equal(result.status,0,'Fixed member recovery operation failed');return result.stdout;}
 const inspect=name=>JSON.parse(command(['inspect',name]))[0];
 const names={pds:'pds-ass-tenant-'+tenant,edge:'pds-ass-edge-'+tenant,guard:'pds-ass-enrollment-'+tenant,protocol:'pds-ass-runtime-protocol-fixtures-1'};
@@ -35,12 +36,16 @@ const cloneNames=[prefix+'-pds-1',prefix+'-protocol-1'];let composePath,started=
 function fenced(volumes){for(const volume of Object.values(volumes))assert.equal(command(['ps','--filter','volume='+volume,'--format','{{.ID}}']).trim(),'','Checkpoint source still has an active container');}
 function stopClones(){for(const name of cloneNames){const value=spawnSync('docker',['inspect',name],{encoding:'utf8'});if(value.status!==0)continue;assert.equal(JSON.parse(value.stdout)[0].Config.Labels['pds-ass.member-recovery'],id);command(['stop','--time','10',name]);}}
 function stopResumedSource(){if(resumedSource)command(['stop','--time','10',names.pds,names.protocol]);}
-for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{try{stopClones();}finally{stopResumedSource();}process.exit(130);});
+// Disposable by default: Compose removes the restored clones and their private network; the
+// stage/restore volumes are external, so they are removed by exact label. PRICHAL_KEEP_FIXTURES=1 keeps them.
+function removeOwned(){if(keepFixtures())return;try{if(composePath&&started)spawnSync('docker',['compose','-f',composePath,'-p',prefix,'down','--remove-orphans','--timeout','10'],{encoding:'utf8',timeout:60000});
+ report.cleanup=removeFixture({owner:['pds-ass.member-recovery',id],containers:cloneNames,volumes:resources.volumes});}catch{report.cleanupFailed=true;}try{receipt();}catch{}}
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{try{stopClones();}finally{try{stopResumedSource();}finally{removeOwned();}}process.exit(130);});
 let tool=0;
 function run(args,options={}){const name=prefix+'-tool-'+(++tool);register(name);return command(['run','--rm','--name',name,'--label','pds-ass.member-recovery='+id,'--network','none','--memory','192m','--cpus','0.5','--pids-limit','64',...args],options);}
 function mounts(volumes,path,readonly=true){return [...Object.entries(volumes).flatMap(([name,volume])=>['--mount',`type=volume,src=${volume},dst=/snapshot/${name}${readonly?',readonly':''}`]),'--mount',`type=bind,src=${path},dst=/snapshot/host${readonly?',readonly':''}`];}
 function inventory(volumes,path,filesOnly=false){return JSON.parse(run([...mounts(volumes,path),'--mount',`type=bind,src=${resolve('deploy/local/fixtures/inventory.cjs')},dst=/inventory.cjs,readonly`,'--entrypoint','node',image,'/inventory.cjs',...(filesOnly?['--files-only']:[])]));}
-function volumesFor(suffix){const volumes=Object.fromEntries(['data','blobs','protocol'].map(kind=>[kind,prefix+'-'+suffix+'-'+kind]));for(const name of Object.values(volumes))command(['volume','create','--label','pds-ass.member-recovery='+id,name]);return volumes;}
+function volumesFor(suffix){const volumes=Object.fromEntries(['data','blobs','protocol'].map(kind=>[kind,prefix+'-'+suffix+'-'+kind]));for(const name of Object.values(volumes)){register(name,'volumes');command(['volume','create','--label','pds-ass.member-recovery='+id,name]);}return volumes;}
 function execJSON(container,program,value){return JSON.parse(command(['exec','-i',container,'node','-e',program],{input:JSON.stringify(value)}));}
 const nativeProgram=`const assert=require('node:assert/strict');const input=JSON.parse(require('node:fs').readFileSync(0));
 async function rpc(method,body,token){const r=await fetch('http://localhost:2583/xrpc/'+method,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();}
@@ -110,4 +115,4 @@ try {
  delete report.failedOperation;
  Object.assign(report,{result:'passed',stage:'complete',completedAt:new Date().toISOString(),capturedAt,coldRecoveryMilliseconds,startupReadRetries,sourceWritersFenced:true,sourceFilesUnchanged:!rollback,sourceProtectedMetadataRetained:true,authenticatedEncryptedCheckpoint:true,checkpointBytes:readFileSync(bundle).length,checkpointSha256:hash(readFileSync(bundle)),sqliteDatabases:normalized.databases,signedRepositories:signedBefore.repositories,signedRecords:signedBefore.signedRecords,referencedBlobs:signedBefore.referencedBlobs.length,restoredOriginalAccountLogins:2,restoredSignedWrites:2,memberHostFilesRetained:3,restoredContainersStopped:true,isolatedPrivateNetwork:true,includesSharedLocalIdentityFixture:true,agentActivated:false,publicEndpointCutoverQualified:false,independentCustodyQualified:false});receipt();console.log(JSON.stringify(report));
 } catch {receipt();console.error('Disposable member cold recovery failed; inspect the private stage receipt.');process.exitCode=1;}
-finally{try{if(started)stopClones();}finally{stopResumedSource();}}
+finally{try{if(started)stopClones();}finally{try{stopResumedSource();}finally{removeOwned();}}}
