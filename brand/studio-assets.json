@@ -50,5 +50,14 @@
       "conversion": "fontTools WOFF2, unchanged glyphs",
       "source_sha256": "44ce4a84f20d60f24539bd0cef11f79c29e38609e0f8adf18551c9794a5d9dc3"
     }
+  ],
+  "derived_icons": [
+    {
+      "source": "branding/2026-10-01-packs/brands/prichal/product/favicon.svg",
+      "target": "site/favicon.ico",
+      "conversion": "rsvg-convert at 16, 32 and 48 px, combined with ImageMagick; the pack has no ICO",
+      "source_sha256": "15f42ef42d8f7423c96e1f1a1a13259f6a1a24cd50991f99f64d6aa31a4516f4",
+      "sha256": "a37b644e629d2328bf1ad76325f96f70974f9afdeaed7448732b46d41de95014"
+    }
   ]
 }
