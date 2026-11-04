@@ -181,6 +181,8 @@ def stop_fixture(name):
     command(["docker", "stop", "--time", "5", value["Id"]], timeout=15)
     if inspect(value["Id"]).get("State", {}).get("Running"):
         raise Refused("Verification container did not stop")
+    # Its data lived only in tmpfs, so the stopped container holds nothing.
+    command(["docker", "rm", value["Id"]], timeout=15)
 
 
 def wait_ready(name):
