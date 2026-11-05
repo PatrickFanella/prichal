@@ -17,6 +17,12 @@ This is a preview, not public PDS hosting. The API runs in production mode with 
 
 ## Release
 
+Main CI automatically delivers the public web listener after the required native
+checks. Its management interface stays pinned to the compatible retained API;
+API/database and managed-PDS releases use the separate procedure below. See
+[automatic web delivery](ci-web-deployment.md) for the source pin, restricted
+receiver, read-only API admission and rollback checks.
+
 ```sh
 ssh dozor
 REV=<commit>

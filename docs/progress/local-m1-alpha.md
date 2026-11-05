@@ -1610,3 +1610,29 @@ PRs #227 and #228 merged as `2e314524c8c24e8a2e447a1172700a2aef50d918`. Dozor no
 ### Disposable qualification fixture teardown — November 3, 2026
 
 On November 3, Kvant held about 90 stopped containers and 75 named volumes left by local qualification runs. Stopped tenant namespaces also count against the native agent's capacity ceiling, which blocked the October 20 cold-recovery admission. The storage, email-factor and member-exit qualifiers, the native member-window Go test and its cold-recovery driver now remove the containers, networks and volumes that each run allocated. A resource is removed only when it carries that run's exact ownership label. Removal happens on success, on failure and on handled SIGINT/SIGTERM. The Go harness also has a fallback for a killed recovery subprocess. `PRICHAL_KEEP_FIXTURES=1` keeps everything for debugging. The local stack's long-lived tenants, the shared protocol fixture, the main development database and all staging and managed recovery tooling are unchanged. Existing leftovers on Kvant need a separate manual cleanup. Helper unit tests passed without Docker; no Docker-backed qualification was run for this change.
+
+
+## November 5, 2026: automatic hosted-preview web delivery prepared
+
+The existing required smoke job now qualifies a source-labelled production Caddy
+image and permits main-only activation through a web-scoped Dozor receiver. The
+public site follows main. The management bundle is pinned to native API source
+`decd4442c8dba11b101c7165213fcfaec67b06ed` (schema 35); all eight rebuilt
+management files match the retained interface byte-for-byte. Current main's newer
+management features require schema 42 and retain their separate native release.
+
+Local `scripts/dev.sh smoke` passed on an internal Kuznya network with pinned
+Go 1.27.1, Node 24.15.0, pnpm 12.6.0 and a disposable PostgreSQL database. Go vet,
+the frontend build, Node script tests and all 37 tested Go packages passed. The
+owned test containers and network were removed. The actual pinned web image
+passed isolated landing metadata/assets and management shell/assets checks.
+ShellCheck and shell syntax passed; actionlint passed on a private copy with only
+the pre-existing Gitea absolute action URLs normalized to its supported syntax.
+
+The new restricted key passed from Kvant and the actual Kuznya CI guest. Shell
+and API-service selection were refused. A read-only admission check accepts the
+matching management source and refuses a mismatched candidate before activation.
+The native environment file, API, database, managed agents and public/private
+route policies were not changed. The versioned admission hook must be installed
+from green merged source before main promotion. Hosted PR CI and production
+activation/readback remain pending. See [automatic web delivery](../ci-web-deployment.md).
