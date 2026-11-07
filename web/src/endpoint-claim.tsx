@@ -17,6 +17,8 @@ export function EndpointClaim({ organizationId, ownerId, csrfToken, choice, disa
   const read = useRef<AbortController | null>(null), mutation = useRef<AbortController | null>(null), busyRef = useRef(false), focusResult = useRef(false);
   const panel = useRef<HTMLElement | null>(null);
   const focusAfterMutation = useRef(false);
+  // A failed claim keeps its message until the owner refreshes; the automatic read would replace it.
+  const keepFailure = useRef(false);
   const title = useRef<HTMLHeadingElement | null>(null), status = useRef<HTMLParagraphElement | null>(null), failure = useRef<HTMLParagraphElement | null>(null), launcher = useRef<HTMLButtonElement | null>(null);
   const target = intent ?? (choice ? { id: choice.id, hostname: choice.hostname } : null);
   const eligible = !!scoped && scoped.state === 'awaiting_ownership' && Date.parse(scoped.expiresAt) > now && !scoped.hostname.endsWith('.test') && !value;
@@ -58,6 +60,7 @@ export function EndpointClaim({ organizationId, ownerId, csrfToken, choice, disa
   useEffect(() => {
     read.current?.abort(); read.current = null; setReview(null); setUnderstood(false);
     if (disabled) { setScoped(null); setValue(null); setLoaded(false); setLoading(false); }
+    else if (keepFailure.current) keepFailure.current = false;
     else if (!busy) void refresh(false);
     return () => { read.current?.abort(); read.current = null; };
   }, [target?.id, target?.hostname, choice?.state, choice?.expiresAt, disabled, busy, csrfToken]);
@@ -73,9 +76,12 @@ export function EndpointClaim({ organizationId, ownerId, csrfToken, choice, disa
       const response = await fetch(`/api/organizations/${organizationId}/endpoint-choices/${exact.id}/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: '{}', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
       const v: unknown = await response.json();
       if (mutation.current !== controller || controller.signal.aborted) return;
-      if (!response.ok || !claimReceipt(v, exact)) { setScoped(null); setError('The domain claim could not be confirmed. The exact choice is retained. Refresh status before reviewing a retry.'); if ([401, 403, 404].includes(response.status)) onAccessDenied(); return; }
+      if (!response.ok || !claimReceipt(v, exact)) {
+        const detail = !response.ok && typeof v === 'object' && v !== null && typeof (v as { error?: unknown }).error === 'string' ? (v as { error: string }).error + ' ' : '';
+        keepFailure.current = true; setScoped(null); setError(detail + 'The domain claim could not be confirmed. The exact choice is retained. Refresh status before reviewing a retry.'); if ([401, 403, 404].includes(response.status)) onAccessDenied(); return;
+      }
       setValue(v); setLoaded(true); clearIntent(); focusResult.current = true; focusAfterMutation.current = true; setNotice('The claim receipt was confirmed. Routing, HTTPS and hosting remain unqualified.');
-    } catch { if (mutation.current === controller && !controller.signal.aborted) { setScoped(null); setError('The domain claim could not be confirmed. The exact choice is retained. Refresh status before reviewing a retry.'); } }
+    } catch { if (mutation.current === controller && !controller.signal.aborted) { keepFailure.current = true; setScoped(null); setError('The domain claim could not be confirmed. The exact choice is retained. Refresh status before reviewing a retry.'); } }
     finally { if (mutation.current === controller) { mutation.current = null; busyRef.current = false; if (!controller.signal.aborted) setBusy(false); } }
   }
   if (!choice && !intent && !blocked && !value && !error && !notice) return null;
