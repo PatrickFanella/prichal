@@ -149,7 +149,8 @@ func (p AgentProvisioner) Step(ctx context.Context, id string) error {
 	}
 	if state == "checking" {
 		if !instance.Healthy {
-			if time.Since(created) > 2*time.Minute {
+			// Measure from entering checking; queue time must not consume the health window.
+			if time.Since(updated) > 2*time.Minute {
 				return errors.New("local PDS health did not become ready")
 			}
 			return ErrHealthPending

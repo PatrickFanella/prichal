@@ -95,6 +95,19 @@ func TestAgentSuccessAfterUncertainCompletion(t *testing.T) {
 			if err = provisioner.Step(ctx, op.ID); !errors.Is(err, ErrHealthPending) {
 				t.Fatalf("premature readiness: %v", err)
 			}
+			// The health window starts when checking began, not when the request was queued.
+			if _, err = pool.Exec(ctx, `UPDATE deployments SET created_at=now()-interval '10 minutes' WHERE id=$1`, op.ID); err != nil {
+				t.Fatal(err)
+			}
+			if err = provisioner.Step(ctx, op.ID); !errors.Is(err, ErrHealthPending) {
+				t.Fatalf("queue time consumed the health window: %v", err)
+			}
+			if _, err = pool.Exec(ctx, `UPDATE deployments SET updated_at=now()-interval '3 minutes' WHERE id=$1`, op.ID); err != nil {
+				t.Fatal(err)
+			}
+			if err = provisioner.Step(ctx, op.ID); err == nil || errors.Is(err, ErrHealthPending) {
+				t.Fatalf("expired health window stayed pending: %v", err)
+			}
 			agent.healthy = true
 			if err = provisioner.Step(ctx, op.ID); err != nil {
 				t.Fatal(err)
