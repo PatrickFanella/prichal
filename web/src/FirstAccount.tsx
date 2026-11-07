@@ -47,7 +47,8 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
   const [now, setNow] = useState(Date.now());
-  useEffect(() => { if (error || loadError) failure.current?.focus(); }, [error, loadError]);
+  // Background poll failures are announced by role=alert; only action failures move focus.
+  useEffect(() => { if (error) failure.current?.focus(); }, [error]);
   useEffect(() => { if (cancellationReview) cancellationTitle.current?.focus(); }, [cancellationReview]);
   useEffect(() => { if (review) reviewTitle.current?.focus(); }, [review]);
   useEffect(() => { if (focusResult.current && loaded && operation) { result.current?.focus(); focusResult.current = false; } }, [operation, loaded, cancellationId]);

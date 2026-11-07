@@ -15,7 +15,8 @@ export function CustomerExports({deploymentId,csrfToken}:{deploymentId:string;cs
  const failure=useRef<HTMLParagraphElement|null>(null);
  const sequence=useRef(0),busyRef=useRef(false),mutation=useRef<AbortController|null>(null);
  const [items,setItems]=useState<Export[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[loadError,setLoadError]=useState(''),[loaded,setLoaded]=useState(false);
- useEffect(()=>{if(error||loadError)failure.current?.focus();},[error,loadError]);
+ // Background poll failures are announced by role=alert; only action failures move focus.
+ useEffect(()=>{if(error)failure.current?.focus();},[error]);
  useEffect(()=>{
   const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
   setItems([]);setLoaded(false);setError('');setLoadError('');setBusy(false);busyRef.current=false;

@@ -31,7 +31,8 @@ function MemberWorkspace({ deploymentId, csrfToken }: { deploymentId: string; cs
   const launchers = useRef(new Map<string, HTMLButtonElement>());
   const path = `/api/deployments/${deploymentId}/members/invitations`;
   useEffect(() => () => { sequence.current++; mutation.current?.abort(); }, []);
-  useEffect(() => { if (error || loadError) failure.current?.focus(); }, [error, loadError]);
+  // Background poll failures are announced by role=alert; only action failures move focus.
+  useEffect(() => { if (error) failure.current?.focus(); }, [error]);
   useEffect(() => { if (review) reviewTitle.current?.focus(); }, [review]);
   useEffect(() => {
     const controller = new AbortController(); let loading = false;
