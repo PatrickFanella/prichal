@@ -54,6 +54,14 @@ The inventory schema has `version: 1`, `endpoints` and `handles`. Authoritative 
 
 Generated upstream certificate references use `/etc/caddy/certs/prichal-managed/<deployment UUID>.crt`. A future publisher must verify that these installed files match the input digests and that reserved forwards reach the recorded native instances. This command does not install either file or select an execution window.
 
+## Private ingress identity lifetime — issue #234
+
+The edge pins the exact SHA-256 of each deployment's self-signed private ingress certificate, so the pin is the trust control and the certificate's validity period only decides when the pin must be republished. Until November 2026 the node agent issued these identities for seven days and refused an expired one. Managed deployment `e4067ea1` lost its edge at the first restart after expiry: the agent would not start the edge container, and nothing renewed the file.
+
+The agent now issues a new identity for two years (`nodeagent.LocalTLSLifetime`). When a retained identity it issued itself has expired, the agent reissues it with the same private key, atomically replaces the file and starts the edge. An identity with another hostname, a lifetime over two years, a future start time or a CA signature (the public pilot's operator-renewed ingress leaf) is still refused unchanged.
+
+A renewed certificate has a new hash, so the public route keeps refusing it until the operator records a new edge observation, exports a new inventory generation and republishes it through the existing update path. Renewal restores private health; it does not restore public serving on its own.
+
 ## Verification evidence and limits
 
 Focused race tests cover generated names, authority injection/conflicts, unregistered handle placements, certificate validity/digest/symlink/private-material refusal, bounded strict JSON decoding and non-destructive candidate creation. A real candidate using a synthetic public certificate and DID passed validation with the pinned Caddy image in an isolated, network-disabled container. An initial attempt ran as container root and could not read the mode-0600 bind mount; using the operator's numeric UID/GID passed. Existing-output retry was refused with byte-identical content.

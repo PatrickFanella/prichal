@@ -2,6 +2,8 @@ package nodeagent
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCredentialsSurviveReconstruction(t *testing.T) {
@@ -262,6 +265,26 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		afterCertificate, err := reconstructed.IngressCertificate(context.Background(), id)
 		if err != nil || afterCertificate.Certificate != certificate.Certificate {
 			t.Fatal("cold reconciliation replaced ingress trust", err)
+		}
+		// Issue #234: a cold restart after the retained identity expired renews it with
+		// the same key instead of refusing the edge. The new pin needs republication.
+		running["pds-ass-tenant-"+id] = false
+		running["pds-ass-edge-"+id] = false
+		tlsPath := filepath.Join(directory, id+"-tls.pem")
+		key := rewriteLocalIdentity(t, tlsPath, func(c *x509.Certificate) {
+			c.NotBefore = time.Now().Add(-8 * 24 * time.Hour)
+			c.NotAfter = time.Now().Add(-time.Hour)
+		})
+		result, err = reconstructed.EnsureManaged(context.Background(), id)
+		if err != nil || !result.Healthy || !running["pds-ass-edge-"+id] || creates["pds-ass-edge-"+id] != 1 {
+			t.Fatal("expired retained identity blocked cold reconciliation", result, err)
+		}
+		renewed, err := reconstructed.IngressCertificate(context.Background(), id)
+		if err != nil || renewed.Certificate == certificate.Certificate {
+			t.Fatal("expired ingress identity was not renewed", err)
+		}
+		if pair, err := tls.LoadX509KeyPair(tlsPath, tlsPath); err != nil || !key.Equal(pair.PrivateKey) {
+			t.Fatal("renewal replaced the retained ingress key", err)
 		}
 	}
 	running["pds-ass-tenant-"+id] = true
