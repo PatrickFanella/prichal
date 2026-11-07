@@ -27,6 +27,12 @@ WORKER_WINDOW = dt.timedelta(days=3)
 # CA rotation replaces trust on the guest and in the registry; it stays a reviewed manual operation.
 CA_WINDOW = dt.timedelta(days=30)
 WORKER_DAYS = 7
+# The agent reissues an expired edge identity, but the new pin must be republished (#234).
+INGRESS_WINDOW = dt.timedelta(days=30)
+
+
+class IngressIdentityExpiring(ValueError):
+    """A managed edge identity needs a reviewed renewal and republication."""
 
 
 def run(args, **kwargs):
@@ -140,6 +146,17 @@ def replace(path, data, expected):
         os.close(fd)
 
 
+def ingress_expiries(retained):
+    """Read each placement's public edge certificate; the private key never leaves the guest."""
+    result = {}
+    for instance in retained:
+        if not PLACEMENT.fullmatch(instance):
+            raise ValueError('Unexpected staging-02 placement custody')
+        pem = run(SSH + [f'sudo openssl x509 -in /var/lib/prichal-agent/state/{instance}-tls.pem'])
+        result[instance] = expiry(pem)
+    return result
+
+
 def capacity():
     return json.loads(run(['curl', '-fsS', '--max-time', '10', '--cacert', str(ROOT / 'pki/ca.crt'),
         '--cert', str(ROOT / 'pki/worker.crt'), '--key', str(ROOT / 'pki/worker.key'),
@@ -221,13 +238,18 @@ def renew(args, control):
         rotate_worker(receipt, lambda: checked(command, env, retained))
     # Every run, including a no-op, proves current mTLS and unchanged custody.
     checked(command, env, retained)
+    ingress = ingress_expiries(retained)
     result = {'success': True, 'checkedAt': now.isoformat(), 'nodeId': NODE, 'instanceIds': retained,
               'renewed': due, 'nodeExpiry': expiry(node).isoformat(),
+              'ingressExpiry': {instance: value.isoformat() for instance, value in ingress.items()},
               'workerExpiry': expiry((ROOT / 'pki/worker.crt').read_bytes()).isoformat(),
               'caExpiry': expiry(ca).isoformat(), 'retainedKey': True, 'maximumSlots': 1, 'cpus': 3}
     if receipt is not None:
         (receipt / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     replace_status(control / 'status.json', result)
+    if any(value - now <= INGRESS_WINDOW for value in ingress.values()):
+        # main() records the failure, so the existing renewal alert fires well before expiry.
+        raise IngressIdentityExpiring('Managed edge identity is within its republication window')
     print(json.dumps(result))
 
 
