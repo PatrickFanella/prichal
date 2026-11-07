@@ -42,6 +42,7 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
     const controller = new AbortController();
     setOperations([]); setLoaded(false); setLoadError(''); setError('');
     let sequence = 0;
+    let timer: number | undefined;
     async function load() {
       const current = ++sequence;
       try {
@@ -50,9 +51,11 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
         if (!response.ok || !Array.isArray(result) || !result.every(item => operation(item) && item.organizationId === organizationId)) throw new Error('Invalid deployment list');
         if (!controller.signal.aborted && current === sequence) { setOperations(result); setLoaded(true); setLoadError(''); }
       } catch { if (!controller.signal.aborted && current === sequence) { setOperations([]); setLoaded(true); setLoadError('Deployment status is temporarily unavailable.'); } }
+      // Schedule after completion: a fixed interval discarded every response slower than 3 s.
+      finally { if (!controller.signal.aborted) timer = window.setTimeout(() => { void load(); }, 3000); }
     }
-    void load(); const timer = window.setInterval(() => { void load(); }, 3000);
-    return () => { controller.abort(); window.clearInterval(timer); };
+    void load();
+    return () => { controller.abort(); window.clearTimeout(timer); };
   }, [organizationId]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
