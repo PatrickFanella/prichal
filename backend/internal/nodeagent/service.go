@@ -118,6 +118,15 @@ func (d *Docker) Service(ctx context.Context, id string, request ServiceRequest)
 	if _, err = d.runtimeStatus(ctx, id); err != nil {
 		return result, err
 	}
+	renewed := false
+	if request.State == "running" {
+		// Reissue an expired identity before the pending lease, so a refusal cannot hold the instance.
+		_, _, identityErr := d.readLocalIdentity(id)
+		renewed = errors.Is(identityErr, errLocalTLSExpired)
+		if _, err = d.localCertificate(id); err != nil {
+			return result, err
+		}
+	}
 	lease := serviceLease{ServiceResult: result, Phase: "pending"}
 	if err = d.writeServiceLease(lease); err != nil {
 		return result, err
@@ -140,6 +149,12 @@ func (d *Docker) Service(ctx context.Context, id string, request ServiceRequest)
 		// Start the native process first. All identities and mounts were validated above.
 		for i := len(names) - 1; i >= 0; i-- {
 			if _, err = d.call(ctx, "POST", "/containers/"+names[i]+"/start", nil, nil); err != nil {
+				return result, err
+			}
+		}
+		if renewed {
+			// An edge that was already running keeps its mounted certificate until restarted.
+			if _, err = d.call(ctx, "POST", "/containers/pds-ass-edge-"+id+"/restart?t=5", nil, nil); err != nil {
 				return result, err
 			}
 		}

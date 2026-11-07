@@ -1,6 +1,7 @@
 package nodeagent
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -56,6 +57,7 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 	networks := map[string]map[string]any{}
 	running := map[string]bool{}
 	creates := map[string]int{}
+	restarts := map[string]int{}
 	readOnly := false
 	failStop := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -140,6 +142,11 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		case strings.HasSuffix(path, "/start"):
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/start")
 			running[name] = true
+			w.WriteHeader(204)
+		case strings.HasSuffix(path, "/restart"):
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/restart")
+			running[name] = true
+			restarts[name]++
 			w.WriteHeader(204)
 		case strings.HasSuffix(path, "/stop"):
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/stop")
@@ -286,6 +293,41 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		if pair, err := tls.LoadX509KeyPair(tlsPath, tlsPath); err != nil || !key.Equal(pair.PrivateKey) {
 			t.Fatal("renewal replaced the retained ingress key", err)
 		}
+		if restarts["pds-ass-edge-"+id] != 0 {
+			t.Fatal("stopped edge was restarted instead of started")
+		}
+		// A running edge keeps its mounted certificate, so renewal must restart it.
+		expire := func() {
+			rewriteLocalIdentity(t, tlsPath, func(c *x509.Certificate) {
+				c.NotBefore = time.Now().Add(-8 * 24 * time.Hour)
+				c.NotAfter = time.Now().Add(-time.Hour)
+			})
+		}
+		expire()
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 1 {
+			t.Fatal("running edge kept its expired certificate", err, restarts)
+		}
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 1 {
+			t.Fatal("current identity restarted the edge", err, restarts)
+		}
+		// A drifted edge is refused before its identity is reissued.
+		expire()
+		before, err := os.ReadFile(tlsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		edge := configurations["pds-ass-edge-"+id]
+		edge["User"] = "0"
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err == nil {
+			t.Fatal("drifted edge accepted")
+		}
+		if after, err := os.ReadFile(tlsPath); err != nil || !bytes.Equal(before, after) || restarts["pds-ass-edge-"+id] != 1 {
+			t.Fatal("drifted edge identity was reissued or restarted", err)
+		}
+		edge["User"] = privateFileUser()
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 2 {
+			t.Fatal("restored edge did not renew", err, restarts)
+		}
 	}
 	running["pds-ass-tenant-"+id] = true
 	readOnly = false
@@ -316,8 +358,21 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		t.Fatal("suspension left a writer running")
 	}
 	resume := ServiceRequest{Ticket: "cccccccc-cccc-4ccc-cccc-cccccccccccc", Generation: 2, State: "running"}
+	// A suspension that outlives the identity resumes with a reissued one on the same key.
+	tlsPath := filepath.Join(directory, id+"-tls.pem")
+	key := rewriteLocalIdentity(t, tlsPath, func(c *x509.Certificate) {
+		c.NotBefore = time.Now().Add(-8 * 24 * time.Hour)
+		c.NotAfter = time.Now().Add(-time.Hour)
+	})
+	edgeRestarts := restarts["pds-ass-edge-"+id]
 	if _, err = docker.Service(context.Background(), id, resume); err != nil {
 		t.Fatal(err)
+	}
+	if _, err = docker.readLocalCertificate(id); err != nil || restarts["pds-ass-edge-"+id] != edgeRestarts+1 {
+		t.Fatal("resume kept the expired ingress identity", err)
+	}
+	if pair, err := tls.LoadX509KeyPair(tlsPath, tlsPath); err != nil || !key.Equal(pair.PrivateKey) {
+		t.Fatal("resume replaced the retained ingress key", err)
 	}
 	readOnly = true
 	if _, err = docker.Service(context.Background(), id, suspend); err == nil {

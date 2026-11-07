@@ -72,6 +72,11 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 		if _, err := os.Lstat(tlsPath); err != nil {
 			return errors.New("existing ingress TLS identity is missing")
 		}
+		// Refuse a foreign or drifted edge before its identity can be reissued.
+		if err := d.validateIngress(id, current); err != nil {
+			return err
+		}
+		return d.refreshIngressIdentity(ctx, id, current.State.Running)
 	}
 	if _, err = d.localCertificate(id); err != nil {
 		return err
@@ -152,6 +157,24 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 		}
 	}
 	return nil
+}
+
+// refreshIngressIdentity reissues an expired agent-issued identity, then starts a stopped
+// edge or restarts a running one so Caddy serves the reissued certificate.
+func (d *Docker) refreshIngressIdentity(ctx context.Context, id string, running bool) error {
+	_, _, err := d.readLocalIdentity(id)
+	expired := errors.Is(err, errLocalTLSExpired)
+	if _, err = d.localCertificate(id); err != nil {
+		return err
+	}
+	name := "pds-ass-edge-" + id
+	switch {
+	case !running:
+		_, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil)
+	case expired:
+		_, err = d.call(ctx, "POST", "/containers/"+name+"/restart?t=5", nil, nil)
+	}
+	return err
 }
 
 func (d *Docker) localIngressHealthy(ctx context.Context, id string) bool {
