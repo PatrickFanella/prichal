@@ -155,6 +155,43 @@ class Staging02Certificates(unittest.TestCase):
             self.assertEqual(status['errorType'], 'ValueError')
             self.assertEqual(stat.S_IMODE((control / 'status.json').stat().st_mode), 0o600)
 
+    def test_edge_identity_expiry_is_recorded_and_fails_inside_its_window(self):
+        fresh = '0f1e2d3c-4b5a-4697-a8b9-cadbecfd0e1f'
+        for days, expiring in [(700, False), (20, True)]:
+            with self.subTest(days=days), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                control, _, base = self.operator_root(root)
+                key, edge = root / 'edge.key', root / 'edge.crt'
+                subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes',
+                                '-keyout', key, '-subj', '/CN=' + fresh + '.localhost', '-days', str(days), '-out', edge],
+                               check=True, capture_output=True)
+                commands = []
+                def run(args, **kwargs):
+                    if args[-2:] == ['--node', operator.NODE] and args[1] == 'custody':
+                        return json.dumps([fresh]).encode()
+                    if args[-1].startswith('sudo openssl x509 -in /var/lib/prichal-agent/state/'):
+                        commands.append(args[-1])
+                        return edge.read_bytes()
+                    return base(args, **kwargs)
+                with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
+                     patch.object(operator, 'plan', return_value={'node': False, 'worker': False}), \
+                     patch.object(operator, 'checked'), \
+                     patch('sys.argv', ['renew', '--confirm-staging-02']), patch('builtins.print'):
+                    if expiring:
+                        with self.assertRaises(operator.IngressIdentityExpiring):
+                            operator.main()
+                    else:
+                        operator.main()
+                self.assertEqual(commands, [f'sudo openssl x509 -in /var/lib/prichal-agent/state/{fresh}-tls.pem'])
+                status = json.loads((control / 'status.json').read_text())
+                if expiring:
+                    self.assertEqual(status['errorType'], 'IngressIdentityExpiring')
+                    self.assertFalse(status['success'])
+                else:
+                    self.assertTrue(status['success'])
+                    self.assertEqual(list(status['ingressExpiry']), [fresh])
+                    self.assertNotIn('PRIVATE', json.dumps(status))
+
     def test_registry_scope_refuses_other_hosts_ports_databases_and_query_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
