@@ -190,8 +190,9 @@ type inspected struct {
 		Cmd    []string
 	}
 	State struct {
-		Running bool
-		Health  struct{ Status string }
+		Running   bool
+		StartedAt string
+		Health    struct{ Status string }
 	}
 	NetworkSettings struct {
 		Ports    map[string][]struct{ HostIP, HostPort string }

@@ -152,8 +152,13 @@ func (d *Docker) Service(ctx context.Context, id string, request ServiceRequest)
 				return result, err
 			}
 		}
-		if renewed {
-			// An edge that was already running keeps its mounted certificate until restarted.
+		// An edge that was already running keeps its mounted certificate until restarted,
+		// including one whose restart after an earlier renewal was lost.
+		var edge inspected
+		if _, err = d.call(ctx, "GET", "/containers/pds-ass-edge-"+id+"/json", nil, &edge); err != nil {
+			return result, err
+		}
+		if renewed || d.staleEdge(id, edge) {
 			if _, err = d.call(ctx, "POST", "/containers/pds-ass-edge-"+id+"/restart?t=5", nil, nil); err != nil {
 				return result, err
 			}

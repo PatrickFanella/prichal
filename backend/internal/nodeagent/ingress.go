@@ -76,7 +76,7 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 		if err := d.validateIngress(id, current); err != nil {
 			return err
 		}
-		return d.refreshIngressIdentity(ctx, id, current.State.Running)
+		return d.refreshIngressIdentity(ctx, id, current)
 	}
 	if _, err = d.localCertificate(id); err != nil {
 		return err
@@ -161,7 +161,7 @@ func (d *Docker) ingress(ctx context.Context, id string) error {
 
 // refreshIngressIdentity reissues an expired agent-issued identity, then starts a stopped
 // edge or restarts a running one so Caddy serves the reissued certificate.
-func (d *Docker) refreshIngressIdentity(ctx context.Context, id string, running bool) error {
+func (d *Docker) refreshIngressIdentity(ctx context.Context, id string, current inspected) error {
 	_, _, err := d.readLocalIdentity(id)
 	expired := errors.Is(err, errLocalTLSExpired)
 	if _, err = d.localCertificate(id); err != nil {
@@ -169,12 +169,24 @@ func (d *Docker) refreshIngressIdentity(ctx context.Context, id string, running 
 	}
 	name := "pds-ass-edge-" + id
 	switch {
-	case !running:
+	case !current.State.Running:
 		_, err = d.call(ctx, "POST", "/containers/"+name+"/start", nil, nil)
-	case expired:
+	case expired || d.staleEdge(id, current):
 		_, err = d.call(ctx, "POST", "/containers/"+name+"/restart?t=5", nil, nil)
 	}
 	return err
+}
+
+// staleEdge reports a running edge that started before its identity file last changed.
+// Renewal replaces the file before restarting the edge, so a restart lost to an error or
+// crash in between is retried on the next reconcile instead of serving the old leaf.
+func (d *Docker) staleEdge(id string, current inspected) bool {
+	if !current.State.Running {
+		return false
+	}
+	started, err := time.Parse(time.RFC3339Nano, current.State.StartedAt)
+	info, statErr := os.Lstat(filepath.Join(d.directory, id+"-tls.pem"))
+	return err == nil && statErr == nil && info.ModTime().After(started)
 }
 
 func (d *Docker) localIngressHealthy(ctx context.Context, id string) bool {
