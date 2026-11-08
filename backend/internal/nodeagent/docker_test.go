@@ -46,12 +46,12 @@ func TestCredentialsSurviveReconstruction(t *testing.T) {
 	}
 }
 func TestFixedRuntimeAndRetry(t *testing.T) {
-	for _, mode := range []string{"local", "pilot", "managed"} {
+	for _, mode := range []string{"local", "pilot", "managed", "managed-enrollment"} {
 		t.Run(mode, func(t *testing.T) { testFixedRuntimeAndRetry(t, mode) })
 	}
 }
 func testFixedRuntimeAndRetry(t *testing.T, mode string) {
-	pilot, managed := mode == "pilot", mode == "managed"
+	pilot, managed, enrolling := mode == "pilot", mode == "managed" || mode == "managed-enrollment", mode == "managed-enrollment"
 	id := "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
 	configurations := map[string]map[string]any{}
 	networks := map[string]map[string]any{}
@@ -133,6 +133,10 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 				if _, ok := host["Binds"]; ok {
 					t.Error("PDS host bind mount allowed")
 				}
+			} else if strings.HasPrefix(name, "pds-ass-enrollment-") {
+				if payload["Image"] != PDSImage {
+					t.Error("unpinned enrollment guard image")
+				}
 			} else if payload["Image"] != CaddyImage {
 				t.Error("unpinned ingress image")
 			}
@@ -178,6 +182,15 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		if err := docker.EnableManagedEndpoints(); err != nil {
 			t.Fatal(err)
 		}
+		if enrolling {
+			mail := writeManagedMail(t, ManagedMail{EmailFrom: "info@subcult.tv", SMTPURL: "smtps://user:secret@smtp-relay.brevo.com:465"}, 0600)
+			if err := docker.EnableManagedMail(mail); err != nil {
+				t.Fatal(err)
+			}
+			if err := docker.EnableManagedEnrollment(); err != nil {
+				t.Fatal(err)
+			}
+		}
 		ensure = docker.EnsureManaged
 	}
 	for i := 0; i < 2; i++ {
@@ -202,8 +215,17 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		configuration := docker.ingressConfiguration(id)
 		if managed {
 			identity, err := docker.readManagedIdentity(id)
-			if err != nil || !strings.Contains(configuration, identity.Hostname) || !strings.Contains(configuration, "Account creation is closed") {
-				t.Fatal("managed ingress is not closed to registration", err)
+			if err != nil || !strings.Contains(configuration, identity.Hostname) || strings.Contains(configuration, "Account creation is closed") != !enrolling {
+				t.Fatal("managed ingress registration policy differs from the opt-in", err)
+			}
+			if enrolling {
+				guard := configurations["pds-ass-enrollment-"+id]
+				if guard == nil || creates["pds-ass-enrollment-"+id] != 1 || guard["HostConfig"].(map[string]any)["NetworkMode"] != "pds-ass-managed-tenant-"+id+"-network" || !running["pds-ass-enrollment-"+id] {
+					t.Fatal("managed first-account guard missing or outside the managed tenant network")
+				}
+				if env := configurations["pds-ass-tenant-"+id]["Env"].([]any); !slices.Contains(env, any("PDS_EMAIL_FROM_ADDRESS=info@subcult.tv")) {
+					t.Fatal("managed runtime created without managed mail")
+				}
 			}
 			if _, err := docker.Ensure(context.Background(), id); err == nil {
 				t.Fatal("private reconciliation adopted managed state")
@@ -256,6 +278,9 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		reconstructed := &Docker{client: docker.client, directory: directory, healthProbe: docker.healthProbe}
 		if err := reconstructed.EnableManagedEndpoints(); err != nil {
 			t.Fatal(err)
+		}
+		if enrolling {
+			reconstructed.managedMail, reconstructed.managedEnrollment = docker.managedMail, true
 		}
 		result, err := reconstructed.EnsureManaged(context.Background(), id)
 		if err != nil || !result.Healthy || result.Endpoint != docker.endpoint(id) || !running["pds-ass-edge-"+id] {

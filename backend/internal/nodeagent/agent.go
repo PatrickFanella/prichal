@@ -407,10 +407,19 @@ func Handler(runtime Runtime) http.Handler {
 		}
 		_ = json.NewEncoder(w).Encode(result)
 	})
+	// managedEnrollmentPost admits only first-account lease routes, and only after the host opt-in.
+	managedEnrollmentPost := func(r *http.Request) bool {
+		provider, ok := runtime.(interface{ ManagedEnrollment() bool })
+		if !ok || !provider.ManagedEnrollment() || r.Method != "POST" || r.URL.RawPath != "" || r.URL.RawQuery != "" || !strings.HasPrefix(r.URL.Path, "/v1/instances/") {
+			return false
+		}
+		id, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/")
+		return instanceID.MatchString(id) && (action == "enrollment" || action == "enrollment/withdraw")
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// This startup policy is immutable while serving. Closing all POST mutations
 		// also fences a request that races the first managed identity receipt.
-		if provider, ok := runtime.(interface{ ManagedProvisioningOnly() bool }); ok && provider.ManagedProvisioningOnly() && r.Method != "GET" && r.Method != "PUT" {
+		if provider, ok := runtime.(interface{ ManagedProvisioningOnly() bool }); ok && provider.ManagedProvisioningOnly() && r.Method != "GET" && r.Method != "PUT" && !managedEnrollmentPost(r) {
 			http.NotFound(w, r)
 			return
 		}
@@ -422,7 +431,7 @@ func Handler(runtime Runtime) http.Handler {
 			id := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/instances/"), "/")[0]
 			if provider, ok := runtime.(interface{ ManagedIdentityRetained(string) bool }); ok && provider.ManagedIdentityRetained(id) {
 				base := "/v1/instances/" + id
-				if r.Method != "GET" || r.URL.RawPath != "" || r.URL.RawQuery != "" || (r.URL.Path != base && r.URL.Path != base+"/certificate" && r.URL.Path != base+"/usage") {
+				if !managedEnrollmentPost(r) && (r.Method != "GET" || r.URL.RawPath != "" || r.URL.RawQuery != "" || (r.URL.Path != base && r.URL.Path != base+"/certificate" && r.URL.Path != base+"/usage")) {
 					http.NotFound(w, r)
 					return
 				}

@@ -37,6 +37,9 @@ type Docker struct {
 	pilot            *PilotPolicy
 	pilotEnrollment  bool
 	managedEndpoints bool
+	// managedMail and managedEnrollment are host opt-ins for generated managed instances only.
+	managedMail       *ManagedMail
+	managedEnrollment bool
 }
 
 // NewDocker accepts only an operator-configured local socket and private state directory.
@@ -279,7 +282,7 @@ func (d *Docker) ensure(ctx context.Context, id string) (Instance, error) {
 				return Instance{}, err
 			}
 		}
-		if d.guardEnabled() {
+		if d.guardFor(id) {
 			if err := d.enrollmentGuard(ctx, id); err != nil {
 				return Instance{}, err
 			}
@@ -312,7 +315,7 @@ func (d *Docker) ensure(ctx context.Context, id string) (Instance, error) {
 			return Instance{}, err
 		}
 	}
-	if d.guardEnabled() {
+	if d.guardFor(id) {
 		if err := d.enrollmentGuard(ctx, id); err != nil {
 			return Instance{}, err
 		}
@@ -366,6 +369,8 @@ func (d *Docker) runtimeEnvironment(id string, secret secrets) []string {
 		}
 		if d.pilot != nil {
 			environment = append(environment, "PDS_EMAIL_FROM_ADDRESS="+d.pilot.EmailFrom, "PDS_EMAIL_SMTP_URL="+d.pilot.SMTPURL)
+		} else if d.managedMail != nil {
+			environment = append(environment, "PDS_EMAIL_FROM_ADDRESS="+d.managedMail.EmailFrom, "PDS_EMAIL_SMTP_URL="+d.managedMail.SMTPURL)
 		}
 		environment = append(environment,
 			"PDS_BSKY_APP_VIEW_URL=https://api.bsky.app", "PDS_BSKY_APP_VIEW_DID=did:web:api.bsky.app",
