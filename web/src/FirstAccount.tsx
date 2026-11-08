@@ -111,7 +111,11 @@ export function FirstAccount({ deploymentId, csrfToken }: { deploymentId: string
       const response = await fetch(`/api/deployments/${deploymentId}/enrollment`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(pending), signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
       const value: unknown = await response.json();
       if (controller.signal.aborted) return;
-      if (!response.ok || !valid(value, deploymentId)) { if (object(value) && typeof value.error === 'string') setError(value.error); else setError('Invitation could not be confirmed. Retry the same request.'); return; }
+      if (!response.ok || !valid(value, deploymentId)) {
+        // A 4xx is a definite refusal: no invitation was issued, so the retained key would only block controls.
+        if (response.status >= 400 && response.status < 500) { setRequest(null); try { localStorage.removeItem(storageKey); } catch { /* Nothing was accepted. */ } }
+        if (object(value) && typeof value.error === 'string') setError(value.error); else setError('Invitation could not be confirmed. Retry the same request.'); return;
+      }
       focusResult.current = true; setOperation(value); setRequest(null);
       try { localStorage.removeItem(storageKey); } catch { /* The operation is durable on the service. */ }
     } catch { if (!controller.signal.aborted) setError('Invitation could not be confirmed. Retry the same request.'); }

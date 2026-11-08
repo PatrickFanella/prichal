@@ -141,7 +141,13 @@ export function CollaborationWorkspace({ ownerId, csrfToken, onChanged }: { owne
     } catch { if (!controller.signal.aborted) setError('The action could not be confirmed. Review current access; retry retains the same request.'); }
     finally { if (!controller.signal.aborted) { setBusy(false); setReviewed(false); } }
   }
-  if (!available) return null;
+  if (!available) {
+    // A disabled feature (404) stays hidden; a failed first load keeps its error and a retry visible.
+    if (!error && !pending && !blocked) return null;
+    return <section className="collaboration-workspace" aria-labelledby="collaboration-title"><h3 id="collaboration-title">Local organization collaboration</h3>
+      {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      <button type="button" onClick={() => { setError(''); void refresh(); }}>Retry collaboration access</button></section>;
+  }
   return <section className="collaboration-workspace" aria-labelledby="collaboration-title"><h3 id="collaboration-title">Local organization collaboration</h3>
     <p>Hosting roles do not grant native account passwords, signing or publishing authority. Billing, exports and hosting exit stay under their existing owner controls.</p>
     <details><summary>Your management identity reference</summary><p>Ask colleagues to sign in and share this reference when inviting them. Email and display names do not establish identity.</p><code>{ownerId}</code></details>

@@ -7,10 +7,11 @@ export function CheckoutWorkspace({ownerId,organizationId,csrfToken}:{ownerId:st
  const base=`/api/organizations/${organizationId}/billing/checkout`;
  const [intent,setIntent]=useState<CheckoutIntent|null>(null),[blocked,setBlocked]=useState(false),[plan,setPlan]=useState<CheckoutPlan|null>(null),[receipt,setReceipt]=useState<CheckoutReceipt|null>(null);
  const [known,setKnown]=useState(false),[busy,setBusy]=useState(false),[reviewed,setReviewed]=useState(false),[cleanup,setCleanup]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[navigation,setNavigation]=useState<CheckoutNavigation|null>(null);
- const request=useRef<AbortController|null>(null),heading=useRef<HTMLHeadingElement|null>(null),failure=useRef<HTMLParagraphElement|null>(null),result=useRef<HTMLParagraphElement|null>(null);
+ const focusReview=useRef(false),request=useRef<AbortController|null>(null),heading=useRef<HTMLHeadingElement|null>(null),failure=useRef<HTMLParagraphElement|null>(null),result=useRef<HTMLParagraphElement|null>(null);
  useEffect(()=>{if(error)failure.current?.focus();},[error]);
  useEffect(()=>{if(notice)result.current?.focus();},[notice]);
- useEffect(()=>{if(intent||blocked){const panel=heading.current?.closest('details');if(panel)panel.open=true;heading.current?.focus();}},[intent,blocked]);
+ // A restored intent opens its panel; only the owner's own staging moves focus.
+ useEffect(()=>{if(intent||blocked){const panel=heading.current?.closest('details');if(panel)panel.open=true;if(focusReview.current)heading.current?.focus();}focusReview.current=false;},[intent,blocked]);
  useEffect(()=>{if(navigation?.status!=='open')return;const timer=window.setTimeout(()=>setNavigation({status:'expired',expiresAt:navigation.expiresAt}),Math.max(0,Date.parse(navigation.expiresAt)-Date.now()));return()=>window.clearTimeout(timer);},[navigation]);
  async function refresh(retained:CheckoutIntent|null=intent) {
   request.current?.abort();const controller=new AbortController();request.current=controller;
@@ -36,7 +37,7 @@ export function CheckoutWorkspace({ownerId,organizationId,csrfToken}:{ownerId:st
  },[storageKey]);
  function stage(){
   if(!known||busy||blocked||intent||!plan?.canPrepare)return;
-  try{const value={key:crypto.randomUUID(),priceId:plan.priceId};sessionStorage.setItem(storageKey,JSON.stringify(value));setIntent(value);setReviewed(false);setNotice('Review this fixture plan before preparing it. No payment request has been sent.');}
+  try{const value={key:crypto.randomUUID(),priceId:plan.priceId};sessionStorage.setItem(storageKey,JSON.stringify(value));focusReview.current=true;setIntent(value);setReviewed(false);setNotice('Review this fixture plan before preparing it. No payment request has been sent.');}
   catch{setError('Session storage is required to retain the original checkout request.');}
  }
  async function submit(){

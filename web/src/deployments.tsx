@@ -57,6 +57,12 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
     void load();
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [organizationId]);
+  // A lasting refusal (provisioning unconfigured, deployments paused) must not lock the form forever.
+  function discard() {
+    if (busy) return;
+    try { localStorage.removeItem(storageKey); } catch { /* The in-memory request is discarded either way. */ }
+    setUncertain(false); setKey(crypto.randomUUID()); setError('');
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
     try { localStorage.setItem(storageKey, JSON.stringify({ name, key, kind })); } catch { /* Keep the same key in memory. */ }
@@ -81,7 +87,8 @@ export function Deployments({ organizationId, csrfToken }: { organizationId: str
     <HostingEntitlement organizationId={organizationId}/>
     {loadError && <p role="alert">{loadError}</p>}
     {error && <p role="alert" ref={failure} tabIndex={-1}>{error}</p>}
-    {uncertain && <p id={`deployment-retry-${organizationId}`} role="status">A deployment request is awaiting confirmation. Retry to resume the same request. Its name and deployment mode are kept until the result is confirmed.</p>}
+    {uncertain && <p id={`deployment-retry-${organizationId}`} role="status">A deployment request is awaiting confirmation. Retry to resume the same request. Its name and deployment mode are kept until the result is confirmed. If the server list above does not show it and retrying keeps failing, discard it to start a new request.</p>}
+    {uncertain && !busy && <button type="button" onClick={discard}>Discard retained request</button>}
     {!loaded && <p role="status">Loading deployments...</p>}
     <ul>{operations.filter(item => item.organizationId === organizationId).map(item => <li key={item.id}><div><strong>{item.name}</strong><p>{item.kind === 'agent' ? 'Local PDS runtime' : 'Deployment simulation'}</p>{item.endpoint && (item.state === 'checking' || item.state === 'ready') && <p><a href={item.endpoint + '/xrpc/_health'} target="_blank" rel="noreferrer">{item.endpoint.includes('.localhost') ? 'Open local PDS health' : 'Open PDS health'}</a></p>}<p role="status">{item.state}: {item.message}</p>{item.kind === 'agent' && <p>Local service observation: {item.service?.state ?? 'unknown'}.{item.service?.checkedAt && <> Checked {new Date(item.service.checkedAt).toLocaleString()}.</>} Scheduled backups are not configured.</p>}{item.kind === 'agent' && <PDSRelease value={item.release}/>}
 {item.kind === 'agent' && <p>Storage observation: {item.usage.state}. {item.usage.checkedAt && <>{((item.usage.dataBytes + item.usage.blobBytes) / 1048576).toFixed(2)} MiB, {item.usage.accounts} account. Checked {new Date(item.usage.checkedAt).toLocaleString()}.</>} Total storage limits are not configured.</p>}{item.kind === 'agent' && item.service.account!=='running' && <p role="status">Account moderation: {item.service.account}. Reason: {item.service.accountReason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.service.lifecycle!=='running' && <p role="status">Service lifecycle: {item.service.lifecycle}. Reason: {item.service.reason.replaceAll('_',' ')}. Contact support for an update.</p>}{item.kind === 'agent' && item.state === 'ready' && item.service.lifecycle==='running' && item.service.account==='running' && <FirstAccount deploymentId={item.id} csrfToken={csrfToken} />}{item.kind==='agent'&&item.state==='ready'&&<CustomerExports deploymentId={item.id} csrfToken={csrfToken}/>}<OwnerJourney deploymentId={item.id}/><LifecycleActivity deploymentId={item.id}/><details><summary>Progress history</summary><ol>{item.events.map((event, index) => <li key={index}>{event.state}: {event.message}</li>)}</ol></details></div></li>)}</ul>

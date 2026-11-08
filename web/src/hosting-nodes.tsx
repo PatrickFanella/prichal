@@ -12,21 +12,22 @@ function valid(value: unknown): value is HostingNode {
 export function HostingNodes({ ownerId }: { ownerId: string }) {
   const [nodes, setNodes] = useState<HostingNode[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [more, setMore] = useState(false);
   const request = useRef<AbortController | null>(null);
-  async function refresh() {
+  // Background polls keep the current list and focus; only an explicit refresh clears and announces.
+  async function refresh(explicit = true) {
     if (request.current) return;
     const controller = new AbortController(); request.current = controller;
-    setNodes([]); setMore(false); setError(''); setBusy(true);
+    if (explicit) { setNodes([]); setMore(false); setError(''); setBusy(true); }
     try {
       const response = await fetch('/api/operator/nodes', { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
       const value: unknown = await response.json();
       if (request.current !== controller || controller.signal.aborted) return;
       if (!response.ok || !object(value) || !Array.isArray(value.items) || value.items.length > 100 || !value.items.every(valid) || typeof value.hasMore !== 'boolean') throw Error('Inventory unavailable');
-      setNodes(value.items); setMore(value.hasMore);
+      setNodes(value.items); setMore(value.hasMore); setError('');
     } catch {
       if (request.current === controller && !controller.signal.aborted) { setNodes([]); setMore(false); setError('Hosting inventory could not be verified. Refresh to check current operator access and measurements.'); }
-    } finally { if (request.current === controller) { request.current = null; if (!controller.signal.aborted) setBusy(false); } }
+    } finally { if (request.current === controller) { request.current = null; if (explicit && !controller.signal.aborted) setBusy(false); } }
   }
-  useEffect(() => { setNodes([]); setError(''); setMore(false); void refresh(); const timer = window.setInterval(() => { void refresh(); },15000); return () => { window.clearInterval(timer); request.current?.abort(); request.current = null; }; }, [ownerId]);
+  useEffect(() => { setNodes([]); setError(''); setMore(false); void refresh(); const timer = window.setInterval(() => { void refresh(false); },15000); return () => { window.clearInterval(timer); request.current?.abort(); request.current = null; }; }, [ownerId]);
   return <section aria-labelledby="hosting-nodes-heading"><h4 id="hosting-nodes-heading">Hosting nodes</h4>
     <p>Capacity is measured by the private host observer. Stale measurements do not admit new placements.</p>
     <button type="button" disabled={busy} onClick={() => { void refresh(); }}>Refresh hosting nodes</button>
