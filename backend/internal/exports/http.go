@@ -22,6 +22,9 @@ func failure(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrNotFound) {
 		status, message = 404, "Export or deployment not found."
 	}
+	if errors.Is(err, ErrNoVerifiedAccount) {
+		status, message = 409, "Create and verify the first account on this server before requesting an export."
+	}
 	if errors.Is(err, ErrLimit) {
 		status, message = 409, "The local retained-export allowance is full. Retry an existing request or contact support."
 	}
