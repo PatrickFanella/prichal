@@ -12,7 +12,8 @@ function valid(value: unknown): value is HostingNode {
 export function HostingNodes({ ownerId }: { ownerId: string }) {
   const [nodes, setNodes] = useState<HostingNode[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [more, setMore] = useState(false);
   const request = useRef<AbortController | null>(null);
-  // Background polls keep the current list and focus; only an explicit refresh clears and announces.
+  // Background polls keep the current list and focus; only an explicit refresh clears first and announces.
+  // Any failed read clears the list, so unverified inventory is never left on screen.
   async function refresh(explicit = true) {
     if (request.current) return;
     const controller = new AbortController(); request.current = controller;
