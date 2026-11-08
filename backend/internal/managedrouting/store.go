@@ -351,6 +351,11 @@ func (s Store) Export(ctx context.Context) (Bundle, error) {
 	if len(result.Inventory.Endpoints) == 0 || len(result.Inventory.Endpoints) > 100 {
 		return Bundle{}, ErrUnqualified
 	}
+	handles, err := exportHandles(ctx, tx, result.Inventory.Endpoints)
+	if err != nil {
+		return Bundle{}, err
+	}
+	result.Inventory.Handles = handles
 	if err := gate(ctx, tx); err != nil {
 		return Bundle{}, err
 	}
