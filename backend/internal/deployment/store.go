@@ -4,6 +4,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -25,6 +26,9 @@ var ErrEndpointPending = errors.New("custom endpoint choice requires qualificati
 var ErrConflict = errors.New("request conflicts with an existing deployment")
 var ErrNotFound = errors.New("deployment or organization not found")
 var ErrInvalid = errors.New("invalid deployment request")
+
+// ErrKindUnavailable is an invalid request whose deployment mode this environment does not offer.
+var ErrKindUnavailable = fmt.Errorf("%w: deployment mode unavailable", ErrInvalid)
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,61}[a-z0-9]$|^[a-z]$`)
 var keyPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
@@ -107,7 +111,7 @@ func (s *Store) Submit(ctx context.Context, owner, org string, r Request) (Opera
 		r.Kind = "test"
 	}
 	if s.Staging && r.Kind != "agent" {
-		return Operation{}, ErrInvalid
+		return Operation{}, ErrKindUnavailable
 	}
 	if (r.Kind != "test" && r.Kind != "agent") || !namePattern.MatchString(r.Name) || r.Region != "local" || !keyPattern.MatchString(r.Key) {
 		return Operation{}, ErrInvalid
