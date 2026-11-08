@@ -28,7 +28,9 @@ export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { o
   const [claimPending, setClaimPending] = useState(false);
   const [pending, setPending] = useState<Intent | null>(null), [blocked, setBlocked] = useState(false), [reviewed, setReviewed] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const read = useRef<AbortController | null>(null), mutation = useRef<AbortController | null>(null), reviewHeading = useRef<HTMLHeadingElement | null>(null), result = useRef<HTMLParagraphElement | null>(null), failure = useRef<HTMLParagraphElement | null>(null);
-  useEffect(() => { if (pending || blocked) { const panel = reviewHeading.current?.closest('details'); if (panel) panel.open = true; reviewHeading.current?.focus(); } }, [pending, blocked]);
+  // A restored intent opens its panel; only the owner's own staging moves focus.
+  const focusReview = useRef(false);
+  useEffect(() => { if (pending || blocked) { const panel = reviewHeading.current?.closest('details'); if (panel) panel.open = true; if (focusReview.current) reviewHeading.current?.focus(); } focusReview.current = false; }, [pending, blocked]);
   useEffect(() => { if (notice) result.current?.focus(); }, [notice]);
   useEffect(() => { if (error) failure.current?.focus(); }, [error]);
   useEffect(() => { setReviewed(false); }, [plan]);
@@ -53,7 +55,7 @@ export function EndpointChoice({ organizationId, ownerId, csrfToken, plan }: { o
   }, [storageKey]);
   function stage(value: Intent) {
     if (!known || loading || busy || pending || blocked || claimPending) return;
-    try { sessionStorage.setItem(storageKey, JSON.stringify(value)); setPending(value); setReviewed(false); setError(''); setNotice(''); }
+    try { sessionStorage.setItem(storageKey, JSON.stringify(value)); focusReview.current = true; setPending(value); setReviewed(false); setError(''); setNotice(''); }
     catch { setError('Enable session storage before reviewing an address request.'); }
   }
   function clear() {
