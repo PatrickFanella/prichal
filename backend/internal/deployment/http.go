@@ -117,6 +117,8 @@ func operationReply(w http.ResponseWriter, op Operation, err error) {
 		status, message = 403, "New native servers require an active hosting grant. Existing data is retained."
 	case errors.Is(err, entitlement.ErrLimit):
 		status, message = 409, "Your native server allowance is full. Existing and uncertain deployments are retained; contact support."
+	case errors.Is(err, ErrKindUnavailable):
+		status, message = 400, "This environment does not run deployment simulations. Choose \"Create a local PDS\" as the deployment mode."
 	case errors.Is(err, ErrInvalid):
 		status, message = 400, "Use a lowercase server name, the local region and a valid request key."
 	case errors.Is(err, ErrNotFound):

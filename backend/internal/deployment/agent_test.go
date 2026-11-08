@@ -75,7 +75,7 @@ func TestAgentSuccessAfterUncertainCompletion(t *testing.T) {
 				t.Fatalf("job queue %s, want %s", queue, wantQueue)
 			}
 			if staging {
-				if _, err := store.Submit(ctx, owner, org, Request{Kind: "test", Name: "simulation", Region: "local", Key: "simulation"}); !errors.Is(err, ErrInvalid) {
+				if _, err := store.Submit(ctx, owner, org, Request{Kind: "test", Name: "simulation", Region: "local", Key: "simulation"}); !errors.Is(err, ErrInvalid) || !errors.Is(err, ErrKindUnavailable) {
 					t.Fatalf("staging simulation accepted: %v", err)
 				}
 			}
