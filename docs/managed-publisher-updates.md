@@ -28,6 +28,25 @@ The previous revision must have a matching root-owned inventory digest, successf
 
 Rollback validates the prior full JSON before changing route files and verifies that all preceding managed upstreams still work with their retained TLS trust. An expired export remains historical evidence of a prior publication; it is never new issuance authority. Expired/unusable TLS trust refuses rollback before mutation. A newer installed route also refuses an older rollback. All trust directories, inputs and receipts are retained.
 
+## DNS route check — November 7, 2026
+
+Generated names have no DNS records of their own: they resolve through the proxied `*.subcult.tv` CNAME to a Cloudflare Tunnel and use the zone's Universal SSL certificate. `deploy/homelab/check-managed-dns.py` confirms, read-only, that this still holds for every endpoint and handle in an exported inventory:
+
+- the zone is an active full setup;
+- `*.subcult.tv` is exactly one proxied CNAME to a `cfargotunnel.com` target (the output records its SHA-256, not the tunnel ID);
+- no record of any type exists at an inventory hostname, at `_atproto.<hostname>` or below it, since such a record would bypass the edge route or answer a handle proof from somewhere else;
+- Universal SSL is enabled, and an active certificate pack covering `*.subcult.tv` has more than 14 days left. Cloudflare renews about 30 days before expiry, so less than 14 means renewal has stalled.
+
+Run it on Kvant before `prepare`:
+
+```sh
+python3 -I deploy/homelab/check-managed-dns.py --inventory BUNDLE/inventory.json
+```
+
+It exits 0 when the route is sound, 1 with a `problems` list, and 2 when it cannot read the zone. It reads the token from owner-only `~/.local/state/prichal-cloudflare/subcult-dns.token` and never prints it. The token needs only Zone Read, DNS Read and SSL and Certificates Read on `subcult.tv`. The check creates and changes no DNS records; the wildcard means none are needed for generated names.
+
+The first live run, against the generation-12 inventory for `e4067ea1`, passed: 47 zone records, no shadowing record, wildcard target SHA-256 `1645bc36582914f645678d8f79fce8a8dae8a542fb06ad06946f83e9c5c0fc7f`, and the edge certificate valid until December 15, 2026.
+
 ## Live qualification — October 28, 2026
 
 The original generation-7 publication `9a0b24a6-a60e-4097-af0d-50165df7a131` was adopted only after its actual root receipt and installed hashes matched. A fresh authenticated complete export published generation 8 as `664861bf-c678-4b9f-9503-3ebf598ff733`. Public HTTPS, service/OAuth identity, closed signup, unknown-host 404 and WebSocket acceptance passed.
