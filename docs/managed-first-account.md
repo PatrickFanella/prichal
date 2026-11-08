@@ -41,4 +41,15 @@ Email confirmation by the owner, handle publication and posting through the Blue
 
 ## Limits
 
-Enrollment is driven by an operator over worker mTLS; there is no owner-facing managed enrollment flow yet. Default account handles under `at-<invitation>.subcult.tv` are not published, because managed inventory exports carry no handle bindings yet.
+Enrollment is driven by an operator over worker mTLS; there is no owner-facing managed enrollment flow yet.
+
+## Handle routes
+
+`managed-route-admin bind-handle --deployment UUID --node UUID --invitation UUID` records a default handle (schema 43, `managed_handle_bindings`) only when both sides agree:
+
+- the native PDS, read through the enrollment ticket replay over worker mTLS, reports the invitation's generated handle `at-<15 hex>.subcult.tv` for its first account;
+- the public `plc.directory` document for that DID lists `at://<handle>` first in `alsoKnownAs` and names this deployment's public endpoint as its PDS.
+
+Replay returns the stored binding without reverifying. Each invitation, hostname and DID binds once. `export` then includes the deployment's bindings as inventory handles, and the renderer publishes each as an exact `/.well-known/atproto-did` proof route answering the DID. The Almaz publisher accepts handles in this exact form and refuses an update that drops or remaps a published handle. Handle withdrawal needs its own reviewed procedure.
+
+Bindings are not rechecked after they are recorded. If an account later changes its handle or moves to another PDS, its binding needs an explicit review.

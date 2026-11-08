@@ -14,6 +14,7 @@ import (
 	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net"
+	"net/http"
 	"os"
 	"os/user"
 	"regexp"
@@ -54,13 +55,14 @@ func run() error {
 		return errors.New("managed route administration requires local or explicit production staging mode")
 	}
 	if len(os.Args) < 2 {
-		return errors.New("usage: managed-route-admin {reserve|reserve-empty|observe|export}")
+		return errors.New("usage: managed-route-admin {reserve|reserve-empty|observe|bind-handle|export}")
 	}
 	command := os.Args[1]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	id := flags.String("deployment", "", "retained native deployment UUID")
 	node := flags.String("node", "", "expected current node UUID")
 	key := flags.String("key", "", "stable observation request UUID")
+	invitation := flags.String("invitation", "", "enrollment invitation UUID whose generated handle is bound")
 	out := flags.String("out", "", "new private bundle directory")
 	confirmed := flags.Bool("confirm-empty-fixture", false, "confirm the designated staging-02 fixture may receive a public-name reservation")
 	if err := flags.Parse(os.Args[2:]); err != nil {
@@ -69,7 +71,7 @@ func run() error {
 	if flags.NArg() != 0 {
 		return errors.New("unexpected managed route argument")
 	}
-	if command != "reserve" && command != "reserve-empty" && command != "observe" && command != "export" {
+	if command != "reserve" && command != "reserve-empty" && command != "observe" && command != "export" && command != "bind-handle" {
 		return errors.New("unknown managed route command")
 	}
 	switch command {
@@ -89,8 +91,15 @@ func run() error {
 		if *out == "" || *id != "" || *node != "" || *key != "" || *confirmed {
 			return errors.New("export requires only --out NEW_DIRECTORY")
 		}
+	case "bind-handle":
+		if *id == "" || *node == "" || *invitation == "" || *key != "" || *out != "" || *confirmed {
+			return errors.New("bind-handle requires --deployment UUID --node UUID --invitation UUID")
+		}
 	}
-	for _, identity := range []string{*id, *node, *key} {
+	if command != "bind-handle" && *invitation != "" {
+		return errors.New("--invitation applies only to bind-handle")
+	}
+	for _, identity := range []string{*id, *node, *key, *invitation} {
 		if identity != "" {
 			if _, err := managednamespace.Endpoint(identity); err != nil {
 				return managedrouting.ErrInvalid
@@ -108,7 +117,7 @@ func run() error {
 		return errors.New("empty-fixture reservation requires explicit staging-02 scope, node and confirmation")
 	}
 	var client *nodeagent.Client
-	if command == "observe" || command == "reserve-empty" {
+	if command == "observe" || command == "reserve-empty" || command == "bind-handle" {
 		client, err = nodeagent.NewClient(os.Getenv("PDS_WORKER_AGENT_CA_FILE"), os.Getenv("PDS_WORKER_AGENT_CERT_FILE"), os.Getenv("PDS_WORKER_AGENT_KEY_FILE"))
 		if err != nil {
 			return err
@@ -149,6 +158,14 @@ func run() error {
 			return json.NewEncoder(os.Stdout).Encode(value)
 		}
 		value, err := store.Observe(ctx, actor.Username, *id, *node, *key, client)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(value)
+	case "bind-handle":
+		// The PDS and the public PLC document must agree before a handle can be exported.
+		resolver := managedrouting.PLCResolver{Client: &http.Client{Timeout: 15 * time.Second}, BaseURL: "https://plc.directory"}
+		value, err := store.BindHandle(ctx, actor.Username, *id, *node, *invitation, client, resolver)
 		if err != nil {
 			return err
 		}

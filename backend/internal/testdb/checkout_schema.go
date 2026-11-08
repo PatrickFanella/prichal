@@ -103,12 +103,26 @@ func ReconstructManaged40(t *testing.T, pool *pgxpool.Pool) {
 // ReconstructManaged41 removes only empty retirement metadata from disposable fixtures.
 func ReconstructManaged41(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	ReconstructManaged42(t, pool)
 	if !regexp.MustCompile(`^pds_smoke_[a-f0-9]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
 		t.Fatal("allocator-owned migration fixture required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	if _, err := pool.Exec(ctx, `DO $$ BEGIN IF EXISTS(SELECT 1 FROM managed_endpoint_retirements) THEN RAISE EXCEPTION 'populated retirements cannot be reconstructed'; END IF; END $$; DROP TABLE managed_endpoint_retirements`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// ReconstructManaged42 removes only empty handle bindings from disposable fixtures.
+func ReconstructManaged42(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if !regexp.MustCompile(`^pds_smoke_[a-f0-9]{16}$`).MatchString(pool.Config().ConnConfig.Database) {
+		t.Fatal("allocator-owned migration fixture required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	if _, err := pool.Exec(ctx, `DO $$ BEGIN IF EXISTS(SELECT 1 FROM managed_handle_bindings) THEN RAISE EXCEPTION 'populated handle bindings cannot be reconstructed'; END IF; END $$; DROP TABLE managed_handle_bindings`); err != nil {
 		t.Fatal(err)
 	}
 }

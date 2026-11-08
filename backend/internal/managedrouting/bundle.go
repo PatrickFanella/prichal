@@ -15,7 +15,7 @@ func WriteBundle(directory string, bundle Bundle) error {
 	if bundle.Inventory.ExpiresAt == nil || !time.Now().Before(*bundle.Inventory.ExpiresAt) || bundle.Inventory.ExpiresAt.After(time.Now().Add(ReadbackLifetime+time.Minute)) {
 		return ErrUnqualified
 	}
-	if bundle.Inventory.Version != 1 || bundle.Inventory.Generation < 1 || len(bundle.Inventory.Endpoints) == 0 || len(bundle.Inventory.Endpoints) > 100 || len(bundle.Inventory.Handles) != 0 || len(bundle.Certificates) != len(bundle.Inventory.Endpoints) {
+	if bundle.Inventory.Version != 1 || bundle.Inventory.Generation < 1 || len(bundle.Inventory.Endpoints) == 0 || len(bundle.Inventory.Endpoints) > 100 || len(bundle.Inventory.Handles) > 2500 || len(bundle.Certificates) != len(bundle.Inventory.Endpoints) {
 		return ErrUnqualified
 	}
 	seen, ports := map[string]bool{}, map[int]bool{}
@@ -29,6 +29,15 @@ func WriteBundle(directory string, bundle Bundle) error {
 		if err := managededge.ValidateCertificate(endpoint.DeploymentID, bundle.Certificates[endpoint.DeploymentID], endpoint.CertificateSHA256, time.Now()); err != nil {
 			return err
 		}
+	}
+	hosts, dids := map[string]bool{}, map[string]bool{}
+	for _, handle := range bundle.Inventory.Handles {
+		host, err := managednamespace.Handle(handle.InvitationID)
+		if err != nil || host != handle.Hostname || !seen[handle.DeploymentID] || !plcDID.MatchString(handle.DID) || hosts[host] || dids[handle.DID] {
+			return ErrUnqualified
+		}
+		hosts[host] = true
+		dids[handle.DID] = true
 	}
 	data, err := inventoryBytes(bundle.Inventory)
 	if err != nil {

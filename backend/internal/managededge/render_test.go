@@ -49,7 +49,7 @@ func TestExactHostCandidatePinsUpstreamAndSeparatesHandleProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"http://pds-2395105c995847b5ae8b5b0424cbfc4f.subcult.tv", "https://172.20.0.1:35000", "tls_server_name " + instance + ".localhost", "tls_trust_pool file /etc/caddy/certs/prichal-managed/" + instance + ".crt", "http://at-aaaaaaaaaaaa4aaaaaaaaaaaaaaaaaaa.subcult.tv", "path /.well-known/atproto-did", `respond "` + actor + `" 200`, "method GET HEAD"} {
+	for _, required := range []string{"http://pds-2395105c995847b5ae8b5b0424cbfc4f.subcult.tv", "https://172.20.0.1:35000", "tls_server_name " + instance + ".localhost", "tls_trust_pool file /etc/caddy/certs/prichal-managed/" + instance + ".crt", "http://at-aaaaaaaaaaaa4aa.subcult.tv", "path /.well-known/atproto-did", `respond "` + actor + `" 200`, "method GET HEAD"} {
 		if !strings.Contains(candidate, required) {
 			t.Fatalf("missing %q", required)
 		}

@@ -27,6 +27,7 @@ IMPORT = b'import /etc/caddy/sites/prichal-managed.Caddyfile\n'
 PARENT_IMPORT = b'import /etc/caddy/sites/prichal.Caddyfile'
 UUID = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$')
 SHA = re.compile(r'^[a-f0-9]{64}$')
+DID = re.compile(r'^did:plc:[a-z2-7]{24}$')
 
 
 def digest(data):
@@ -124,8 +125,8 @@ def load(work, config_path, expected, desired):
 
 def inventory_value(data):
     value = json.loads(data)
-    if set(value) != {'version', 'generation', 'expiresAt', 'endpoints', 'handles'} or type(value['version']) is not int or value['version'] != 1 or type(value['generation']) is not int or value['generation'] <= 0 or value['handles'] != [] or not isinstance(value['endpoints'], list) or not 1 <= len(value['endpoints']) <= 100:
-        raise ValueError('A complete authoritative endpoint inventory without unverified handles is required')
+    if set(value) != {'version', 'generation', 'expiresAt', 'endpoints', 'handles'} or type(value['version']) is not int or value['version'] != 1 or type(value['generation']) is not int or value['generation'] <= 0 or not isinstance(value['handles'], list) or len(value['handles']) > 2500 or not isinstance(value['endpoints'], list) or not 1 <= len(value['endpoints']) <= 100:
+        raise ValueError('A complete authoritative endpoint inventory is required')
     identities, ports = set(), set()
     for endpoint in value['endpoints']:
         if set(endpoint) != {'deploymentId', 'hostname', 'forwardPort', 'certificateSha256'} or not UUID.fullmatch(endpoint['deploymentId']) or endpoint['hostname'] != 'pds-' + endpoint['deploymentId'].replace('-', '') + '.subcult.tv' or type(endpoint['forwardPort']) is not int or not 35000 <= endpoint['forwardPort'] <= 35999 or not SHA.fullmatch(endpoint['certificateSha256']):
@@ -134,7 +135,21 @@ def inventory_value(data):
             raise ValueError('Duplicate endpoint identity or forward port')
         identities.add(endpoint['deploymentId'])
         ports.add(endpoint['forwardPort'])
+    # Handles come only from management bindings verified against the native PDS and PLC.
+    hosts, dids = set(), set()
+    for handle in value['handles']:
+        if not isinstance(handle, dict) or set(handle) != {'invitationId', 'deploymentId', 'hostname', 'did'} or not all(isinstance(handle[key], str) for key in handle) or not UUID.fullmatch(handle['invitationId']) or handle['hostname'] != handle_hostname(handle['invitationId']) or handle['deploymentId'] not in identities or not DID.fullmatch(handle['did']):
+            raise ValueError('Generated handle identity, placement or DID differs')
+        if handle['hostname'] in hosts or handle['did'] in dids:
+            raise ValueError('Duplicate handle hostname or DID')
+        hosts.add(handle['hostname'])
+        dids.add(handle['did'])
     return value
+
+
+def handle_hostname(invitation):
+    # The PDS limits service-domain handle labels to 18 characters (prichal #245).
+    return 'at-' + invitation.replace('-', '')[:15] + '.subcult.tv'
 
 
 def authority(data, expected, fixture_only=False):
@@ -195,6 +210,10 @@ def validate_transition(previous, current):
         retained = by_id.get(endpoint['deploymentId'])
         if retained is None or (retained['hostname'], retained['forwardPort']) != (endpoint['hostname'], endpoint['forwardPort']):
             raise ValueError('An update cannot omit or remap a retained endpoint; withdrawal/cutover requires explicit review')
+    handles = {handle['invitationId']: handle for handle in current['handles']}
+    for handle in previous['handles']:
+        if handles.get(handle['invitationId']) != handle:
+            raise ValueError('An update cannot omit or remap a published handle; handle withdrawal requires explicit review')
 
 
 def validate_history_generation(value):
@@ -352,6 +371,9 @@ def prepare(work, revision, bundle, expected, previous_revision='', fixture_only
         for endpoint in value['endpoints']:
             if endpoint['hostname'].encode() in data or re.search(rb':' + str(endpoint['forwardPort']).encode() + rb'(?![0-9])', data):
                 raise ValueError('Managed name/forward conflicts with an existing unrelated input')
+        for handle in value['handles']:
+            if handle['hostname'].encode() in data:
+                raise ValueError('Managed handle conflicts with an existing unrelated input')
     cert_root = BASE / 'certs/prichal-managed'
     cert_root.mkdir(mode=0o755, exist_ok=True)
     directory(cert_root)
