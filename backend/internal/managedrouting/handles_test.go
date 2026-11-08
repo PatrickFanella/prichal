@@ -35,6 +35,14 @@ func (d documentResolver) Resolve(context.Context, string) (DIDDocument, error) 
 	return d.document, nil
 }
 
+// recordEnrollment stores the registry enrollment that a handle binding must name.
+func recordEnrollment(t *testing.T, f storeFixture, deployment, invitation, state string) {
+	t.Helper()
+	if _, err := f.Pool.Exec(context.Background(), `INSERT INTO enrollment_operations(id,deployment_id,owner_id,idempotency_key,state) SELECT $1,d.id,o.owner_id,gen_random_uuid(),$3 FROM deployments d JOIN organizations o ON o.id=d.organization_id WHERE d.id=$2`, invitation, deployment, state); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func readyEndpoint(t *testing.T) (storeFixture, string) {
 	t.Helper()
 	f := routingFixture(t)
@@ -53,6 +61,7 @@ func TestHandleBindingRequiresNativeAndPublicAgreement(t *testing.T) {
 	handle, _ := managednamespace.Handle(invitationOne)
 	good := nodeagent.Enrollment{State: "verified", DID: accountDID, Handle: handle, EmailConfirmed: true}
 	document := DIDDocument{AlsoKnownAs: []string{"at://" + handle}, PDSEndpoint: "https://" + host}
+	recordEnrollment(t, f, f.id, invitationOne, "account_created")
 	for name, test := range map[string]struct {
 		native   nodeagent.Enrollment
 		document DIDDocument
@@ -71,6 +80,7 @@ func TestHandleBindingRequiresNativeAndPublicAgreement(t *testing.T) {
 		})
 	}
 	other := "bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb"
+	recordEnrollment(t, f, f.id, other, "verified")
 	if _, err := f.BindHandle(ctx, "operator", f.id, other, invitationOne, &handleInspector{result: good}, documentResolver{document}); !errors.Is(err, ErrConflict) {
 		t.Fatal("binding accepted for another node", err)
 	}
@@ -120,6 +130,29 @@ func TestHandleBindingRefusesUnreadyOrRetiredEndpoints(t *testing.T) {
 		if _, err := f.BindHandle(ctx, "operator", f.id, f.node, bad, native, documentResolver{}); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("invalid invitation %q accepted", bad)
 		}
+	}
+}
+
+func TestHandleBindingNamesOnlyARecordedEnrollment(t *testing.T) {
+	f, host := readyEndpoint(t)
+	ctx := context.Background()
+	pending := "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+	foreign := "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+	recordEnrollment(t, f, f.id, pending, "pending")
+	var second string
+	if err := f.Pool.QueryRow(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,kind,state,managed_hostname,endpoint_url) SELECT gen_random_uuid(),organization_id,'second','local','second','agent','queued',gen_random_uuid()::text||'.localhost','https://second.localhost:44444' FROM deployments WHERE id=$1 RETURNING id`, f.id).Scan(&second); err != nil {
+		t.Fatal(err)
+	}
+	recordEnrollment(t, f, second, foreign, "verified")
+	for name, invitation := range map[string]string{"unrecorded": invitationOne, "no account yet": pending, "other deployment": foreign} {
+		t.Run(name, func(t *testing.T) {
+			handle := mustHandle(invitation)
+			native := &handleInspector{result: nodeagent.Enrollment{State: "verified", DID: accountDID, Handle: handle}}
+			document := DIDDocument{AlsoKnownAs: []string{"at://" + handle}, PDSEndpoint: "https://" + host}
+			if _, err := f.BindHandle(ctx, "operator", f.id, f.node, invitation, native, documentResolver{document}); !errors.Is(err, ErrUnqualified) || native.calls != 0 {
+				t.Fatal("unrecorded invitation reached the native enrollment replay", err, native.calls)
+			}
+		})
 	}
 }
 

@@ -45,7 +45,7 @@ Enrollment is driven by an operator over worker mTLS; there is no owner-facing m
 
 ## Handle routes
 
-`managed-route-admin bind-handle --deployment UUID --node UUID --invitation UUID` records a default handle (schema 43, `managed_handle_bindings`) only when both sides agree:
+`managed-route-admin bind-handle --deployment UUID --node UUID --invitation UUID` records a default handle (schema 43, `managed_handle_bindings`). The invitation must be this deployment's enrollment in the registry, already in `account_created` or `verified`; otherwise the command refuses before it contacts the agent. The agent's enrollment replay is not read-only: given a ticket it does not hold, it opens a new lease, restarts the tenant and replaces the invitation code. The staging-02 enrollment above ran through the operator harness and has no registry row, so it cannot be bound until that enrollment is recorded. With the invitation recorded, both sides must agree:
 
 - the native PDS, read through the enrollment ticket replay over worker mTLS, reports the invitation's generated handle `at-<15 hex>.subcult.tv` for its first account;
 - the public `plc.directory` document for that DID lists `at://<handle>` first in `alsoKnownAs` and names this deployment's public endpoint as its PDS.

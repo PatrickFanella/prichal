@@ -101,6 +101,7 @@ func scanBinding(row pgx.Row) (HandleBinding, error) {
 }
 
 // BindHandle records a default handle only after the native PDS and the public PLC document agree.
+// The invitation must be this deployment's recorded enrollment with an account.
 // The PDS must report the invitation's generated handle for its first account, and the DID document
 // must claim that handle first and name this deployment's public endpoint. Replay returns the record.
 func (s Store) BindHandle(ctx context.Context, actor, id, node, invitation string, inspector HandleInspector, resolver DIDResolver) (HandleBinding, error) {
@@ -138,6 +139,15 @@ func (s Store) BindHandle(ctx context.Context, actor, id, node, invitation strin
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return HandleBinding{}, err
+	}
+	// The agent's enrollment replay mutates for an unknown ticket (it opens a new lease and
+	// replaces the invitation), so only a ticket this registry recorded with an account reaches it.
+	var recorded bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM enrollment_operations WHERE id=$1 AND deployment_id=$2 AND state IN ('account_created','verified'))`, invitation, id).Scan(&recorded); err != nil {
+		return HandleBinding{}, err
+	}
+	if !recorded {
+		return HandleBinding{}, ErrUnqualified
 	}
 	peer, err := lockedPeer(ctx, tx, id)
 	if err != nil {
