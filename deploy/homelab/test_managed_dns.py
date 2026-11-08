@@ -12,7 +12,7 @@ spec.loader.exec_module(module)
 
 NOW = dt.datetime(2026, 11, 7, tzinfo=dt.timezone.utc)
 HOST = 'pds-e4067ea1f0004321852f0c67a179c0ed.subcult.tv'
-HANDLE = 'at-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa.subcult.tv'
+HANDLE = 'at-49aac16a26634eb.subcult.tv'
 
 
 def state():
@@ -77,7 +77,7 @@ class ManagedDNSCheck(unittest.TestCase):
                 self.assertTrue(problems)
 
     def test_only_generated_names_are_accepted(self):
-        for name in ['prichal.subcult.tv', 'pds-e4067ea1.subcult.tv', 'pds-e4067ea1f0004321852f0c67a179c0ed.example.net', 'PDS-E4067EA1F0004321852F0C67A179C0ED.subcult.tv']:
+        for name in ['prichal.subcult.tv', 'at-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa.subcult.tv', 'at-49aac16a26634e.subcult.tv', 'pds-e4067ea1.subcult.tv', 'pds-e4067ea1f0004321852f0c67a179c0ed.example.net', 'PDS-E4067EA1F0004321852F0C67A179C0ED.subcult.tv']:
             with self.subTest(name=name):
                 problems, _ = self.check(names=[name])
                 self.assertTrue(any('not a generated' in p for p in problems))
