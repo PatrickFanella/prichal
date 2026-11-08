@@ -23,7 +23,8 @@ ZONE = 'subcult.tv'
 WILDCARD = '*.' + ZONE
 TOKEN = Path.home() / '.local/state/prichal-cloudflare/subcult-dns.token'
 API = 'https://api.cloudflare.com/client/v4'
-GENERATED = re.compile(r'^(pds|at)-[0-9a-f]{32}\.' + re.escape(ZONE) + r'$')
+# Endpoints carry the full deployment UUID; handles fit the PDS 18-character label limit.
+GENERATED = re.compile(r'^(pds-[0-9a-f]{32}|at-[0-9a-f]{15})\.' + re.escape(ZONE) + r'$')
 # Universal certificates renew about 30 days before expiry; under 14 days means renewal has stalled.
 CERTIFICATE_MARGIN = dt.timedelta(days=14)
 
