@@ -86,6 +86,21 @@ func run() error {
 		if err := runtime.EnableManagedEndpoints(); err != nil {
 			return err
 		}
+		if path := os.Getenv("PDS_AGENT_MANAGED_MAIL_FILE"); path != "" {
+			if err := runtime.EnableManagedMail(path); err != nil {
+				return err
+			}
+		}
+		if value := os.Getenv("PDS_AGENT_MANAGED_ENROLLMENT"); value != "" {
+			if value != "true" {
+				return errors.New("managed enrollment requires a true opt-in")
+			}
+			if err := runtime.EnableManagedEnrollment(); err != nil {
+				return err
+			}
+		}
+	} else if os.Getenv("PDS_AGENT_MANAGED_MAIL_FILE") != "" || os.Getenv("PDS_AGENT_MANAGED_ENROLLMENT") != "" {
+		return errors.New("managed mail and enrollment require the managed runtime opt-in")
 	}
 	if mode == "local" || staging {
 		if err := runtime.ValidateLocalState(); err != nil {

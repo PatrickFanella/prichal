@@ -136,7 +136,7 @@ func (d *Docker) publishGuardPolicy(ctx context.Context, id, file string, data [
 // Enroll issues a bounded first-account lease. It never accepts passwords or arbitrary administrator actions.
 func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, error) {
 	result := Enrollment{InstanceID: id, Ticket: ticket}
-	if !d.guardEnabled() || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
+	if !d.guardFor(id) || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
 		return result, errors.New("isolated instance and enrollment ticket required")
 	}
 	d.mutex.Lock()
@@ -167,7 +167,7 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 		}
 	}
 	var native nativeEnrollment
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("inventory"), &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments(id, "inventory"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {
@@ -225,7 +225,7 @@ func (d *Docker) Enroll(ctx context.Context, id, ticket string) (Enrollment, err
 		return result, err
 	}
 	native = nativeEnrollment{}
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("invitation"), &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments(id, "invitation"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {
@@ -266,7 +266,7 @@ func validInvitationCode(code string) bool {
 // deletes an account, suspends service, or replaces an invitation.
 func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enrollment, error) {
 	result := Enrollment{InstanceID: id, Ticket: ticket}
-	if !d.guardEnabled() || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
+	if !d.guardFor(id) || !d.allowedInstance(id) || !instanceID.MatchString(ticket) {
 		return result, errors.New("isolated instance and enrollment ticket required")
 	}
 	d.mutex.Lock()
@@ -282,7 +282,7 @@ func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enr
 	// A retry after an interrupted drain must finish the drain before inventory.
 	if lease.State != "withdrawing" {
 		var native nativeEnrollment
-		if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("inventory"), &native); err != nil {
+		if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments(id, "inventory"), &native); err != nil {
 			return result, err
 		}
 		if native.Count == 1 {
@@ -316,7 +316,7 @@ func (d *Docker) WithdrawEnrollment(ctx context.Context, id, ticket string) (Enr
 		return result, err
 	}
 	var native nativeEnrollment
-	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments("withdraw"), &native); err != nil {
+	if err = d.executeFixed(ctx, "pds-ass-tenant-"+id, enrollmentHelperScript, d.enrollmentArguments(id, "withdraw"), &native); err != nil {
 		return result, err
 	}
 	if native.Count == 1 {

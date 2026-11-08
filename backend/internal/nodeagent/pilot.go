@@ -40,20 +40,25 @@ func (p PilotPolicy) validate() error {
 			return errors.New("pilot requires a public hostname")
 		}
 	}
-	address, err := mail.ParseAddress(p.EmailFrom)
-	if err != nil || address.Address != p.EmailFrom || strings.ContainsAny(p.EmailFrom, "\r\n") {
-		return errors.New("pilot requires a plain sender email address")
+	return validateMail("pilot", p.EmailFrom, p.SMTPURL)
+}
+
+// validateMail accepts only a plain sender and authenticated implicit-TLS SMTP without URL options.
+func validateMail(scope, from, smtpURL string) error {
+	address, err := mail.ParseAddress(from)
+	if err != nil || address.Address != from || strings.ContainsAny(from, "\r\n") {
+		return errors.New(scope + " requires a plain sender email address")
 	}
-	u, err := url.Parse(p.SMTPURL)
-	if err != nil || u.Scheme != "smtps" || u.Hostname() == "" || u.User == nil || u.User.Username() == "" || u.Fragment != "" || u.RawQuery != "" || u.Path != "" || strings.ContainsAny(p.SMTPURL, "\r\n") {
-		return errors.New("pilot requires authenticated SMTP over TLS without URL options")
+	u, err := url.Parse(smtpURL)
+	if err != nil || u.Scheme != "smtps" || u.Hostname() == "" || u.User == nil || u.User.Username() == "" || u.Fragment != "" || u.RawQuery != "" || u.Path != "" || strings.ContainsAny(smtpURL, "\r\n") {
+		return errors.New(scope + " requires authenticated SMTP over TLS without URL options")
 	}
 	password, ok := u.User.Password()
 	if !ok || password == "" {
-		return errors.New("pilot requires SMTP credentials")
+		return errors.New(scope + " requires SMTP credentials")
 	}
 	if port := u.Port(); port != "" && port != "465" {
-		return errors.New("pilot SMTP must use implicit TLS port 465")
+		return errors.New(scope + " SMTP must use implicit TLS port 465")
 	}
 	return nil
 }
@@ -247,10 +252,14 @@ func (d *Docker) EnablePilotEnrollment() error {
 	d.pilotEnrollment = true
 	return nil
 }
-func (d *Docker) enrollmentArguments(action string) []string {
+func (d *Docker) enrollmentArguments(id, action string) []string {
 	args := []string{action}
 	if d.pilotEnrollment {
 		args = append(args, d.pilot.Hostname)
+	} else if d.managedEnrollment && d.managedRuntime(id) {
+		// The helper then requires real PLC, the generated hostname and SMTPS mail.
+		identity, _ := d.readManagedIdentity(id)
+		args = append(args, identity.Hostname)
 	}
 	return args
 }

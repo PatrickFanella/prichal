@@ -253,7 +253,7 @@ func (d *Docker) validateIngress(id string, current inspected) error {
 
 func (d *Docker) ingressConfiguration(id string) string {
 	guard := ""
-	if d.guardEnabled() {
+	if d.guardFor(id) {
 		guard = fmt.Sprintf(`  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
   forward_auth @registration pds-ass-enrollment-%s:2727 {
    uri /registration
@@ -264,9 +264,11 @@ func (d *Docker) ingressConfiguration(id string) string {
 	if d.managedRuntime(id) {
 		identity, _ := d.readManagedIdentity(id)
 		host += " " + identity.Hostname
-		guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
+		if !d.managedEnrollment {
+			guard = `  @registration path_regexp (?i)^/(xrpc/com\.atproto\.server\.createAccount|@atproto/oauth-provider/~api/sign-up)/?$
   respond @registration "Account creation is closed" 403
 `
+		}
 	}
 	if d.pilot != nil {
 		host += " " + d.pilot.Hostname
