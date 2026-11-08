@@ -59,7 +59,8 @@ export function EndpointClaim({ organizationId, ownerId, csrfToken, choice, disa
   }
   useEffect(() => {
     read.current?.abort(); read.current = null; setReview(null); setUnderstood(false);
-    if (disabled) { setScoped(null); setValue(null); setLoaded(false); setLoading(false); }
+    // An access denial disables this panel; it must not also suppress the read after access returns.
+    if (disabled) { keepFailure.current = false; setScoped(null); setValue(null); setLoaded(false); setLoading(false); }
     else if (keepFailure.current) keepFailure.current = false;
     else if (!busy) void refresh(false);
     return () => { read.current?.abort(); read.current = null; };
