@@ -22,6 +22,23 @@ The agent compares a running deployment with its policy exactly, so a managed de
 
 The edge certificate and public route are unchanged, so no republication is needed. To roll back, stop the agent, remove the new tenant, edge and guard containers, rename the retained containers and `Caddyfile` back, and restore the previous agent environment.
 
+## Live staging-02 enrollment — November 8, 2026
+
+All times UTC.
+
+1. **Before state.** Registry dump `4760470e…` restored all 70 tables and every sequence into a disposable copy, which was dropped. `e4067ea1` was ready with one placement.
+2. **Agent.** `node-agent` built from merge `83c645d37fcfb319b56d3a1563beb23213c459bc` with Go 1.27.1 (`dbf53b0884b04edaba8a052e7f4bd7084d3dcfe29651e4081bdcb3dc90038091`) replaced `08a1e03e…`, which is kept as `node-agent.before-managed-enrollment`. The drop-in `prichal-agent.service.d/managed-enrollment.conf` sets both opt-ins. `/var/lib/prichal-agent/managed-mail.json` (owner `prichal-agent`, mode 0600) reuses the existing Brevo SMTP relay credential with sender `info@subcult.tv`.
+3. **Replacement, 01:44–01:45.** The tenant `68077cf0…` and edge `dd38b7c5…` were stopped and renamed with the `-before-managed-enrollment` suffix, and the edge `Caddyfile` was moved aside. One reconcile through `prichal-staging-02-managed-resume.service` created tenant `d5eb3c0d…` (mail, real PLC), guard `d7fff4e6…` on the managed tenant network and edge `8319d25d…` with `forward_auth`. The data and blob volumes, credentials file and TLS identity were unchanged, so the public route needed no republication. Public health returned 200, OAuth metadata 200 and `subscribeRepos` 101; signup without a lease returned 403.
+4. **Enrollment, 01:45–01:47.** A fixed operator harness locked the registry binding, checked custody and called `Enroll` over worker mTLS with ticket `49aac16a-2663-4eb4-a95d-4c5c3029506e`. It wrote the invitation code to an owner-only file. Public `createAccount` with the owner's email created `did:plc:eqtyxf4i56sfx4plgd2necjd` as `at-49aac16a26634eb.subcult.tv`, and `requestEmailConfirmation` returned 200 from `info@subcult.tv` through Brevo. `plc.directory` holds one creation operation (01:47:02) with that handle and the managed PDS as service endpoint. `listRepos` shows the active repository; a second signup returned 403. Replaying the ticket returns `account_created`.
+5. **After state.** Registry dump `2b6c906c…` restored all 70 tables; the deployment is still ready with one placement. The password, invitation and session files were deleted.
+
+Two findings:
+
+- Cloudflare answers the default `Python-urllib` user agent with an empty 403 before the edge. Operator clients must send their own user agent.
+- The planned handle form `at-<32 hex>.subcult.tv` exceeds the PDS 18-character limit (#245). The account uses `at-` plus 15 hex characters of the ticket.
+
+Email confirmation by the owner, handle publication and posting through the Bluesky app remain. Custody is `~/.local/state/prichal-staging-02-bootstrap/managed-enrollment-20261108/` on Kvant.
+
 ## Limits
 
 Enrollment is driven by an operator over worker mTLS; there is no owner-facing managed enrollment flow yet. Default account handles under `at-<invitation>.subcult.tv` are not published, because managed inventory exports carry no handle bindings yet.
