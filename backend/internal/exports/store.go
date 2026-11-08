@@ -16,6 +16,9 @@ var ErrNotFound = errors.New("export reference not found")
 var ErrLimit = errors.New("local retained export limit reached")
 var ErrUnavailable = errors.New("portable export unavailable")
 
+// ErrNoVerifiedAccount is a definite refusal: the server has no verified first account to export yet.
+var ErrNoVerifiedAccount = errors.New("portable export requires a verified first account")
+
 // Args queues an export reference only, never native credentials or content.
 type Args struct {
 	ExportID string `json:"exportId"`
@@ -95,6 +98,9 @@ func (s *Store) Submit(ctx context.Context, owner, deployment, key string) (Oper
 	}
 	var did string
 	err = tx.QueryRow(ctx, `SELECT account_did FROM enrollment_operations WHERE deployment_id=$1 AND state='verified' ORDER BY created_at DESC LIMIT 1`, deployment).Scan(&did)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Operation{}, ErrNoVerifiedAccount
+	}
 	if err != nil {
 		return Operation{}, ErrUnavailable
 	}
