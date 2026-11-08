@@ -75,3 +75,41 @@ func TestCapacityReservations(t *testing.T) {
 		t.Fatalf("reservations: %d %v", count, err)
 	}
 }
+
+func TestReserveRefusesSameNodeLoopbackPortCollision(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	if err := migrate.Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var owner, org, node string
+	if err := pool.QueryRow(ctx, `INSERT INTO owners(issuer,subject,display_name) VALUES('local','alice','Alice') RETURNING id`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO organizations(id,name,owner_id) VALUES(gen_random_uuid(),'Studio',$1) RETURNING id`, owner).Scan(&org); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO hosting_nodes(region,agent_endpoint,slots,operator_slots,state,public_key_hash,last_verified_at) VALUES('local','https://127.0.0.1:9091',2,2,'active',$1,now()) RETURNING id`, make([]byte, 32)).Scan(&node); err != nil {
+		t.Fatal(err)
+	}
+	// 0x0001 and 0x2711 are equal modulo 10000, so both map to loopback port 36001.
+	first, colliding, other := "0001aaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "2711bbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "0002cccc-cccc-4ccc-8ccc-cccccccccccc"
+	for i, id := range []string{first, colliding, other} {
+		if _, err := pool.Exec(ctx, `INSERT INTO deployments(id,organization_id,name,region,idempotency_key,managed_hostname) VALUES($1,$2,$3,'local',$3,$3||'.localhost')`, id, org, []string{"one", "two", "three"}[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if loopbackPort(first) != "36001" || loopbackPort(colliding) != "36001" || loopbackPort(other) != "36002" {
+		t.Fatal("fixture identities do not exercise a port collision", loopbackPort(first), loopbackPort(colliding), loopbackPort(other))
+	}
+	store := Store{Pool: pool}
+	if _, err := store.Reserve(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Reserve(ctx, colliding); !errors.Is(err, ErrCapacity) {
+		t.Fatal("colliding loopback port placed on the same node", err)
+	}
+	if placement, err := store.Reserve(ctx, other); err != nil || placement.NodeID != node {
+		t.Fatal("non-colliding deployment refused", err)
+	}
+}

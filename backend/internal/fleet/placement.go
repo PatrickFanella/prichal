@@ -3,7 +3,10 @@ package fleet
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 
+	"git.subcult.tv/PatrickFanella/pds-ass/backend/internal/nodeagent"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -62,12 +65,14 @@ func (s Store) Reserve(ctx context.Context, deploymentID string) (Placement, err
 	if err = rows.Err(); err != nil {
 		return Placement{}, err
 	}
+	port := loopbackPort(deploymentID)
 	for _, node := range candidates {
-		var reserved int
-		if err = tx.QueryRow(ctx, `SELECT count(*) FROM instance_placements WHERE node_id=$1`, node.NodeID).Scan(&reserved); err != nil {
+		placed, err := placedDeployments(ctx, tx, node.NodeID)
+		if err != nil {
 			return Placement{}, err
 		}
-		if reserved >= node.Slots {
+		if len(placed) >= node.Slots || port == "" || slices.ContainsFunc(placed, func(id string) bool { return loopbackPort(id) == port }) {
+			// A same-node loopback port collision would leave the second edge unable to start.
 			continue
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO instance_placements(deployment_id,node_id) VALUES($1,$2)`, deploymentID, node.NodeID); err != nil {
@@ -79,4 +84,30 @@ func (s Store) Reserve(ctx context.Context, deploymentID string) (Placement, err
 		return node.Placement, nil
 	}
 	return Placement{}, ErrCapacity
+}
+
+func placedDeployments(ctx context.Context, tx pgx.Tx, node string) ([]string, error) {
+	rows, err := tx.Query(ctx, `SELECT deployment_id::text FROM instance_placements WHERE node_id=$1`, node)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// loopbackPort is the agent's fixed private ingress port for a deployment, derived from its ID.
+func loopbackPort(id string) string {
+	endpoint := nodeagent.LocalEndpoint(id)
+	if endpoint == "" {
+		return ""
+	}
+	return endpoint[strings.LastIndex(endpoint, ":")+1:]
 }
