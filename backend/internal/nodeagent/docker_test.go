@@ -58,6 +58,8 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 	running := map[string]bool{}
 	creates := map[string]int{}
 	restarts := map[string]int{}
+	started := map[string]string{}
+	failRestart := false
 	readOnly := false
 	failStop := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +98,7 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 				}
 			}
 			slices.Reverse(mounts) // Engine inspection does not promise mount order.
-			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Image": "sha256:" + strings.Repeat("a", 64), "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
+			_ = json.NewEncoder(w).Encode(map[string]any{"Id": name, "Image": "sha256:" + strings.Repeat("a", 64), "Config": payload, "HostConfig": host, "Mounts": mounts, "State": map[string]any{"Running": running[name], "StartedAt": started[name], "Health": map[string]string{"Status": "healthy"}}, "NetworkSettings": map[string]any{"Networks": func() map[string]any {
 				if config, ok := payload["NetworkingConfig"].(map[string]any); ok {
 					return config["EndpointsConfig"].(map[string]any)
 				}
@@ -145,10 +147,18 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 			w.WriteHeader(201)
 		case strings.HasSuffix(path, "/start"):
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/start")
+			if !running[name] {
+				started[name] = time.Now().UTC().Format(time.RFC3339Nano)
+			}
 			running[name] = true
 			w.WriteHeader(204)
 		case strings.HasSuffix(path, "/restart"):
 			name := strings.TrimSuffix(strings.TrimPrefix(path, "/containers/"), "/restart")
+			if failRestart {
+				w.WriteHeader(500)
+				return
+			}
+			started[name] = time.Now().UTC().Format(time.RFC3339Nano)
 			running[name] = true
 			restarts[name]++
 			w.WriteHeader(204)
@@ -352,6 +362,19 @@ func testFixedRuntimeAndRetry(t *testing.T, mode string) {
 		edge["User"] = privateFileUser()
 		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 2 {
 			t.Fatal("restored edge did not renew", err, restarts)
+		}
+		// A restart that fails after the renewed file is in place is retried next time.
+		expire()
+		failRestart = true
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err == nil {
+			t.Fatal("failed edge restart reported success")
+		}
+		failRestart = false
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 3 {
+			t.Fatal("lost edge restart was not retried", err, restarts)
+		}
+		if _, err = reconstructed.EnsureManaged(context.Background(), id); err != nil || restarts["pds-ass-edge-"+id] != 3 {
+			t.Fatal("served identity restarted the edge again", err, restarts)
 		}
 	}
 	running["pds-ass-tenant-"+id] = true
