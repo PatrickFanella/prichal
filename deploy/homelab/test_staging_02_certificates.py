@@ -175,7 +175,7 @@ class Staging02Certificates(unittest.TestCase):
                     return base(args, **kwargs)
                 with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
                      patch.object(operator, 'plan', return_value={'node': False, 'worker': False}), \
-                     patch.object(operator, 'checked'), \
+                     patch.object(operator, 'checked'), patch.object(operator, 'dns_route', return_value=True), \
                      patch('sys.argv', ['renew', '--confirm-staging-02']), patch('builtins.print'):
                     if expiring:
                         with self.assertRaises(operator.IngressIdentityExpiring):
@@ -191,6 +191,42 @@ class Staging02Certificates(unittest.TestCase):
                     self.assertTrue(status['success'])
                     self.assertEqual(list(status['ingressExpiry']), [fresh])
                     self.assertNotIn('PRIVATE', json.dumps(status))
+
+    def test_dns_route_failure_fails_the_run_after_recording_status(self):
+        fresh = '0f1e2d3c-4b5a-4697-a8b9-cadbecfd0e1f'
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            control, _, base = self.operator_root(root)
+            def run(args, **kwargs):
+                if args[-2:] == ['--node', operator.NODE] and args[1] == 'custody':
+                    return json.dumps([fresh]).encode()
+                return base(args, **kwargs)
+            with patch.object(operator, 'ROOT', root), patch.object(operator, 'run', side_effect=run), \
+                 patch.object(operator, 'plan', return_value={'node': False, 'worker': False}), \
+                 patch.object(operator, 'checked'), patch.object(operator, 'ingress_expiries', return_value={}), \
+                 patch.object(operator, 'dns_route', return_value=False), \
+                 patch('sys.argv', ['renew', '--confirm-staging-02']), patch('builtins.print'):
+                with self.assertRaises(operator.ManagedDNSUnhealthy):
+                    operator.main()
+            status = json.loads((control / 'status.json').read_text())
+            self.assertFalse(status['success'])
+            self.assertEqual(status['errorType'], 'ManagedDNSUnhealthy')
+
+    def test_dns_route_checks_each_generated_hostname(self):
+        fresh = '0f1e2d3c-4b5a-4697-a8b9-cadbecfd0e1f'
+        self.assertIsNone(operator.dns_route([]))
+        calls = []
+        def fake(args, **kwargs):
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, stdout=b'{"ok": true}')
+        with patch.object(operator.subprocess, 'run', side_effect=fake):
+            self.assertTrue(operator.dns_route([fresh]))
+        self.assertEqual(calls[0][-2:], ['--hostname', 'pds-0f1e2d3c4b5a4697a8b9cadbecfd0e1f.subcult.tv'])
+        for code, stdout in [(1, b'{"ok": false}'), (2, b'not json'), (0, b'{"ok": false}')]:
+            with patch.object(operator.subprocess, 'run', return_value=subprocess.CompletedProcess([], code, stdout=stdout)):
+                self.assertFalse(operator.dns_route([fresh]))
+        with self.assertRaises(ValueError):
+            operator.dns_route(['../../etc'])
 
     def test_registry_scope_refuses_other_hosts_ports_databases_and_query_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:

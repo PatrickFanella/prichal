@@ -35,6 +35,14 @@ class IngressIdentityExpiring(ValueError):
     """A managed edge identity needs a reviewed renewal and republication."""
 
 
+# The read-only wildcard route check (prichal #7), installed beside this coordinator.
+DNS_CHECK = ROOT / 'transport-renewal' / 'check-managed-dns.py'
+
+
+class ManagedDNSUnhealthy(ValueError):
+    """The *.subcult.tv route or edge certificate no longer serves a generated hostname."""
+
+
 def run(args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, timeout=45, **kwargs).stdout
 
@@ -157,6 +165,23 @@ def ingress_expiries(retained):
     return result
 
 
+def dns_route(retained):
+    """Return None without placements, else whether every generated hostname passes the DNS check."""
+    if not retained:
+        return None
+    hostnames = []
+    for instance in retained:
+        if not PLACEMENT.fullmatch(instance):
+            raise ValueError('Unexpected staging-02 placement custody')
+        hostnames += ['--hostname', 'pds-' + instance.replace('-', '') + '.subcult.tv']
+    try:
+        result = subprocess.run(['python3', '-I', str(DNS_CHECK), *hostnames], capture_output=True, timeout=90)
+        value = json.loads(result.stdout)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return False
+    return result.returncode == 0 and isinstance(value, dict) and value.get('ok') is True
+
+
 def capacity():
     return json.loads(run(['curl', '-fsS', '--max-time', '10', '--cacert', str(ROOT / 'pki/ca.crt'),
         '--cert', str(ROOT / 'pki/worker.crt'), '--key', str(ROOT / 'pki/worker.key'),
@@ -239,17 +264,21 @@ def renew(args, control):
     # Every run, including a no-op, proves current mTLS and unchanged custody.
     checked(command, env, retained)
     ingress = ingress_expiries(retained)
+    dns = dns_route(retained)
     result = {'success': True, 'checkedAt': now.isoformat(), 'nodeId': NODE, 'instanceIds': retained,
               'renewed': due, 'nodeExpiry': expiry(node).isoformat(),
               'ingressExpiry': {instance: value.isoformat() for instance, value in ingress.items()},
               'workerExpiry': expiry((ROOT / 'pki/worker.crt').read_bytes()).isoformat(),
-              'caExpiry': expiry(ca).isoformat(), 'retainedKey': True, 'maximumSlots': 1, 'cpus': 3}
+              'caExpiry': expiry(ca).isoformat(), 'retainedKey': True, 'maximumSlots': 1, 'cpus': 3,
+              'dnsRouteOk': dns}
     if receipt is not None:
         (receipt / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     replace_status(control / 'status.json', result)
     if any(value - now <= INGRESS_WINDOW for value in ingress.values()):
         # main() records the failure, so the existing renewal alert fires well before expiry.
         raise IngressIdentityExpiring('Managed edge identity is within its republication window')
+    if dns is False:
+        raise ManagedDNSUnhealthy('The wildcard route or edge certificate no longer serves a generated hostname')
     print(json.dumps(result))
 
 
