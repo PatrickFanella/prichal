@@ -1,0 +1,157 @@
+name: Deploy
+run-name: Deploy ${{ github.sha }}
+
+# Deploys only the main-branch preview web listener to Dozor. The job joins the
+# tailnet as tag:github-ci (Tailscale OAuth client in the TS_OAUTH_* organization
+# secrets), then uses this repository's deploy key, which Dozor accepts only from
+# tailnet addresses and only for the prichal-web fleet-deploy receiver.
+'on':
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  # Never cancel a run that may be mid-deployment.
+  cancel-in-progress: false
+
+env:
+  TARGET: onnwee@100.97.213.1
+  DEPLOY_REVISION: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build preview web and deploy Dozor
+    if: github.repository == 'subculture-collective/prichal' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.15.0'
+      - name: Join the tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-ci
+          version: latest
+      - name: Prepare the deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.HOMELAB_DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.HOMELAB_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/deploy"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/deploy/known_hosts"
+      - name: Reuse an already accepted web artifact
+        id: artifact
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
+          d="$RUNNER_TEMP/deploy"
+          ssh_args=(-F /dev/null -i "$d/key" -o ControlPath=none -o ControlMaster=no -o BatchMode=yes -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$d/known_hosts" -o ConnectTimeout=15 "$TARGET")
+          # The receiver deploys only Gitea's current main. Kvant copies GitHub
+          # to Gitea every minute, so wait while the revision has not arrived.
+          for attempt in $(seq 1 20); do
+            # shellcheck disable=SC2029
+            if ssh "${ssh_args[@]}" "artifact $DEPLOY_REVISION web" > "$d/artifact.json" 2> "$d/err"; then break; fi
+            if grep -q "no longer the current main" "$d/err" && [ "$attempt" -lt 20 ]; then
+              echo "Gitea has not received $DEPLOY_REVISION yet; waiting 30 s ($attempt/20)"; sleep 30; continue
+            fi
+            cat "$d/err" >&2; exit 1
+          done
+          python3 - "$d/artifact.json" "$GITHUB_OUTPUT" <<'PYCODE'
+          import json, re, sys
+          from pathlib import Path
+          info = json.loads(Path(sys.argv[1]).read_text())
+          available = info.get("available") is True
+          if available:
+              assert re.fullmatch(r"[0-9a-f]{64}", info.get("html_sha256", ""))
+          with Path(sys.argv[2]).open("a") as output:
+              output.write("available=" + str(available).lower() + "\n")
+              output.write("root_sha256=" + info.get("html_sha256", "") + "\n")
+          PYCODE
+      - name: Read the admitted management source
+        id: management
+        if: steps.artifact.outputs.available != 'true'
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const pin = JSON.parse(readFileSync('deploy/production/web-release.json'));
+          assert.equal(pin.schema_version, 1);
+          assert.match(pin.management_revision, /^[0-9a-f]{40}$/);
+          assert.ok(Number.isSafeInteger(pin.management_schema_version) && pin.management_schema_version > 0);
+          appendFileSync(process.env.GITHUB_OUTPUT, `revision=${pin.management_revision}\n`);
+          NODE
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.artifact.outputs.available != 'true'
+        with:
+          ref: ${{ steps.management.outputs.revision }}
+          path: .ci-management-source
+          persist-credentials: false
+      - name: Build and qualify the accepted web image
+        if: steps.artifact.outputs.available != 'true'
+        env:
+          MANAGEMENT_PIN: ${{ steps.management.outputs.revision }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
+          image="fleet-deploy/prichal-web/web:$DEPLOY_REVISION"
+          management_revision=$(git -C .ci-management-source rev-parse HEAD)
+          test "$management_revision" = "$MANAGEMENT_PIN"
+          # The fleet-deploy receiver identifies the application by this Gitea source label.
+          docker build -f deploy/production/web.Dockerfile \
+            --build-arg MANAGEMENT_SOURCE=.ci-management-source/web \
+            --build-arg "MANAGEMENT_REVISION=$management_revision" \
+            --label "org.opencontainers.image.revision=$DEPLOY_REVISION" \
+            --label "org.opencontainers.image.source=https://git.subcult.tv/subculture-collective/prichal" \
+            -t "$image" .
+          bash scripts/check-ci-web-image.sh "$image" "$DEPLOY_REVISION"
+      - name: Deploy only the preview web listener and verify public HTML
+        env:
+          REUSE_ARTIFACT: ${{ steps.artifact.outputs.available }}
+          ACCEPTED_ROOT_SHA256: ${{ steps.artifact.outputs.root_sha256 }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
+          d="$RUNNER_TEMP/deploy"
+          ssh_args=(-F /dev/null -i "$d/key" -o ControlPath=none -o ControlMaster=no -o BatchMode=yes -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$d/known_hosts" -o ConnectTimeout=15 "$TARGET")
+          ssh "${ssh_args[@]}" status
+          image="fleet-deploy/prichal-web/web:$DEPLOY_REVISION"
+          if [[ "$REUSE_ARTIFACT" != true ]]; then
+            # shellcheck disable=SC2029
+            docker save "$image" | ssh "${ssh_args[@]}" "receive $DEPLOY_REVISION web"
+          fi
+          # shellcheck disable=SC2029
+          ssh "${ssh_args[@]}" "deploy $DEPLOY_REVISION"
+          if [[ "$REUSE_ARTIFACT" != true ]]; then
+            ACCEPTED_ROOT_SHA256=$(sha256sum site/index.html | cut -d ' ' -f 1)
+          fi
+          [[ "$ACCEPTED_ROOT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
+            https://prichal.subcult.tv/ > "$d/index.html"
+          test "$(sha256sum "$d/index.html" | cut -d ' ' -f 1)" = "$ACCEPTED_ROOT_SHA256"
+          for asset in favicon.ico apple-touch-icon.png og.png; do
+            curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
+              "https://prichal.subcult.tv/$asset" > "$d/$asset"
+            cmp "site/$asset" "$d/$asset"
+          done
+          printf 'Live Prichal landing HTML and icons match source %s\n' "$DEPLOY_REVISION"
+      - name: Remove the deploy key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/deploy"

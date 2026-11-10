@@ -1,7 +1,8 @@
 name: Verify local foundation
 # Pull-request verification runs on the GitHub organization mirror
 # (.github/workflows/mirror-ci.yml, reported back as "GitHub CI / Mirror CI gate").
-# This workflow keeps post-merge verification and the preview web deploy on main.
+# GitHub Actions deploys the preview web listener (.github/workflows/deploy.yml);
+# this workflow keeps post-merge verification on main.
 on:
   push:
     branches: [main]
@@ -18,8 +19,6 @@ jobs:
     timeout-minutes: 30
     # Homelab deploy keys accept only Kvant's address (Kvant and its Kuznya VM); the kvant label keeps this job off Buran.
     runs-on: [ubuntu-latest, kvant]
-    env:
-      DEPLOY_REVISION: ${{ github.sha }}
     steps:
       - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -80,119 +79,3 @@ jobs:
       - name: Stop disposable PostgreSQL
         if: always()
         run: ./scripts/ci-db.sh stop
-      - name: Reuse an already accepted web artifact
-        id: artifact
-        if: github.server_url == 'https://git.subcult.tv' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        shell: bash
-        env:
-          DEPLOY_KEY: ${{ secrets.HOMELAB_DEPLOY_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.HOMELAB_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
-          test -n "$DEPLOY_KEY"
-          test -n "$DEPLOY_KNOWN_HOSTS"
-          umask 077
-          deploy_dir=$(mktemp -d)
-          trap 'rm -rf "$deploy_dir"' EXIT
-          printf '%s\n' "$DEPLOY_KEY" > "$deploy_dir/key"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$deploy_dir/known_hosts"
-          unset DEPLOY_KEY DEPLOY_KNOWN_HOSTS
-          ssh_args=(-F /dev/null -i "$deploy_dir/key" -o ControlPath=none -o ControlMaster=no -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$deploy_dir/known_hosts"
-            -o ConnectTimeout=15 onnwee@10.0.0.57)
-          # shellcheck disable=SC2029
-          ssh "${ssh_args[@]}" "artifact $DEPLOY_REVISION web" > "$deploy_dir/artifact.json"
-          python3 - "$deploy_dir/artifact.json" "$GITHUB_OUTPUT" <<'PYCODE'
-          import json, re, sys
-          from pathlib import Path
-          info = json.loads(Path(sys.argv[1]).read_text())
-          available = info.get("available") is True
-          if available:
-              assert re.fullmatch(r"[0-9a-f]{64}", info.get("html_sha256", ""))
-          with Path(sys.argv[2]).open("a") as output:
-              output.write("available=" + str(available).lower() + "\n")
-              output.write("root_sha256=" + info.get("html_sha256", "") + "\n")
-          PYCODE
-      - name: Read the admitted management source
-        id: management
-        if: steps.artifact.outputs.available != 'true'
-        run: |
-          node --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
-          import { readFileSync, appendFileSync } from 'node:fs';
-          const pin = JSON.parse(readFileSync('deploy/production/web-release.json'));
-          assert.equal(pin.schema_version, 1);
-          assert.match(pin.management_revision, /^[0-9a-f]{40}$/);
-          assert.ok(Number.isSafeInteger(pin.management_schema_version) && pin.management_schema_version > 0);
-          appendFileSync(process.env.GITHUB_OUTPUT, `revision=${pin.management_revision}\n`);
-          NODE
-      - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        if: steps.artifact.outputs.available != 'true'
-        with:
-          ref: ${{ steps.management.outputs.revision }}
-          path: .ci-management-source
-          persist-credentials: false
-      - name: Build and qualify the accepted web image
-        if: steps.artifact.outputs.available != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
-          image="fleet-deploy/prichal-web/web:$DEPLOY_REVISION"
-          management_revision=$(git -C .ci-management-source rev-parse HEAD)
-          test "$management_revision" = "${{ steps.management.outputs.revision }}"
-          docker build -f deploy/production/web.Dockerfile \
-            --build-arg MANAGEMENT_SOURCE=.ci-management-source/web \
-            --build-arg "MANAGEMENT_REVISION=$management_revision" \
-            --label "org.opencontainers.image.revision=$DEPLOY_REVISION" \
-            --label "org.opencontainers.image.source=https://git.subcult.tv/subculture-collective/prichal" \
-            -t "$image" .
-          bash scripts/check-ci-web-image.sh "$image" "$DEPLOY_REVISION"
-      - name: Deploy only the preview web listener and verify public HTML
-        if: >-
-          github.server_url == 'https://git.subcult.tv' &&
-          github.ref == 'refs/heads/main' &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        shell: bash
-        env:
-          REUSE_ARTIFACT: ${{ steps.artifact.outputs.available }}
-          ACCEPTED_ROOT_SHA256: ${{ steps.artifact.outputs.root_sha256 }}
-          DEPLOY_KEY: ${{ secrets.HOMELAB_DEPLOY_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.HOMELAB_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
-          test -n "$DEPLOY_KEY"
-          test -n "$DEPLOY_KNOWN_HOSTS"
-          umask 077
-          deploy_dir=$(mktemp -d)
-          trap 'rm -rf "$deploy_dir"' EXIT
-          printf '%s\n' "$DEPLOY_KEY" > "$deploy_dir/key"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$deploy_dir/known_hosts"
-          unset DEPLOY_KEY DEPLOY_KNOWN_HOSTS
-          ssh_args=(-F /dev/null -i "$deploy_dir/key" -o ControlPath=none -o ControlMaster=no -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$deploy_dir/known_hosts"
-            -o ConnectTimeout=15 onnwee@10.0.0.57)
-          ssh "${ssh_args[@]}" status
-          image="fleet-deploy/prichal-web/web:$DEPLOY_REVISION"
-          # The forced receiver accepts a full hexadecimal revision; expand it here.
-          if [[ "$REUSE_ARTIFACT" != true ]]; then
-            # shellcheck disable=SC2029
-            docker save "$image" | ssh "${ssh_args[@]}" "receive $DEPLOY_REVISION web"
-          fi
-          # shellcheck disable=SC2029
-          ssh "${ssh_args[@]}" "deploy $DEPLOY_REVISION"
-          if [[ "$REUSE_ARTIFACT" != true ]]; then
-            ACCEPTED_ROOT_SHA256=$(sha256sum site/index.html | cut -d ' ' -f 1)
-          fi
-          [[ "$ACCEPTED_ROOT_SHA256" =~ ^[0-9a-f]{64}$ ]]
-          curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
-            https://prichal.subcult.tv/ > "$deploy_dir/index.html"
-          test "$(sha256sum "$deploy_dir/index.html" | cut -d ' ' -f 1)" = "$ACCEPTED_ROOT_SHA256"
-          for asset in favicon.ico apple-touch-icon.png og.png; do
-            curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
-              "https://prichal.subcult.tv/$asset" > "$deploy_dir/$asset"
-            cmp "site/$asset" "$deploy_dir/$asset"
-          done
-          printf 'Live Prichal landing HTML and icons match source %s\n' "$DEPLOY_REVISION"
