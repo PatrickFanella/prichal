@@ -16,7 +16,8 @@ concurrency:
 jobs:
   smoke:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    # Homelab deploy keys accept only Kvant's address (Kvant and its Kuznya VM); the kvant label keeps this job off Buran.
+    runs-on: [ubuntu-latest, kvant]
     env:
       DEPLOY_REVISION: ${{ github.sha }}
     steps:
