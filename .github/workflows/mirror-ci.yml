@@ -1,0 +1,168 @@
+name: Mirror CI
+run-name: Mirror CI ${{ github.sha }}
+'on':
+  push:
+    branches-ignore:
+    - main
+  workflow_dispatch: null
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  smoke:
+    name: Go, web and database smoke
+    if: github.repository == 'subculture-collective/prichal'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - name: Set up Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      with:
+        go-version: '1.27.1'
+        cache-dependency-path: backend/go.sum
+    - name: Set up Node
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '24.15.0'
+    - name: Install pinned package manager
+      run: |
+        set -euo pipefail
+        npm install --global pnpm@12.6.0
+        printf 'PNPM_STORE=%s\n' "$(cd web && pnpm store path)" >> "$GITHUB_ENV"
+    - name: Restore the pnpm store
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ${{ env.PNPM_STORE }}
+        key: pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+    - name: Validate local runtime scripts
+      run: |
+        set -euo pipefail
+        for script in scripts/*.sh; do bash -n "$script"; done
+        for script in scripts/*.mjs deploy/local/fixtures/*.mjs deploy/local/fixtures/*.cjs; do node --check "$script"; done
+    - name: Start disposable PostgreSQL
+      run: ./scripts/ci-db.sh start
+    - name: Build and clean-database smoke
+      run: ./scripts/smoke.sh
+    - name: Prepare customer CLI platform builds and verify Linux entry point
+      run: |
+        set -euo pipefail
+        ./scripts/build-customer-cli.sh
+        .local/cli-build/pds-ass-linux-amd64 --version
+        .local/cli-build/pds-ass-linux-amd64 deploy --help
+        .local/cli-build/pds-ass-linux-amd64 completion bash
+        (cd .local/cli-build && sha256sum --check SHA256SUMS)
+    - name: Stop disposable PostgreSQL
+      if: always()
+      run: ./scripts/ci-db.sh stop
+  deploy-boundaries:
+    name: Deploy boundary tests and alert rules
+    if: github.repository == 'subculture-collective/prichal'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - name: Verify homelab and preview deploy boundaries
+      run: |
+        set -euo pipefail
+        # The custody checks refuse group-writable files; match the Gitea runner's umask.
+        umask 022
+        python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_reconcile.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_certificates.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_metrics.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_public_pds_restore.py' -v
+        python3 -m unittest discover -s deploy/production -p 'test_preview_backup.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_routing_recovery.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_conversion.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_publisher*.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_dns.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_staging_02_certificates.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_staging_02_metrics.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_preservation.py' -v
+        python3 -m unittest discover -s deploy/homelab -p 'test_managed_native_retirement.py' -v
+    - name: Verify certificate and public alert rules
+      run: bash scripts/test-public-pds-alerts.sh
+  web-image:
+    name: Web image qualification
+    if: github.repository == 'subculture-collective/prichal'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DEPLOY_REVISION: ${{ github.sha }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        persist-credentials: false
+    - name: Set up Node
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '24.15.0'
+    - name: Read the admitted management source
+      id: management
+      run: |
+        node --input-type=module <<'NODE'
+        import assert from 'node:assert/strict';
+        import { readFileSync, appendFileSync } from 'node:fs';
+        const pin = JSON.parse(readFileSync('deploy/production/web-release.json'));
+        assert.equal(pin.schema_version, 1);
+        assert.match(pin.management_revision, /^[0-9a-f]{40}$/);
+        assert.ok(Number.isSafeInteger(pin.management_schema_version) && pin.management_schema_version > 0);
+        appendFileSync(process.env.GITHUB_OUTPUT, `revision=${pin.management_revision}\n`);
+        NODE
+    - name: Checkout the admitted management source
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ steps.management.outputs.revision }}
+        path: .ci-management-source
+        persist-credentials: false
+    - name: Build and qualify the accepted web image
+      shell: bash
+      env:
+        MANAGEMENT_PIN: ${{ steps.management.outputs.revision }}
+      run: |
+        set -euo pipefail
+        test "$(git rev-parse HEAD)" = "$DEPLOY_REVISION"
+        image="fleet-deploy/prichal-web/web:$DEPLOY_REVISION"
+        management_revision=$(git -C .ci-management-source rev-parse HEAD)
+        test "$management_revision" = "$MANAGEMENT_PIN"
+        docker build -f deploy/production/web.Dockerfile \
+          --build-arg MANAGEMENT_SOURCE=.ci-management-source/web \
+          --build-arg "MANAGEMENT_REVISION=$management_revision" \
+          --label "org.opencontainers.image.revision=$DEPLOY_REVISION" \
+          --label "org.opencontainers.image.source=https://git.subcult.tv/subculture-collective/prichal" \
+          -t "$image" .
+        bash scripts/check-ci-web-image.sh "$image" "$DEPLOY_REVISION"
+  mirror-gate:
+    name: Mirror CI gate
+    if: always() && github.repository == 'subculture-collective/prichal'
+    needs:
+    - smoke
+    - deploy-boundaries
+    - web-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - name: Require every verification job
+      env:
+        RESULTS: ${{ toJSON(needs) }}
+      run: |
+        python3 - <<'PY'
+        import json, os
+        results = json.loads(os.environ["RESULTS"])
+        expected = {'smoke', 'deploy-boundaries', 'web-image'}
+        assert set(results) == expected, results
+        for name, result in results.items():
+            assert result["result"] == "success", name + " did not pass"
+        PY

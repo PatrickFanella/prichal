@@ -1,15 +1,17 @@
 name: Verify local foundation
+# Pull-request verification runs on the GitHub organization mirror
+# (.github/workflows/mirror-ci.yml, reported back as "GitHub CI / Mirror CI gate").
+# This workflow keeps post-merge verification and the preview web deploy on main.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   smoke:
