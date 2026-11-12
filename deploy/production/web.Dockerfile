@@ -8,7 +8,7 @@ RUN pnpm install --frozen-lockfile
 COPY ${MANAGEMENT_SOURCE}/ ./
 RUN pnpm build
 
-FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+FROM caddy:2.11-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
 ARG MANAGEMENT_REVISION=unknown
 LABEL tv.subcult.prichal.management.revision=$MANAGEMENT_REVISION
 COPY deploy/production/Caddyfile /etc/caddy/Caddyfile
