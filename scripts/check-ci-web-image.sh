@@ -30,7 +30,7 @@ assert.equal(inspect.Config.Labels["tv.subcult.prichal.management.revision"], ad
 const read = path => execFileSync("docker", ["exec", fixture, "cat", path]);
 const fetch = (host, path) => execFileSync("docker", ["exec", fixture, "wget", "-q", "-T", "3", "-O", "-", "--header", "Host: " + host, "http://127.0.0.1" + path]);
 const site = "prichal.subcult.tv";
-for (const name of ["index.html", "favicon.ico", "apple-touch-icon.png", "og.png", "styles.css", "mark.svg", "robots.txt", "sitemap.xml"]) {
+for (const name of ["index.html", "favicon.ico", "favicon.svg", "apple-touch-icon.png", "og.png", "styles.css", "mark.svg", "robots.txt", "sitemap.xml"]) {
   assert.deepEqual(fetch(site, name === "index.html" ? "/" : "/" + name), read("/srv/site/" + name), name);
 }
 const html = fetch(site, "/").toString();

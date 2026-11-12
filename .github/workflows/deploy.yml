@@ -148,9 +148,11 @@ jobs:
           curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
             https://prichal.subcult.tv/ > "$d/index.html"
           test "$(sha256sum "$d/index.html" | cut -d ' ' -f 1)" = "$ACCEPTED_ROOT_SHA256"
-          for asset in favicon.ico apple-touch-icon.png og.png; do
+          # Cloudflare caches the icons for hours. The query string makes the edge
+          # fetch from the origin, so an old cached copy cannot fail a good deploy.
+          for asset in favicon.ico favicon.svg apple-touch-icon.png og.png; do
             curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 30 \
-              "https://prichal.subcult.tv/$asset" > "$d/$asset"
+              "https://prichal.subcult.tv/$asset?rev=$DEPLOY_REVISION" > "$d/$asset"
             cmp "site/$asset" "$d/$asset"
           done
           printf 'Live Prichal landing HTML and icons match source %s\n' "$DEPLOY_REVISION"
