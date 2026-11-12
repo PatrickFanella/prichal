@@ -1,6 +1,6 @@
 # Local development
 
-Use Go 1.27.1, Node 24.15.x, pnpm 12.6.x, Docker with Compose, Bash and OpenSSL. Go modules, JavaScript packages, CI actions and PostgreSQL are pinned. No cloud account, production identity or existing Subcult application is required.
+Use Go 1.27.4, Node 24.15.x, pnpm 12.6.x, Docker with Compose, Bash and OpenSSL. Go modules, JavaScript packages, CI actions and PostgreSQL are pinned. No cloud account, production identity or existing Subcult application is required.
 
 From the repository root:
 

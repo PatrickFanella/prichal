@@ -1,2 +1,2 @@
-ansible-core==2.19.5
-cryptography==50.0.1
+ansible-core==2.19.15
+cryptography==50.0.2

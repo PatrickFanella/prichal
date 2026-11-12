@@ -1,0 +1,71 @@
+# Green pull requests in this organization merge themselves and main deploys,
+# so every ecosystem ignores major updates, groups minor and patch updates into
+# one pull request and keeps at most two pull requests open.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # River is pre-1.0 and its minor releases can carry schema migrations.
+      - dependency-name: "github.com/riverqueue/river*"
+      # stripe-go v87.1.0 fails the local checkout fixture test; update both together.
+      - dependency-name: "github.com/stripe/stripe-go/v87"
+    groups:
+      go:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      web:
+        update-types: [minor, patch]
+  - package-ecosystem: pip
+    directory: /deploy/homelab
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # ansible-core stays on its 2.19 series; a new series needs requalification.
+      - dependency-name: ansible-core
+        update-types: ["version-update:semver-minor"]
+    groups:
+      python:
+        update-types: [minor, patch]
+  - package-ecosystem: docker
+    directory: /deploy/production
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # The Go and Node toolchains are pinned together in go.mod, .node-version,
+      # web/package.json and the workflows; bump them by hand in one change.
+      - dependency-name: golang
+      - dependency-name: node
+    groups:
+      docker:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      actions:
+        update-types: [minor, patch]
