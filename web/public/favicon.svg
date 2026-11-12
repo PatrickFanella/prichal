@@ -99,14 +99,7 @@
        d="M 122 256 A 134 44 0 0 0 390 256"
        fill="none"
        stroke="#1c2230"
-       stroke-width="14"
+       stroke-width="26"
        id="path8" />
-    <path
-       d="M 122 256 A 134 44 0 0 1 390 256"
-       fill="none"
-       stroke="#1c2230"
-       stroke-width="6"
-       stroke-dasharray="14 12"
-       id="path9" />
   </g>
 </svg>

@@ -1,8 +1,8 @@
 # Prichal brand guide
 
-Draft, 2026-10-01. The name, palette, type and messaging are chosen. The mark is a first draft and has not been reviewed by the owner at production sizes.
+Draft, 2026-10-01. The name, palette, type and messaging are chosen. The owner reviewed the mark at favicon sizes on November 12, 2026 and chose the small mark for use under 32 px (see Mark). Larger sizes have not had a separate owner review.
 
-This guide owns Prichal's product messaging and interface rules. Logos, social and video templates, fonts and web artwork belong to the Prichal pack in SUBCULT Studio (`subculture-collective/subcult-studio`, `branding/2026-10-01-packs/brands/prichal/`). Files copied from Studio into this repository are listed with their source hashes in `brand/studio-assets.json`.
+This guide owns Prichal's product messaging and interface rules. Logos, social and video templates, fonts and web artwork belong to the Prichal pack in SUBCULT Studio (`subculture-collective/subcult-tv`, `studio/brands/prichal/`). Files copied from Studio into this repository are listed with their source hashes in `brand/studio-assets.json`.
 
 ## Name
 
@@ -78,11 +78,11 @@ Product UI, emails, receipts and policy text use the terms in `CONTEXT.md`, such
 A docking node: a sphere with its equator drawn in perspective and four collars with flanges. The red flange is the occupied port: the customer's account, docked.
 
 - Clear space: one flange height (about 7% of the mark width) on every side.
-- Minimum size: 32 px on screen. Below 24 px use the mono mark.
+- Minimum size: 32 px on screen for the full mark. Under 32 px use the small mark: the front equator as thick as the sphere's outline and no dashed back arc. The owner selected it on November 12, 2026. The favicon is the small mark: `site/favicon.svg`, `web/public/favicon.svg` and the 16 px frame of `site/favicon.ico`. Pages use the full mark, `site/mark.svg`.
 - The red flange is always on the right. Do not rotate, recolor individual collars, or add a centre dot or inner ring. With the cross of ports, a centred ring reads as a gun sight.
 - Mono variants turn the flange to ink.
 
-Files: the Studio pack's `logos/` (editable, outlined and PNG variants) and `product/` (favicon, touch icon, hero and Open Graph image).
+Files: the Studio pack's `logos/` (editable, outlined and PNG variants) and `product/` (full mark, favicon, touch icon, hero and Open Graph image).
 
 ## Color
 
@@ -129,7 +129,7 @@ The landing page at `site/` is promotional, so it uses the display face more tha
 
 ## Updating artwork
 
-Change the mark, templates or web artwork in Studio: `branding/2026-10-01-packs/` (`design_helpers.py` docking mode, `prichal_product_assets.py`), then rebuild with `BRAND_ONLY=prichal`. Copy the changed files here and update `brand/studio-assets.json` with the new revision and hashes. Keep `web/src/brand-mark.tsx` geometry identical to the Studio mark. Do not edit the copied files directly.
+Change the mark, templates or web artwork in Studio: `studio/brand-tools/` (`design_helpers.py` docking mode, `prichal_product_assets.py`), then rebuild with `BRAND_ONLY=prichal`. Copy the changed files here and update `brand/studio-assets.json` with the new revision and hashes. Keep `web/src/brand-mark.tsx` geometry identical to the Studio mark. Do not edit the copied files directly.
 
 ## Before publishing
 
