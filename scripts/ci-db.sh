@@ -24,7 +24,9 @@ case "${1:-}" in
       postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     container_id=$(cat .local/ci-db.id)
     for attempt in {1..30}; do
-      if docker exec "$container_id" pg_isready -U pds_ci -d pds_ci >/dev/null 2>&1; then break; fi
+      # Probe over TCP: the image's first-run setup server answers only on the
+      # Unix socket and then restarts, which made the reachability check below race.
+      if docker exec "$container_id" pg_isready -h 127.0.0.1 -U pds_ci -d pds_ci >/dev/null 2>&1; then break; fi
       if [[ "$attempt" == 30 ]]; then printf 'CI PostgreSQL did not become ready\n' >&2; exit 1; fi
       sleep 1
     done

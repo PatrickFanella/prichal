@@ -109,7 +109,9 @@ landing page is in `site/`.
 - `deploy/`: Compose files, Dockerfiles and Caddy configuration
 - `scripts/`: local development, smoke tests and contract tests
 - `brand/`: [brand guide](brand/GUIDE.md)
-- `docs/`: design notes and local setup guides
+- `docs/`: design notes and local setup guides, including the
+  [implementation plan](docs/implementation-plan.md) and the
+  [roadmap and release gates](docs/roadmap.md)
 
 Some identifiers still use the project's earlier name, `pds-ass` (the Go
 module, the CLI and the local Compose project).

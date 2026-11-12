@@ -18,17 +18,17 @@ jobs:
     timeout-minutes: 30
     steps:
     - name: Checkout code
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.sha }}
         persist-credentials: false
     - name: Set up Go
-      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: '1.27.4'
         cache-dependency-path: backend/go.sum
     - name: Set up Node
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24.15.0'
     - name: Install pinned package manager
@@ -37,7 +37,7 @@ jobs:
         npm install --global pnpm@12.6.0
         printf 'PNPM_STORE=%s\n' "$(cd web && pnpm store path)" >> "$GITHUB_ENV"
     - name: Restore the pnpm store
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.PNPM_STORE }}
         key: pnpm-store-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/pnpm-lock.yaml') }}
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 15
     steps:
     - name: Checkout code
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.sha }}
         persist-credentials: false
@@ -101,12 +101,12 @@ jobs:
       DEPLOY_REVISION: ${{ github.sha }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ github.sha }}
         persist-credentials: false
     - name: Set up Node
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24.15.0'
     - name: Read the admitted management source
@@ -122,7 +122,7 @@ jobs:
         appendFileSync(process.env.GITHUB_OUTPUT, `revision=${pin.management_revision}\n`);
         NODE
     - name: Checkout the admitted management source
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ steps.management.outputs.revision }}
         path: .ci-management-source

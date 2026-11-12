@@ -26,7 +26,7 @@ receiver, read-only API admission and rollback checks.
 ```sh
 ssh dozor
 REV=<commit>
-git clone --quiet https://git.subcult.tv/PatrickFanella/pds-ass.git /srv/apps/prichal/releases/$REV/source
+git clone --quiet https://git.subcult.tv/subculture-collective/prichal.git /srv/apps/prichal/releases/$REV/source
 cd /srv/apps/prichal/releases/$REV/source && git checkout --quiet $REV
 cd deploy/production
 set -a; . /etc/prichal/production.env; set +a

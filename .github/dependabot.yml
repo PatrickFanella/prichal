@@ -55,6 +55,9 @@ updates:
       # web/package.json and the workflows; bump them by hand in one change.
       - dependency-name: golang
       - dependency-name: node
+      # The Caddy image is pinned to the same digest in the node agent, the local
+      # Compose file and the qualification scripts; move them together.
+      - dependency-name: caddy
     groups:
       docker:
         update-types: [minor, patch]
