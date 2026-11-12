@@ -118,6 +118,15 @@ The web app takes its tokens from `web/src/styles.css` (`--paper`, `--ink`, `--s
 
 Engineering-drawing details: a tick scale on the left edge, a hairline above the footer, a port strip (`PORT 01 · 02 · 03 · 04 · 05 · 06`) and mono metadata. Keep them light; the mark carries the identity. Story content stays between y=250 and y=1670. Video layouts use a 96 px outer margin.
 
+## Public site
+
+The landing page at `site/` is promotional, so it uses the display face more than the product does. Rules checked against the Studio pack on 2026-11-12:
+
+- The main headline is the tagline. It stays in Public Sans Bold, sentence case, as in the pack's Open Graph image and banner.
+- Section headings use Oswald Bold, uppercase, 0.06em tracking.
+- The hero carries the mark at 240 px on wide screens and the port strip as boxes 01 to 06, with 04 filled red, as in the pack's square post. The strip is decoration and is hidden from screen readers.
+- The left edge carries the tick scale: a 9 px tick every 24 px and an 18 px tick every 96 px, in `rule`.
+
 ## Updating artwork
 
 Change the mark, templates or web artwork in Studio: `branding/2026-10-01-packs/` (`design_helpers.py` docking mode, `prichal_product_assets.py`), then rebuild with `BRAND_ONLY=prichal`. Copy the changed files here and update `brand/studio-assets.json` with the new revision and hashes. Keep `web/src/brand-mark.tsx` geometry identical to the Studio mark. Do not edit the copied files directly.
