@@ -2,21 +2,26 @@
 @font-face{font-family:'Public Sans';src:url('/fonts/PublicSans-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Oswald';src:url('/fonts/Oswald-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'JetBrains Mono';src:url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
-:root{--paper:#f4f1e9;--ink:#1c2230;--signal:#b23a26;--steel:#5d6675;--line:#d8d4c8;--card:#fffdf8}
+:root{--paper:#f4f1e9;--ink:#1c2230;--signal:#b23a26;--steel:#5d6675;--line:#d8d4c8;--rule:#c9c4b6;--card:#fffdf8}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:'Public Sans',system-ui,sans-serif;line-height:1.55}
-.page{max-width:1120px;margin:0 auto;padding:0 48px;border-left:1px dashed var(--line);border-right:1px dashed var(--line);min-height:100vh;display:flex;flex-direction:column}
+.page{position:relative;max-width:1120px;margin:0 auto;padding:0 48px;border-right:1px dashed var(--line);min-height:100vh;display:flex;flex-direction:column}
+.page::before{content:"";position:absolute;inset:0 auto 0 0;width:18px;background:linear-gradient(to bottom,var(--rule) 2px,transparent 2px) 0 20px/18px 96px repeat-y,linear-gradient(to bottom,var(--rule) 2px,transparent 2px) 0 20px/9px 24px repeat-y}
 .masthead{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:104px;border-bottom:1px solid var(--line)}
 .wordmark{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;font-family:Oswald,'Arial Narrow',sans-serif;font-weight:700;font-size:28px;letter-spacing:.06em;text-transform:uppercase}
 .status{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--ink);padding:6px 12px}
 main{flex:1}
-.hero{padding:88px 0 72px;border-bottom:1px solid var(--line)}
+.hero{padding:88px 0 72px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr);justify-items:start}
+.hero-mark{display:none}
+.port-strip{list-style:none;margin:48px 0 0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,76px));gap:16px;width:100%;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:18px;line-height:1}
+.port-strip li{border:2px solid var(--ink);padding:22px 8px}
+.port-strip .docked{background:var(--signal);border-color:var(--signal);color:var(--paper)}
 .eyebrow{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--steel);margin:0 0 24px}
 h1{font-size:clamp(46px,7vw,88px);line-height:1.02;letter-spacing:-.035em;font-weight:700;margin:0 0 28px;max-width:14ch}
 h1::after{content:"";display:block;width:180px;height:6px;background:var(--signal);margin-top:28px}
 .lead{font-size:20px;max-width:640px;color:#2c3444;margin:0 0 24px}
 .notice{display:inline-block;margin:0;font-size:15px;padding:12px 16px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink)}
-h2{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:400;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--steel);margin:0 0 24px}
+h2{font-family:Oswald,'Arial Narrow',sans-serif;font-weight:700;font-size:32px;line-height:1.15;letter-spacing:.06em;text-transform:uppercase;margin:0 0 24px}
 .plain,.audiences,.facts{padding:64px 0;border-bottom:1px solid var(--line)}
 .plain p{max-width:640px;margin:0 0 16px;font-size:17px;color:#3a4252}
 .plain p:last-child{margin-bottom:0;color:var(--ink);font-weight:700}
@@ -31,8 +36,17 @@ dt{font-weight:700}
 dd{margin:0;color:#3a4252}
 footer{display:flex;justify-content:space-between;gap:16px;padding:28px 0 36px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.1em;color:var(--steel);text-transform:uppercase}
 a:focus-visible{outline:3px solid var(--ink);outline-offset:6px}
+@media (min-width:1000px){
+ .hero{grid-template-columns:minmax(0,1fr) 240px;column-gap:32px}
+ .hero>*{grid-column:1}
+ .hero-mark{display:block;grid-column:2;grid-row:1/span 4;align-self:center}
+}
 @media (max-width:760px){
  .page{padding:0 22px;border:0}
+ .page::before{width:10px;background-size:10px 96px,5px 24px}
+ h2{font-size:26px}
+ .port-strip{gap:8px;font-size:15px;margin-top:32px}
+ .port-strip li{padding:14px 6px}
  .masthead{min-height:84px}
  .wordmark{font-size:22px}
  .hero{padding:56px 0 48px}
