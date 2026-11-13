@@ -27,6 +27,7 @@ jobs:
     name: Build preview web and deploy Dozor
     if: github.repository == 'subculture-collective/prichal' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    environment: production
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,7 +43,7 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-ci
-          version: latest
+          version: 1.104.7
           # The tailnet DNS server (10.0.0.200) is not reachable from hosted runners.
           args: --accept-dns=false
       - name: Prepare the deploy key
